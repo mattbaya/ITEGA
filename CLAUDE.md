@@ -77,6 +77,36 @@ The prototype runs on **two DigitalOcean 4GB droplets** (~$49/mo total):
 WordPress plugin installs on Matt's existing 4+ WordPress sites (no additional servers).
 Settlement is **simulated only** — reports generated, no real money moves.
 
+## VPS Resource Estimates
+
+These estimates are based on initial component sizing. Revisit once code is running under real load.
+
+**VPS 1 — Home Base IdSP (4GB RAM / 2 vCPU / $24/mo):**
+
+| Process | Estimated RAM | Notes |
+|---------|---------------|-------|
+| Keycloak JVM (`-Xmx768m`) | 800-900 MB | Java; idles ~500MB, spikes to 1.2GB+ under load |
+| PostgreSQL 16 | 200-300 MB | Two databases: `keycloak` + `newshare_profiles` |
+| OS + Nginx | ~300 MB | Ubuntu 24.04 baseline |
+| **Total idle** | **~1.3-1.5 GB** | ~2.5 GB headroom on 4GB droplet |
+
+Keycloak is the bottleneck. A 2GB droplet ($12/mo) would work with `-Xmx512m` for light demo use but leaves almost no headroom. 4GB is the safe choice.
+
+**VPS 2 — ALS Services (4GB RAM / 2 vCPU / $24/mo):**
+
+| Process | Estimated RAM | Notes |
+|---------|---------------|-------|
+| PostgreSQL + TimescaleDB | 200-300 MB | Two databases: `als_logs` + `als_settlement` |
+| FastAPI Auth Service | 50-80 MB | Python; lightweight async |
+| FastAPI Logging Service | 50-80 MB | Python; lightweight async |
+| Nginx + static files | ~30 MB | Dashboard + Network Discovery |
+| OS | ~300 MB | Ubuntu 24.04 baseline |
+| **Total idle** | **~650-800 MB** | Significantly overprovisioned at 4GB |
+
+VPS 2 could run on a 2GB droplet ($12/mo) and be comfortable. Keeping 4GB for now gives room if TimescaleDB grows or if we add services later. Can downsize to save ~$12/mo.
+
+**Cheaper alternative:** VPS 1 at 4GB ($24) + VPS 2 at 2GB ($12) + domain ($1) = **~$37/mo**.
+
 ## Technology Stack (for code)
 
 When building components, use these technologies:

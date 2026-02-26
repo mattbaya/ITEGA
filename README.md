@@ -624,6 +624,42 @@ auth.newshare.example                 als.newshare.example
 | ACH bank transfers | — | Not implemented |
 | MFA / Passkeys | — | Password auth only (Keycloak supports TOTP, can enable later) |
 
+### VPS Resource Estimates
+
+These are initial estimates based on component defaults. Revisit once the code is running under real load — actual usage may differ.
+
+**VPS 1 — Home Base IdSP** (DigitalOcean 4GB RAM / 2 vCPU — $24/mo):
+
+| Process | Estimated RAM | Notes |
+|---------|---------------|-------|
+| Keycloak JVM (`-Xmx768m`) | 800-900 MB | Java; idles ~500MB, can spike to 1.2GB+ under auth load |
+| PostgreSQL 16 | 200-300 MB | Two databases: `keycloak` + `newshare_profiles` |
+| OS + Nginx | ~300 MB | Ubuntu 24.04 baseline |
+| **Total at idle** | **~1.3-1.5 GB** | Leaves ~2.5 GB headroom on 4GB droplet |
+
+Keycloak is the memory bottleneck (it's Java). A 2GB droplet ($12/mo) works with `-Xmx512m` for a handful of demo users but leaves almost no headroom for spikes. 4GB is the safe choice for anything beyond trivial use.
+
+**VPS 2 — ALS Services** (DigitalOcean 4GB RAM / 2 vCPU — $24/mo):
+
+| Process | Estimated RAM | Notes |
+|---------|---------------|-------|
+| PostgreSQL + TimescaleDB | 200-300 MB | Two databases: `als_logs` + `als_settlement` |
+| FastAPI Auth Service | 50-80 MB | Python; lightweight async workers |
+| FastAPI Logging Service | 50-80 MB | Python; lightweight async workers |
+| Nginx + static files | ~30 MB | Serves dashboard + Network Discovery JSON |
+| OS | ~300 MB | Ubuntu 24.04 baseline |
+| **Total at idle** | **~650-800 MB** | Significantly overprovisioned at 4GB |
+
+VPS 2 is well within a 2GB droplet ($12/mo). Kept at 4GB for headroom as TimescaleDB grows or if services are added later. Can downsize to save $12/mo.
+
+**Cost options:**
+
+| Configuration | Monthly Cost |
+|---------------|-------------|
+| Both at 4GB (current) | ~$49/mo |
+| VPS 1 at 4GB + VPS 2 at 2GB | ~$37/mo |
+| Both at 2GB (tight for Keycloak) | ~$25/mo |
+
 ---
 
 ## Project Structure
