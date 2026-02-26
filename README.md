@@ -306,7 +306,7 @@ Each publisher maps these bits to their own access control rules. A publisher mi
    │ ─────────────────────────────────────────────► │                        │
    │                         │                      │                        │
    │                         │         4. Home-site discovery                │
-   │                         │            (cookie or user picks from list)   │
+   │                         │            (header hint or user picks from list) │
    │                         │                      │                        │
    │  5. Redirect to home base login                │                        │
    │ ◄────────────────────────────────────────────────────────────────────── │
@@ -415,51 +415,49 @@ ACH TRANSFERS:
 
 ### Deployment for Missouri Pilot
 
-Everything runs on a single cloud VM ($300-$500/month):
+The prototype runs on two DigitalOcean 4GB droplets (~$49/month total). Keycloak is separated from the ALS services because its Java JVM idles at 400-500MB and both benefit from dedicated resources:
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│            Cloud VM (AWS / GCP / DigitalOcean)            │
-│                                                         │
-│  ┌─────────────────┐  ┌──────────────────────────────┐  │
-│  │ Keycloak or      │  │ PostgreSQL 16 + TimescaleDB   │  │
-│  │ Authentik        │  │ • User profiles (Home Base)   │  │
-│  │ (Home Base IdSP  │  │ • Event logs (ALS Logging)    │  │
-│  │  + ALS Auth)     │  │ • Settlement data             │  │
-│  └─────────────────┘  │ • PPID mapping tables          │  │
-│                        └──────────────────────────────┘  │
-│  ┌─────────────────┐  ┌──────────────────────────────┐  │
-│  │ Python           │  │ React User Dashboard          │  │
-│  │ Settlement       │  │ (demo consumer experience)    │  │
-│  │ (weekly cron)    │  │                              │  │
-│  └─────────────────┘  └──────────────────────────────┘  │
-│                                                         │
-│  ┌─────────────────┐  ┌──────────────────────────────┐  │
-│  │ Redis 7          │  │ Nginx                         │  │
-│  │ (session cache)  │  │ (TLS termination, routing)    │  │
-│  └─────────────────┘  └──────────────────────────────┘  │
-└──────────────────────────┬──────────────────────────────┘
-                           │
-         ┌─────────────────┼─────────────────┐
-         ▼                 ▼                 ▼
-  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
-  │ Columbia      │ │ Joplin       │ │ Springfield   │
-  │ Missourian   │ │ Globe        │ │ News-Leader   │
-  │ WordPress    │ │ WordPress    │ │ WordPress     │
-  │ + Newshare   │ │ + Newshare   │ │ + Newshare    │
-  │   Plugin     │ │   Plugin     │ │   Plugin      │
-  └──────────────┘ └──────────────┘ └──────────────┘
-      3–5 participating Missouri newspapers via MPA
+VPS 1: Home Base IdSP ($24/mo)       VPS 2: ALS Services ($24/mo)
+auth.newshare.example                 als.newshare.example
+┌────────────────────────┐            ┌───────────────────────────────┐
+│ Keycloak 26.x          │            │ FastAPI: ALS Auth Service     │
+│  - OIDC Provider       │◄──────────│  - Token validation           │
+│  - Built-in PPID       │            │  - Home-site routing          │
+│  - Custom SPI mapper   │            │  - Session token issuance     │
+│                        │            │                               │
+│ PostgreSQL 16          │            │ FastAPI: ALS Logging Service  │
+│  - keycloak DB         │            │  - Event ingestion            │
+│  - newshare_profiles   │            │  - Usage reports              │
+│  - PPID mappings       │            │                               │
+└────────────────────────┘            │ PostgreSQL 16 + TimescaleDB   │
+                                      │ Python: Settlement (cron)     │
+                                      │ React: User Dashboard         │
+                                      │ Nginx: TLS termination        │
+                                      └───────────────────────────────┘
+                                                    │
+           ┌────────────────┬───────────────────────┼────────────────┐
+           ▼                ▼                        ▼                ▼
+  ┌──────────────┐ ┌──────────────┐       ┌──────────────┐ ┌──────────────┐
+  │ Columbia      │ │ Joplin       │       │ Springfield   │ │ Other MPA    │
+  │ Missourian   │ │ Globe        │       │ News-Leader   │ │ Newspapers   │
+  │ WordPress    │ │ WordPress    │       │ WordPress     │ │ WordPress    │
+  │ + Newshare   │ │ + Newshare   │       │ + Newshare    │ │ + Newshare   │
+  │   Plugin     │ │   Plugin     │       │   Plugin      │ │   Plugin     │
+  └──────────────┘ └──────────────┘       └──────────────┘ └──────────────┘
+              3–5 participating Missouri newspapers via MPA
 ```
+
+*(The original spec envisioned a single VM at $300-$500/month. The prototype implementation splits into two smaller VPSes at $49/month total, which is cheaper and gives Keycloak its own memory headroom.)*
 
 ### Components
 
 | Component | What It Does | Technology |
 |-----------|-------------|------------|
-| **Home Base (IdSP)** | Authenticates users, generates PPIDs, stores profiles | Keycloak or Authentik + PostgreSQL |
-| **ALS Auth Service** | Validates JWT tokens in real time, routes authentication flows | Sidecar to Keycloak (FastAPI or Fastify) |
-| **ALS Logging Service** | Records every content access event in Extended Common Log Format | TimescaleDB + async Python/Node daemon |
-| **ALS Settlement Service** | Weekly batch: aggregates logs, computes debits/credits, generates ACH | Python script + Stripe Connect |
+| **Home Base (IdSP)** | Authenticates users, generates PPIDs, stores profiles | Keycloak 26.x + PostgreSQL 16 |
+| **ALS Auth Service** | Validates JWT tokens in real time, routes authentication flows | Python 3.12 / FastAPI sidecar |
+| **ALS Logging Service** | Records every content access event in Extended Common Log Format | Python 3.12 / FastAPI + TimescaleDB |
+| **ALS Settlement Service** | Weekly batch: aggregates logs, computes debits/credits, generates reports | Python 3.12 batch script |
 | **Publisher Plugin** | "Network Login" button, OIDC Relying Party, content tagging | WordPress plugin (PHP) |
 | **Network Discovery** | Directory of certified home bases and publishers | OIDC Discovery endpoint + WebFinger |
 | **User Dashboard** | Shows users their session, reading history, balance, privacy controls | React + TypeScript |
@@ -673,7 +671,7 @@ ITEGA/
 │       ├── claude-itega-newshare-tech-spec-02-22-26b-1110pest.pdf  (20pp, tech spec)
 │       ├── claude-itega-funder-brief-02-23-26b-1201aest.pdf        (9pp, funder brief)
 │       ├── claude-itega-chat-02-22-26b.-ORIG.pdf                   (20+pp, chat transcript)
-│       └── Baya Family Mail - Fwd_...pdf                           (2pp, email)
+│       └── Claude AI chat, funder pitch and tech for ITEGA_Newshare_Missouri.pdf
 ├── plans/                             ← Detailed server/component implementation plans
 │   ├── 00-system-architecture-overview.md
 │   ├── 01-home-base-idsp-server.md
@@ -683,18 +681,18 @@ ITEGA/
 │   ├── 05-publisher-wordpress-plugin.md
 │   ├── 06-network-discovery-service.md
 │   └── 07-user-dashboard.md
-├── src/                               ← Prototype source code
-│   ├── keycloak-spi/                  ← Custom Keycloak protocol mapper (Java)
-│   ├── als-auth/                      ← ALS Auth Service (Python/FastAPI)
-│   ├── als-logging/                   ← ALS Logging Service (Python/FastAPI)
-│   ├── als-settlement/                ← Settlement batch script (Python)
-│   ├── wordpress-plugin/              ← newshare-network WordPress plugin (PHP)
-│   └── dashboard/                     ← User Dashboard (React/TypeScript)
+├── src/                               ← Prototype source code (~3,400 lines)
+│   ├── keycloak-spi/                  ← Custom Keycloak protocol mapper (Java, ~140 lines)
+│   ├── als-auth/                      ← ALS Auth Service (Python/FastAPI, main.py)
+│   ├── als-logging/                   ← ALS Logging Service (Python/FastAPI, main.py)
+│   ├── als-settlement/                ← Settlement batch script (Python, settle.py)
+│   ├── wordpress-plugin/              ← newshare-network WordPress plugin (PHP, 8 classes)
+│   └── dashboard/                     ← User Dashboard (React 19/TypeScript/Vite/Tailwind 3)
 ├── infra/                             ← Deployment infrastructure
 │   ├── vps1/                          ← Docker Compose + Nginx for Home Base VPS
 │   ├── vps2/                          ← Docker Compose + Nginx for ALS VPS
 │   └── sql/                           ← Database migration scripts
-└── research/                          ← Research notes and analysis
+└── research/                          ← Research notes and analysis (placeholder)
 ```
 
 ---

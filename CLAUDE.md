@@ -2,8 +2,8 @@
 
 ## Project: ITEGA / Newshare Network
 
-This repository contains the technical review, planning documents, and (eventually) reference
-implementation code for the Newshare Network, governed by ITEGA.
+This repository contains the technical review, planning documents, and working prototype
+implementation for the Newshare Network, governed by ITEGA.
 
 ## Architecture Context
 
@@ -116,7 +116,7 @@ When building components, use these technologies:
 - **ALS Logging:** Python 3.12 + FastAPI. Writes to TimescaleDB `access_events` hypertable. Append-only.
 - **ALS Settlement:** Python 3.12 batch script. Runs via weekly cron. Queries TimescaleDB, generates CSV/JSON reports.
 - **Publisher Plugin:** WordPress plugin (PHP 8.1+) with OIDC RP flow through ALS (not directly to Keycloak).
-- **User Dashboard:** React 19 + TypeScript + Vite + Tailwind CSS 4.
+- **User Dashboard:** React 19 + TypeScript + Vite + Tailwind CSS 3.
 - **Content Tagging:** JSON-LD in HTML (`<script type="application/ld+json">`)
 - **Infrastructure:** Docker Compose, Nginx with Let's Encrypt TLS, Cloudflare DNS.
 
