@@ -1,0 +1,28 @@
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor/IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Node (when dashboard is built)
+node_modules/
+dist/
+
+# Python (when ALS services are built)
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Java (when Keycloak SPI is built)
+target/
+*.class
+
+# Environment secrets
+.env
+.env.*
