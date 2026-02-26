@@ -35,9 +35,10 @@ if ! swapon --show | grep -q '/swapfile'; then
     chmod 600 /swapfile
     mkswap /swapfile
     swapon /swapfile
-    echo '/swapfile none swap sw 0 0' >> /etc/fstab
+    # Guard against duplicate fstab/sysctl entries on re-run
+    grep -q '/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
     sysctl vm.swappiness=10
-    echo 'vm.swappiness=10' >> /etc/sysctl.conf
+    grep -q 'vm.swappiness' /etc/sysctl.conf || echo 'vm.swappiness=10' >> /etc/sysctl.conf
 else
     echo "==> Swap already configured, skipping."
 fi
@@ -60,7 +61,7 @@ if ! command -v docker &>/dev/null; then
     echo "==> Installing Docker..."
     install -m 0755 -d /etc/apt/keyrings
     curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
-        | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+        | gpg --yes --dearmor -o /etc/apt/keyrings/docker.gpg
     chmod a+r /etc/apt/keyrings/docker.gpg
 
     echo \

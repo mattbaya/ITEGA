@@ -141,7 +141,8 @@ sessionToken JWT claims: `iss`, `sub`, `aud`, `exp`, `iat`, `networkUserId`, `ho
 - The governing body is **"ITEGA"**
 - The technical/developer-facing brand can be **"NewsSSO"**
 - Use `networkUserId`, `homeBaseId`, `networkGroupId`, `pubMbrId`, `pageClass`, `markupRatio` for field names (camelCase, per the spec)
-- Use `content_access`, `ad_view`, `subscription_credit`, `reward` for event type enums
+- Use `content_access`, `authentication`, `ad_view`, `subscription_credit`, `reward`, `logout` for event type enums
+- Use `sessionId` for the ALS-issued session identifier claim in JWTs
 
 ## Key People
 

@@ -1,3 +1,13 @@
+/**
+ * Publishers.tsx -- Publisher Relationships Page
+ *
+ * Displays the list of publishers that the current user has visited on the
+ * Newshare Network, along with the unique Pairwise Pseudonymous Identifier
+ * (PPID) assigned to the user at each publisher. This page demonstrates a
+ * core privacy feature: each publisher sees a completely different opaque ID,
+ * making cross-site correlation architecturally impossible.
+ */
+
 import type { SessionData } from '../api/auth';
 import { getPPIDList } from '../api/profile';
 
@@ -50,10 +60,10 @@ export default function Publishers({ session: _session }: PublishersProps) {
               Your identity is protected across publishers
             </h3>
             <p className="text-sm text-teal-800 mt-1">
-              You have a different pseudonymous identifier (PPID) at each
-              publisher. They cannot correlate your activity across sites.
-              Your real identity is known only to your home base and the
-              Account Linking Service.
+              Only your home base knows your real identity. The ALS and
+              publishers only see pseudonymous identifiers. Each publisher
+              gets a different ID, making cross-site tracking architecturally
+              impossible without home base cooperation.
             </p>
           </div>
         </div>

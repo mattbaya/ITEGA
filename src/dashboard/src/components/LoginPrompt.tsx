@@ -1,3 +1,18 @@
+/**
+ * LoginPrompt.tsx -- Login / Landing Page Component
+ *
+ * Shown when no valid session exists. Provides two login options:
+ *   1. "Log in with Home Base" -- initiates the OIDC Authorization Code Flow
+ *      via the ALS, which redirects the user to their home base (Keycloak)
+ *      for authentication.
+ *   2. "Try Demo Mode" -- available when VITE_ALS_AUTH_URL is not configured;
+ *      creates a synthetic demo session in localStorage so the dashboard
+ *      can be previewed without a running backend.
+ *
+ * No passwords are shared with publishers -- the home base handles all
+ * credential verification through the federated OIDC flow.
+ */
+
 import { login, getDemoSession } from '../api/auth';
 
 export default function LoginPrompt() {

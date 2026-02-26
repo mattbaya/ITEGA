@@ -1,3 +1,13 @@
+/**
+ * Header.tsx -- Application Header and Navigation Bar
+ *
+ * Renders the top navigation bar with the Newshare Network brand, navigation
+ * links (Dashboard, Publishers, Transactions, Privacy, Account), and the
+ * current user's networkUserId and homeBaseId. Includes a responsive mobile
+ * navigation that scrolls horizontally. The logout button clears the local
+ * session (localStorage) and redirects to the login prompt.
+ */
+
 import { NavLink } from 'react-router-dom';
 import { logout } from '../api/auth';
 import type { SessionData } from '../api/auth';

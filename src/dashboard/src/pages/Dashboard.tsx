@@ -1,3 +1,17 @@
+/**
+ * Dashboard.tsx -- Main Dashboard Overview Page
+ *
+ * The primary landing page after authentication. Displays a summary of the
+ * user's Newshare Network activity including:
+ *   - Quick stats: publishers visited, articles this week, estimated charges,
+ *     session expiration countdown
+ *   - Network identity details (networkUserId, homeBaseId, networkGroupId)
+ *   - Current session information (JWT-based, no cookies)
+ *
+ * All data is sourced from demo APIs in the prototype. In production, this
+ * page would fetch live data from the home base and ALS services.
+ */
+
 import type { SessionData } from '../api/auth';
 import { getUserProfile } from '../api/profile';
 import { getPPIDList } from '../api/profile';

@@ -1,3 +1,16 @@
+/**
+ * Account.tsx -- Account Management Page
+ *
+ * Displays the user's home base information, network identity details
+ * (networkUserId, networkGroupId bitmask, pubMbrId), and provides a form
+ * for editing profile fields (display name, email). Also includes a
+ * "Danger Zone" for account deletion.
+ *
+ * In this prototype, profile edits trigger a demo alert. In production,
+ * updates would be sent to the home base REST API. The home base is the
+ * ONLY party that stores PII -- publishers and the ALS never see it.
+ */
+
 import { useState } from 'react';
 import type { SessionData } from '../api/auth';
 import { getUserProfile } from '../api/profile';
@@ -184,7 +197,16 @@ export default function Account({ session }: AccountProps) {
           These actions are irreversible. Deleting your network account will
           unlink all PPIDs and remove your identity from the network.
         </p>
-        <button className="btn-danger">Delete Network Account</button>
+        <button
+          className="btn-danger"
+          onClick={() => {
+            window.alert(
+              'This feature will be available when connected to a live home base. Currently showing demo data.'
+            );
+          }}
+        >
+          Delete Network Account
+        </button>
       </div>
     </div>
   );

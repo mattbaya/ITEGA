@@ -1,3 +1,24 @@
+/**
+ * App.tsx -- Root Application Component with Routing and OIDC Callback Handling
+ *
+ * Manages top-level application state (authentication session) and provides
+ * client-side routing via React Router. On mount, the component checks for:
+ *   1. A session_token query parameter (indicates returning from OIDC login
+ *      via the ALS) -- if found, decodes the JWT and stores the session.
+ *   2. An existing valid session in localStorage -- if found, restores it.
+ *
+ * If no valid session exists, the LoginPrompt is shown. Otherwise, the
+ * authenticated layout (Header + page routes) is rendered.
+ *
+ * Routes:
+ *   /            -> redirects to /dashboard
+ *   /dashboard   -> Dashboard overview
+ *   /publishers  -> Publisher PPID list
+ *   /transactions -> Content access history
+ *   /privacy     -> Privacy controls
+ *   /account     -> Account management
+ */
+
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import Header from './components/Header';

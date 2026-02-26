@@ -1,10 +1,27 @@
 /**
- * Decode a NetworkGroupId bitmask into human-readable labels.
+ * networkGroupId.ts -- NetworkGroupId Bitmask Encoding/Decoding Utilities
  *
- * The NetworkGroupId is a bitmask where each bit position represents
- * a subscription attribute or access tier. Multiple bits can be set
- * simultaneously (e.g., a user can be both Registered and a Paid
- * Digital Subscriber).
+ * The NetworkGroupId is a custom claim embedded in the OIDC ID Token (JWT)
+ * issued by the ALS. It uses a bitmask encoding scheme where each bit
+ * position represents a subscription attribute or access tier:
+ *
+ *   Bit 1     (0x0001) = Group Account
+ *   Bit 2     (0x0002) = Registered
+ *   Bit 4     (0x0004) = Print Subscriber
+ *   Bit 8     (0x0008) = Digital Subscriber
+ *   Bit 16    (0x0010) = Data Subscriber
+ *   Bit 1024  (0x0400) = Complimentary
+ *   Bit 2048  (0x0800) = Controlled
+ *   Bit 4096  (0x1000) = Paid
+ *   Bit 8192  (0x2000) = Trial
+ *   Bit 16384 (0x4000) = Site/Group
+ *
+ * Multiple bits can be set simultaneously. For example, a value of 4106
+ * (4096 | 8 | 2) means "Paid + Digital Subscriber + Registered".
+ *
+ * Publishers use the NetworkGroupId to determine access rights without
+ * knowing the user's real identity. The home base sets this value based
+ * on the user's subscription status.
  */
 const BIT_LABELS: Record<number, string> = {
   1: 'Group Account',

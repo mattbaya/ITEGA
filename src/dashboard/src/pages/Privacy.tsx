@@ -1,3 +1,19 @@
+/**
+ * Privacy.tsx -- Privacy Controls Page
+ *
+ * Allows users to manage their privacy settings across the Newshare Network,
+ * including privacy level (how much info publishers can see), advertising
+ * preferences, Do Not Track, publisher unlinking, and data export requests.
+ *
+ * In this prototype, preference changes are local-only (React state). In
+ * production, changes would be persisted to the home base API. Action buttons
+ * (Save, Export, Unlink) show demo-mode alerts since no live backend is
+ * connected.
+ *
+ * IMPORTANT: The user's real identity (PII) never leaves the home base.
+ * Publishers only ever see the user's PPID and access-tier information.
+ */
+
 import { useState } from 'react';
 import type { SessionData } from '../api/auth';
 import { getUserProfile } from '../api/profile';
@@ -210,14 +226,28 @@ export default function Privacy({ session: _session }: PrivacyProps) {
           transaction history, and privacy settings. The export will be
           delivered to your home base account.
         </p>
-        <button className="btn-secondary">
+        <button
+          className="btn-secondary"
+          onClick={() => {
+            window.alert(
+              'This feature will be available when connected to a live home base. Currently showing demo data.'
+            );
+          }}
+        >
           Request Data Export
         </button>
       </div>
 
       {/* Save button */}
       <div className="flex justify-end">
-        <button className="btn-primary px-8 py-2.5">
+        <button
+          className="btn-primary px-8 py-2.5"
+          onClick={() => {
+            window.alert(
+              'This feature will be available when connected to a live home base. Currently showing demo data.'
+            );
+          }}
+        >
           Save Privacy Settings
         </button>
       </div>

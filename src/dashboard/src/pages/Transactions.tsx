@@ -1,3 +1,15 @@
+/**
+ * Transactions.tsx -- Transaction History Page
+ *
+ * Displays the user's content access history and associated charges across
+ * all Newshare Network publishers. Shows both wholesale costs (pageClass,
+ * set by publishers) and retail costs (pageClass * markupRatio, what the
+ * user pays through their home base).
+ *
+ * Includes a pricing explanation and running totals. In production, events
+ * would be fetched from the ALS Logging Service (TimescaleDB).
+ */
+
 import { getContentEvents, computeTotals } from '../api/events';
 import TransactionTable from '../components/TransactionTable';
 

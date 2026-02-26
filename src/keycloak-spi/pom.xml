@@ -49,6 +49,14 @@
         </dependency>
     </dependencies>
 
+    <!--
+        Build produces a plain JAR (no shade/assembly plugin needed).
+        Keycloak loads SPI JARs from its providers/ directory and supplies
+        all keycloak-* dependencies at runtime (scope=provided above).
+        Just run: mvn clean package
+        Then copy target/newshare-protocol-mapper-0.1.0.jar to
+        infra/vps1/providers/ and restart Keycloak.
+    -->
     <build>
         <plugins>
             <plugin>

@@ -11,24 +11,74 @@
  * Text Domain: newshare-network
  */
 
+/**
+ * Main Plugin Bootstrap File.
+ *
+ * This is the entry point for the Newshare Network WordPress plugin. It handles:
+ *
+ *   1. Defining plugin constants (version, paths, URLs).
+ *   2. Loading Composer autoload (for firebase/php-jwt dependency).
+ *   3. Including all plugin class files.
+ *   4. Instantiating the main Newshare_Network singleton.
+ *   5. Registering all WordPress hooks (actions and filters).
+ *   6. Plugin activation/deactivation hooks.
+ *
+ * == Plugin Architecture ==
+ *
+ * The plugin is organized into six classes, each with a single responsibility:
+ *
+ *   - Newshare_Session: Session state management (stored in wp_usermeta).
+ *   - Newshare_OIDC: OIDC Relying Party flow (authorize -> callback -> login).
+ *   - Newshare_Access: Bitmask access control and content gating.
+ *   - Newshare_RSL: JSON-LD metadata injection for content pricing/licensing.
+ *   - Newshare_Logger: Fire-and-forget event logging to the ALS.
+ *   - Newshare_Admin: Settings page in wp-admin.
+ *
+ * All classes are wired together in this file via the Newshare_Network singleton.
+ *
+ * @package Newshare_Network
+ * @since   0.1.0
+ */
+
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
+
+// =========================================================================
+// Plugin Constants
+// =========================================================================
 
 define( 'NEWSHARE_VERSION', '0.1.0' );
 define( 'NEWSHARE_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'NEWSHARE_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'NEWSHARE_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
 
+// =========================================================================
+// Composer Autoload
+// =========================================================================
+
 /**
  * Autoload Composer dependencies if available.
+ *
+ * The plugin requires firebase/php-jwt for JWT validation in the OIDC flow.
+ * If the vendor directory doesn't exist, the plugin will still load but
+ * OIDC authentication will fail. The admin class shows a warning notice
+ * when dependencies are missing.
  */
 if ( file_exists( NEWSHARE_PLUGIN_DIR . 'vendor/autoload.php' ) ) {
 	require_once NEWSHARE_PLUGIN_DIR . 'vendor/autoload.php';
 }
 
+// =========================================================================
+// Class File Includes
+// =========================================================================
+
 /**
  * Load plugin class files.
+ *
+ * These are loaded in dependency order: Session first (no deps), then
+ * classes that depend on Session (OIDC, Access, Logger), then standalone
+ * classes (RSL, Admin).
  */
 require_once NEWSHARE_PLUGIN_DIR . 'includes/class-newshare-session.php';
 require_once NEWSHARE_PLUGIN_DIR . 'includes/class-newshare-oidc.php';
@@ -37,8 +87,15 @@ require_once NEWSHARE_PLUGIN_DIR . 'includes/class-newshare-rsl.php';
 require_once NEWSHARE_PLUGIN_DIR . 'includes/class-newshare-logger.php';
 require_once NEWSHARE_PLUGIN_DIR . 'includes/class-newshare-admin.php';
 
+// =========================================================================
+// Main Plugin Class
+// =========================================================================
+
 /**
- * Main plugin class.
+ * Main plugin class (Singleton).
+ *
+ * Instantiates all component classes and registers all WordPress hooks.
+ * Use Newshare_Network::get_instance() to access the singleton.
  */
 final class Newshare_Network {
 
@@ -49,15 +106,28 @@ final class Newshare_Network {
 	 */
 	private static ?Newshare_Network $instance = null;
 
+	/** @var Newshare_OIDC    OIDC Relying Party handler. */
 	private Newshare_OIDC    $oidc;
+
+	/** @var Newshare_Access  Bitmask access control. */
 	private Newshare_Access  $access;
+
+	/** @var Newshare_RSL     JSON-LD metadata injection. */
 	private Newshare_RSL     $rsl;
+
+	/** @var Newshare_Logger  Fire-and-forget event logger. */
 	private Newshare_Logger  $logger;
+
+	/** @var Newshare_Admin   Admin settings page. */
 	private Newshare_Admin   $admin;
+
+	/** @var Newshare_Session Session state management. */
 	private Newshare_Session $session;
 
 	/**
 	 * Get the singleton instance.
+	 *
+	 * @return self
 	 */
 	public static function get_instance(): self {
 		if ( null === self::$instance ) {
@@ -67,9 +137,14 @@ final class Newshare_Network {
 	}
 
 	/**
-	 * Private constructor — use get_instance().
+	 * Private constructor -- use get_instance().
+	 *
+	 * Instantiates all component classes (with dependency injection) and
+	 * registers all WordPress hooks.
 	 */
 	private function __construct() {
+		// Instantiate component classes. Session is created first because
+		// OIDC, Access, and Logger all depend on it.
 		$this->session = new Newshare_Session();
 		$this->oidc    = new Newshare_OIDC( $this->session );
 		$this->access  = new Newshare_Access( $this->session );
@@ -81,42 +156,90 @@ final class Newshare_Network {
 	}
 
 	/**
-	 * Register all WordPress hooks.
+	 * Register all WordPress hooks (actions and filters).
+	 *
+	 * This is the central wiring point where all plugin behavior is connected
+	 * to WordPress's event system.
 	 */
 	private function register_hooks(): void {
-		// REST API route for OIDC callback.
+		// -- OIDC Authentication Flow --
+
+		// Register the REST API callback endpoint for the OIDC flow.
 		add_action( 'rest_api_init', array( $this->oidc, 'register_routes' ) );
+
+		// Handle OIDC login initiation when the newshare_login query parameter is present.
+		add_action( 'init', array( $this, 'maybe_initiate_login' ) );
+
+		// Handle OIDC login finalization (sets auth cookie in a non-REST context).
+		// This is the second step of the two-step redirect from handle_callback().
+		add_action( 'init', array( $this->oidc, 'finalize_login' ) );
+
+		// -- Session Lifecycle --
+
+		// FIX (MAJOR): Clear network session data when the user logs out.
+		// Previously, clear_network_session() was never called on logout,
+		// which meant stale network claims could persist in user meta after
+		// the user logged out of WordPress.
+		add_action( 'wp_logout', array( $this->session, 'clear_network_session' ) );
+
+		// -- Login UI --
 
 		// Add "Network Login" button below the standard WP login form.
 		add_action( 'login_form', array( $this, 'render_login_button' ) );
 
-		// Check content access on page load and log the event.
+		// -- Content Access Control --
+
+		// Check content access on page load and log the event for settlement.
 		add_action( 'template_redirect', array( $this, 'handle_template_redirect' ) );
+
+		// Filter post content to show access gate when the user lacks permissions.
+		add_filter( 'the_content', array( $this->access, 'filter_content' ) );
+
+		// -- Content Metadata --
 
 		// Inject RSL JSON-LD metadata in <head> on single posts.
 		add_action( 'wp_head', array( $this->rsl, 'inject_rsl_metadata' ) );
 
-		// Filter post content to show access gate when needed.
-		add_filter( 'the_content', array( $this->access, 'filter_content' ) );
+		// -- Admin Settings --
 
-		// Admin settings page.
+		// Add the settings page to the WordPress admin menu.
 		add_action( 'admin_menu', array( $this->admin, 'add_settings_page' ) );
+
+		// Register settings, sections, and fields with the Settings API.
 		add_action( 'admin_init', array( $this->admin, 'register_settings' ) );
 
-		// Post editor meta box for access control.
+		// Show admin notice if Composer dependencies are missing.
+		add_action( 'admin_notices', array( $this->admin, 'check_dependencies' ) );
+
+		// -- Post Editor --
+
+		// Add the Newshare Access Control meta box to the post editor.
 		add_action( 'add_meta_boxes', array( $this->access, 'add_meta_box' ) );
+
+		// Save per-post access control settings when the post is saved.
 		add_action( 'save_post', array( $this->access, 'save_meta_box' ) );
 
-		// Enqueue front-end assets.
-		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_assets' ) );
-		add_action( 'login_enqueue_scripts', array( $this, 'enqueue_login_assets' ) );
+		// -- Front-End Assets --
 
-		// OIDC login initiation via query parameter.
-		add_action( 'init', array( $this, 'maybe_initiate_login' ) );
+		// Enqueue CSS and JS for the front-end login button and access gate.
+		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_assets' ) );
+
+		// Enqueue CSS on the wp-login.php page for the "Network Login" button.
+		add_action( 'login_enqueue_scripts', array( $this, 'enqueue_login_assets' ) );
 	}
 
+	// =========================================================================
+	// Content Access + Logging
+	// =========================================================================
+
 	/**
-	 * Handle template_redirect: log content access when granted.
+	 * Handle template_redirect: log content access when access is granted.
+	 *
+	 * When a network user views a single post and access is granted, log the
+	 * event to the ALS for settlement (revenue sharing). This runs on every
+	 * page load but only fires for network users viewing single posts.
+	 *
+	 * Hooked to: template_redirect
 	 */
 	public function handle_template_redirect(): void {
 		if ( ! is_singular( 'post' ) ) {
@@ -128,30 +251,68 @@ final class Newshare_Network {
 			return;
 		}
 
+		// Only log if the user has access AND is a network user.
+		// Anonymous users and local-only WP users are not logged.
 		if ( $this->access->check_access( $post_id ) && $this->session->is_network_user() ) {
 			$this->logger->log_content_access( $post_id );
 		}
 	}
 
+	// =========================================================================
+	// Login UI
+	// =========================================================================
+
 	/**
 	 * Render the Network Login button on the WP login form.
+	 *
+	 * Adds a "Log in with your news network account" button below the standard
+	 * WordPress username/password form on wp-login.php.
+	 *
+	 * Hooked to: login_form
 	 */
 	public function render_login_button(): void {
 		include NEWSHARE_PLUGIN_DIR . 'templates/network-login-button.php';
 	}
 
+	// =========================================================================
+	// OIDC Login Initiation
+	// =========================================================================
+
 	/**
 	 * Initiate OIDC login when the newshare_login query parameter is present.
+	 *
+	 * This is triggered by clicking the "Network Login" button (either on the
+	 * access gate or on the wp-login.php page). The nonce check prevents CSRF.
+	 *
+	 * The return_to parameter captures the article URL so the user is redirected
+	 * back to the article they were reading after authentication.
+	 *
+	 * Hooked to: init
 	 */
 	public function maybe_initiate_login(): void {
 		if ( isset( $_GET['newshare_login'] ) && '1' === $_GET['newshare_login'] ) {
 			check_admin_referer( 'newshare_login_initiate', 'newshare_nonce' );
-			$this->oidc->initiate_login();
+
+			// Capture the return URL if provided (from the access gate template).
+			$return_to = isset( $_GET['newshare_return_to'] )
+				? esc_url_raw( wp_unslash( $_GET['newshare_return_to'] ) )
+				: null;
+
+			$this->oidc->initiate_login( $return_to );
 		}
 	}
 
+	// =========================================================================
+	// Front-End Assets
+	// =========================================================================
+
 	/**
 	 * Enqueue front-end styles and scripts.
+	 *
+	 * Loads the CSS for the access gate and login button, and the JS for
+	 * any interactive login functionality.
+	 *
+	 * Hooked to: wp_enqueue_scripts
 	 */
 	public function enqueue_assets(): void {
 		wp_enqueue_style(
@@ -170,7 +331,12 @@ final class Newshare_Network {
 	}
 
 	/**
-	 * Enqueue styles on the login page.
+	 * Enqueue styles on the wp-login.php page.
+	 *
+	 * Loads the CSS for the "Network Login" button that appears below the
+	 * standard WordPress login form.
+	 *
+	 * Hooked to: login_enqueue_scripts
 	 */
 	public function enqueue_login_assets(): void {
 		wp_enqueue_style(
@@ -182,8 +348,16 @@ final class Newshare_Network {
 	}
 }
 
+// =========================================================================
+// Activation / Deactivation Hooks
+// =========================================================================
+
 /**
- * Activation hook — set default options.
+ * Activation hook -- set default options.
+ *
+ * Populates all plugin options with sensible defaults on first activation.
+ * Uses add_option() (not update_option()) so existing values are preserved
+ * if the plugin is deactivated and reactivated.
  */
 function newshare_activate(): void {
 	$defaults = array(
@@ -208,7 +382,11 @@ function newshare_activate(): void {
 register_activation_hook( __FILE__, 'newshare_activate' );
 
 /**
- * Deactivation hook — cleanup transients.
+ * Deactivation hook -- cleanup transients.
+ *
+ * Removes cached OIDC configuration and public keys. Settings are NOT
+ * deleted on deactivation (only on uninstall) so they persist if the
+ * plugin is reactivated.
  */
 function newshare_deactivate(): void {
 	delete_transient( 'newshare_als_public_key' );
@@ -216,8 +394,17 @@ function newshare_deactivate(): void {
 }
 register_deactivation_hook( __FILE__, 'newshare_deactivate' );
 
+// =========================================================================
+// Plugin Initialization
+// =========================================================================
+
 /**
- * Initialize the plugin.
+ * Initialize the plugin on plugins_loaded.
+ *
+ * Uses plugins_loaded (priority 10) to ensure WordPress core and all
+ * dependencies are available before the plugin initializes.
+ *
+ * @return Newshare_Network The singleton instance.
  */
 function newshare_network_init(): Newshare_Network {
 	return Newshare_Network::get_instance();

@@ -2,15 +2,29 @@
 /**
  * Template: Access Gate.
  *
- * Displayed when content is behind a subscription tier wall.
- * Shows a login prompt for anonymous users, or a tier upgrade message
- * for users with insufficient access.
+ * Displayed when content is behind a subscription tier wall. This template
+ * replaces the full article content with a truncated preview and one of two
+ * messages:
  *
- * Expected variables (set by Newshare_Access::filter_content):
- *   $tier_name       string  Human-readable name of the required tier.
- *   $is_network_user bool    Whether the current user has a network session.
+ *   1. For anonymous users (not logged in via the network):
+ *      A "Network Login" button that initiates the OIDC flow.
+ *
+ *   2. For authenticated network users with insufficient access tier:
+ *      A message explaining which subscription tier is required and
+ *      directing them to upgrade through their home base.
+ *
+ * == Expected Variables ==
+ *
+ * These variables are set by Newshare_Access::filter_content() before this
+ * template is included via ob_start()/ob_get_clean():
+ *
+ *   $tier_name       string  Human-readable name of the required subscription tier
+ *                            (e.g., "Paid Subscriber", "Digital Subscriber + Paid Subscriber").
+ *   $is_network_user bool    Whether the current user has an active network session.
+ *   $current_url     string  The canonical URL of the current article (for return-after-login).
  *
  * @package Newshare_Network
+ * @since   0.1.0
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -20,27 +34,68 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 <div class="newshare-access-gate">
 	<?php if ( $is_network_user ) : ?>
+		<?php
+		// -----------------------------------------------------------------
+		// Authenticated network user, but insufficient subscription tier.
+		// They need to upgrade their subscription through their home base.
+		// -----------------------------------------------------------------
+		?>
 		<h3><?php esc_html_e( 'Subscription Required', 'newshare-network' ); ?></h3>
 		<p>
 			<?php
-			printf(
-				/* translators: %s: the required subscription tier name */
-				esc_html__( 'This content requires %s access. Please upgrade your subscription through your home base to continue reading.', 'newshare-network' ),
-				'<strong>' . esc_html( $tier_name ) . '</strong>'
+			// -----------------------------------------------------------------
+			// FIX (MAJOR): Use wp_kses() instead of esc_html__() for strings
+			// containing HTML.
+			//
+			// Previously, this used:
+			//   printf( esc_html__( '...%s...'), '<strong>...</strong>' );
+			//
+			// While that specific pattern happened to work (because %s is
+			// substituted AFTER esc_html__ escapes the format string, and %s
+			// itself is not an HTML entity), it is an antipattern because:
+			//   a) If a translator includes HTML in the translated string, it
+			//      will be escaped and display as raw text.
+			//   b) WordPress coding standards recommend separating translatable
+			//      text from HTML markup.
+			//
+			// The fix: use a plain translated string for the text, and wrap
+			// the variable in HTML separately. wp_kses() ensures only allowed
+			// HTML tags are preserved in the output.
+			// -----------------------------------------------------------------
+			$tier_html = '<strong>' . esc_html( $tier_name ) . '</strong>';
+			$message = sprintf(
+				/* translators: %s: the required subscription tier name wrapped in <strong> tags */
+				__( 'This content requires %s access. Please upgrade your subscription through your home base to continue reading.', 'newshare-network' ),
+				$tier_html
 			);
+			echo wp_kses( $message, array( 'strong' => array() ) );
 			?>
 		</p>
 	<?php else : ?>
+		<?php
+		// -----------------------------------------------------------------
+		// Anonymous user (not logged in via the network).
+		// Show a login prompt with the "Network Login" button.
+		// -----------------------------------------------------------------
+		?>
 		<h3><?php esc_html_e( 'Continue Reading', 'newshare-network' ); ?></h3>
 		<p>
 			<?php esc_html_e( 'Log in with your news network account to access this article. Your subscription travels with you across all network publishers.', 'newshare-network' ); ?>
 		</p>
 
 		<?php
+		// -----------------------------------------------------------------
+		// Build the login URL with the return URL.
+		//
+		// FIX (MAJOR): Pass the current article URL as newshare_return_to
+		// so the user is redirected back to this article after login,
+		// instead of ending up at wp-login.php or the home page.
+		// -----------------------------------------------------------------
 		$newshare_login_url = add_query_arg(
 			array(
-				'newshare_login' => '1',
-				'newshare_nonce' => wp_create_nonce( 'newshare_login_initiate' ),
+				'newshare_login'     => '1',
+				'newshare_nonce'     => wp_create_nonce( 'newshare_login_initiate' ),
+				'newshare_return_to' => isset( $current_url ) ? $current_url : get_permalink(),
 			),
 			home_url( '/' )
 		);

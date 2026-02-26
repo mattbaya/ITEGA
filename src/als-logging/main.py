@@ -1,20 +1,49 @@
 """
 ALS Logging Service — FastAPI application.
 
-Records access events into a TimescaleDB hypertable and exposes reporting
-endpoints.  All data uses opaque, pseudonymous identifiers — no PII is
-ever stored.
+Records content-access and authentication events into a TimescaleDB hypertable
+and exposes reporting endpoints.  All stored data uses opaque, pseudonymous
+identifiers (PPIDs) — no PII is ever stored or returned by this service.
+
+This is component #3 in the Newshare four-party architecture:
+
+    Publisher  -->  ALS Auth  -->  **ALS Logging (this service)**  -->  ALS Settlement
+
+The logging service is the authoritative source of truth for all metered
+events in the network.  The settlement batch job reads from this database
+to compute financial obligations between home bases and publishers.
+
+Access-control model for reports
+--------------------------------
+- **Home bases** (IdSPs) receive **full clickstream** data for their own
+  users, because they are the identity provider and billing counterpart.
+  Endpoint: GET /log/report/home-base/{home_base_id}
+
+- **Publishers** receive only **aggregated** data grouped by home_base_id.
+  Individual user identifiers and per-user event rows are NEVER exposed
+  to publishers.  This is a critical privacy requirement of the Newshare
+  architecture.  Endpoint: GET /log/report/publisher/{pub_mbr_id}
+
+Storage
+-------
+The ``access_events`` table is created as a TimescaleDB hypertable
+(time-series optimised) when the extension is available.  If TimescaleDB
+is not installed, it falls back to a plain PostgreSQL table.  TimescaleDB
+provides automatic partitioning by timestamp, which is essential for
+efficient range queries during settlement and reporting.
 
 Endpoints
 ---------
-POST /log/event                            — Record an access event
-GET  /log/report/home-base/{home_base_id}  — Full clickstream for a home base
-GET  /log/report/publisher/{pub_mbr_id}    — Aggregated report for a publisher
-GET  /log/stats                            — Basic operational statistics
+POST /log/event                            -- Record an access event
+GET  /log/report/home-base/{home_base_id}  -- Full clickstream for a home base
+GET  /log/report/publisher/{pub_mbr_id}    -- Aggregated report for a publisher
+GET  /log/stats                            -- Basic operational statistics
+GET  /healthz                              -- Health check
 """
 
 from __future__ import annotations
 
+import hmac
 import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -43,6 +72,9 @@ logging.basicConfig(
 logger = logging.getLogger("als-logging")
 
 # ── Database pool ─────────────────────────────────────────────────────
+#
+# asyncpg connection pool to PostgreSQL/TimescaleDB.  Initialised during
+# application lifespan startup and shared across all request handlers.
 
 _pool: asyncpg.Pool | None = None
 
@@ -55,6 +87,11 @@ async def _get_pool() -> asyncpg.Pool:
 
 
 # ── Lifespan ──────────────────────────────────────────────────────────
+#
+# Application startup: create the asyncpg connection pool, ensure the
+# access_events table exists, and attempt to convert it to a TimescaleDB
+# hypertable (for automatic time-based partitioning).
+# Application shutdown: close the connection pool gracefully.
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -122,15 +159,29 @@ app = FastAPI(
 
 
 # ── Auth dependency ───────────────────────────────────────────────────
+#
+# All mutating and reporting endpoints require a shared API key passed in
+# the ``X-API-Key`` header.  The key is configured via the ``api_key``
+# environment variable (see config.py).  The ALS Auth Service must send
+# this header when POSTing events (see its ``logging_api_key`` setting).
 
 async def verify_api_key(x_api_key: str = Header(..., alias="X-API-Key")) -> str:
-    """Validate the shared API key on protected endpoints."""
-    if x_api_key != settings.api_key:
+    """
+    Validate the shared API key on protected endpoints.
+
+    SECURITY: Uses ``hmac.compare_digest()`` for constant-time comparison
+    to prevent timing side-channel attacks that could leak the key length
+    or value byte-by-byte.
+    """
+    if not hmac.compare_digest(x_api_key.encode(), settings.api_key.encode()):
         raise HTTPException(status_code=403, detail="Invalid API key")
     return x_api_key
 
 
 # ── Health ────────────────────────────────────────────────────────────
+#
+# Unauthenticated health check.  Returns 200 if the database pool is
+# connected, 503 otherwise.  Used by load balancers and monitoring.
 
 @app.get("/healthz")
 async def healthz() -> dict[str, str]:
@@ -140,6 +191,12 @@ async def healthz() -> dict[str, str]:
 
 
 # ── POST /log/event ──────────────────────────────────────────────────
+#
+# The ALS Auth Service calls this endpoint after every successful
+# authentication (event_type="authentication") and the publisher
+# WordPress plugin calls it for content access (event_type="content_access").
+# The server stamps each event with an authoritative UTC timestamp;
+# clients cannot back-date events.
 
 @app.post("/log/event", status_code=202)
 async def log_event(
@@ -151,7 +208,7 @@ async def log_event(
     Record an access event.
 
     The server adds the authoritative timestamp; the client cannot
-    back-date events.
+    back-date events.  Returns 202 Accepted on success.
     """
     now = datetime.now(timezone.utc)
 
@@ -186,6 +243,11 @@ async def log_event(
 
 
 # ── GET /log/report/home-base/{home_base_id} ─────────────────────────
+#
+# Home bases (IdSPs) receive the FULL clickstream for their own users.
+# This is permitted because the home base already knows the user's real
+# identity (it is the identity provider) and needs per-event detail for
+# billing reconciliation and user-facing dashboards.
 
 @app.get("/log/report/home-base/{home_base_id}", response_model=HomeBaseReport)
 async def report_home_base(
@@ -245,6 +307,12 @@ async def report_home_base(
 
 
 # ── GET /log/report/publisher/{pub_mbr_id} ───────────────────────────
+#
+# Publishers receive ONLY aggregated data — totals grouped by home_base_id.
+# CRITICAL PRIVACY REQUIREMENT: No individual user identifiers or per-user
+# event rows are ever exposed to publishers.  This is a fundamental
+# constraint of the Newshare architecture: publishers cannot track users
+# across home bases or identify individual users from their reports.
 
 @app.get("/log/report/publisher/{pub_mbr_id}", response_model=PublisherReport)
 async def report_publisher(
@@ -302,6 +370,11 @@ async def report_publisher(
 
 
 # ── GET /log/stats ───────────────────────────────────────────────────
+#
+# Lightweight operational statistics endpoint.  Intentionally
+# unauthenticated so that monitoring tools (Prometheus, UptimeRobot, etc.)
+# can poll it without needing an API key.  Returns only aggregate counts,
+# no user-level data.
 
 @app.get("/log/stats", response_model=StatsResponse)
 async def stats(
@@ -311,6 +384,7 @@ async def stats(
     Basic operational statistics.
 
     This endpoint is unauthenticated so monitoring tools can poll it.
+    Returns total events, today's event count, and a breakdown by event type.
     """
     async with pool.acquire() as conn:
         total = await conn.fetchval(

@@ -1,18 +1,32 @@
 """
 ALS Auth Service — FastAPI application.
 
-This service acts as the federation broker between publishers (WordPress OIDC
-clients) and home bases (Keycloak identity providers). It issues short-lived
-ALS session tokens that carry only opaque, pseudonymous identifiers — the ALS
-never sees or stores any PII.
+This service acts as the **federation broker** in the Newshare four-party model,
+sitting between publishers (WordPress OIDC clients) and home bases (Keycloak
+identity providers).  It issues short-lived ALS session tokens that carry only
+opaque, pairwise pseudonymous identifiers (PPIDs) — the ALS never sees, stores,
+or transmits any PII.
+
+Security invariants
+-------------------
+- **No cookies.**  Auth state is carried exclusively via HTTP headers and signed
+  JWT tokens (per the Newshare spec).
+- **PPID isolation.**  Each user gets a different opaque ``sub`` at each
+  publisher; cross-site correlation is architecturally impossible without home
+  base cooperation.
+- **Session tokens in POST bodies.**  Tokens are delivered to publishers via
+  auto-submitting HTML forms, never in URL query strings (avoids exposure in
+  browser history, server logs, and Referer headers).
 
 Endpoints
 ---------
-GET  /auth/authorize               — Start OIDC authorization flow
-GET  /auth/callback                — Handle Keycloak callback
-POST /auth/validate                — Validate an ALS session token
-GET  /auth/home-bases              — List certified home bases
-GET  /.well-known/openid-configuration — OIDC discovery document
+GET  /auth/authorize                    — Start OIDC authorization flow
+GET  /auth/callback                     — Handle Keycloak callback, issue session token
+POST /auth/validate                     — Validate an ALS session token
+GET  /auth/home-bases                   — List certified home bases
+GET  /.well-known/openid-configuration  — OIDC discovery document
+GET  /.well-known/jwks.json             — ALS public key in JWKS format
+GET  /healthz                           — Health check
 """
 
 from __future__ import annotations
@@ -25,11 +39,12 @@ import secrets
 import time
 import urllib.parse
 from base64 import urlsafe_b64decode, urlsafe_b64encode
+from collections import OrderedDict
 from typing import Any
 
 import httpx
 from fastapi import FastAPI, HTTPException, Query, Request
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 from config import Settings, settings
 from jwt_utils import JWKSCache, sign_session_token, verify_keycloak_id_token, verify_session_token
@@ -67,10 +82,49 @@ _publishers: dict[str, Any] = {}          # client_id -> PublisherEntry
 _private_key_pem: str = ""
 _public_key_pem: str = ""
 
-# In-memory session store.  For production this should be replaced with
-# Redis or an encrypted cookie; an in-memory dict is sufficient for the
-# prototype and avoids external dependencies.
-_pending_sessions: dict[str, dict[str, str]] = {}
+# ── Bounded in-memory session store ───────────────────────────────
+#
+# Stores pending OIDC authorization sessions between the /auth/authorize
+# redirect and the /auth/callback return.  For production this should be
+# replaced with Redis or an encrypted cookie; an in-memory OrderedDict is
+# sufficient for the prototype and avoids external dependencies.
+#
+# SECURITY: The store is bounded to _MAX_PENDING_SESSIONS entries to
+# prevent memory exhaustion (DoS).  When the limit is reached, the oldest
+# entries are evicted.  Additionally, a TTL-based cleanup runs on every
+# insertion to remove stale sessions older than _SESSION_TTL seconds.
+
+_MAX_PENDING_SESSIONS = 10_000
+_SESSION_TTL = 600  # seconds (10 minutes — generous for an OIDC round-trip)
+
+_pending_sessions: OrderedDict[str, dict[str, Any]] = OrderedDict()
+
+
+def _session_store_put(key: str, value: dict[str, Any]) -> None:
+    """
+    Insert a pending session into the bounded store.
+
+    Performs two housekeeping steps on every write:
+      1. Evicts entries older than _SESSION_TTL.
+      2. If the store is still at capacity, evicts the oldest entry (FIFO).
+    """
+    now = time.time()
+
+    # --- TTL-based cleanup: walk from oldest and remove expired entries ---
+    expired_keys = [
+        k for k, v in _pending_sessions.items()
+        if now - v.get("_created_at", 0) > _SESSION_TTL
+    ]
+    for k in expired_keys:
+        _pending_sessions.pop(k, None)
+
+    # --- Capacity-based eviction: drop oldest if still at the limit ---
+    while len(_pending_sessions) >= _MAX_PENDING_SESSIONS:
+        evicted_key, _ = _pending_sessions.popitem(last=False)
+        logger.warning("Session store full — evicted oldest session %s", evicted_key[:12])
+
+    value["_created_at"] = now
+    _pending_sessions[key] = value
 
 
 # ── Startup / Shutdown ────────────────────────────────────────────────
@@ -111,9 +165,15 @@ async def _startup() -> None:
 
 
 # ── Helpers ───────────────────────────────────────────────────────────
+#
+# These utilities manage the OIDC ``state`` parameter that round-trips
+# through Keycloak.  The state embeds a session key (used to look up the
+# pending session context) and an HMAC signature (to detect tampering).
+# On callback, _decode_state verifies the HMAC using constant-time
+# comparison (hmac.compare_digest) before looking up the session.
 
 def _make_session_key() -> str:
-    """Generate a cryptographically random session key."""
+    """Generate a cryptographically random session key (256 bits)."""
     return secrets.token_urlsafe(32)
 
 
@@ -121,7 +181,10 @@ def _encode_state(session_key: str) -> str:
     """
     Produce an HMAC-signed state parameter that embeds the session key.
 
-    Format: base64(session_key) . base64(hmac_sha256(session_key))
+    Format: base64url(session_key) . base64url(hmac-sha256(session_key))
+
+    The HMAC is keyed with ``settings.session_secret`` so that only this
+    ALS instance can produce or verify valid state values.
     """
     key_b64 = urlsafe_b64encode(session_key.encode()).decode()
     sig = hmac.new(
@@ -158,11 +221,19 @@ def _decode_state(state: str) -> str:
 
 
 async def _log_event(payload: dict[str, Any]) -> None:
-    """Fire-and-forget POST to the ALS Logging Service."""
+    """
+    Fire-and-forget POST to the ALS Logging Service.
+
+    CRITICAL: The logging service requires an ``X-API-Key`` header
+    (enforced by its ``verify_api_key`` dependency).  Without this header
+    every event-log request would be rejected with HTTP 403.
+    """
     url = f"{settings.logging_service_url}/log/event"
+    # Authenticate with the logging service using the shared API key.
+    headers = {"X-API-Key": settings.logging_api_key}
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
-            resp = await client.post(url, json=payload)
+            resp = await client.post(url, json=payload, headers=headers)
             if resp.status_code not in (200, 201, 202):
                 logger.warning(
                     "Logging service returned %d: %s",
@@ -198,7 +269,7 @@ async def authorize(
     stores session context, and redirects the user to the home base
     (Keycloak) for authentication.
     """
-    # 1. Validate client_id
+    # 1. Validate client_id — reject requests from unknown publishers.
     if client_id not in _publishers:
         raise HTTPException(
             status_code=400,
@@ -206,25 +277,49 @@ async def authorize(
         )
     publisher = _publishers[client_id]
 
-    # 2. Check for home-site hint (cookie or header).  For the prototype
-    #    with a single home base we always redirect to Keycloak directly.
-    #    A multi-home-base deployment would present a chooser here.
-    home_site_hint = (
-        request.cookies.get("newshare_home_base")
-        or request.headers.get("X-Home-Base-Hint")
-    )
-    # For now, we ignore the hint and always go to the configured Keycloak.
+    # 2. Validate redirect_uri against the publisher's registered URI.
+    #    This prevents open-redirect attacks where an attacker substitutes
+    #    a malicious redirect_uri to steal session tokens.  We check that
+    #    the provided URI shares the same scheme+host as the registered one.
+    registered_origin = urllib.parse.urlparse(publisher.redirect_uri)
+    requested_origin = urllib.parse.urlparse(redirect_uri)
+    if (
+        registered_origin.scheme != requested_origin.scheme
+        or registered_origin.netloc != requested_origin.netloc
+    ):
+        logger.warning(
+            "authorize: redirect_uri rejected — registered=%s, requested=%s",
+            publisher.redirect_uri,
+            redirect_uri,
+        )
+        raise HTTPException(
+            status_code=400,
+            detail="redirect_uri does not match the publisher's registered domain",
+        )
 
-    # 3. Store session context
+    # 3. Check for home-site hint via the X-Home-Base-Hint header.
+    #    NOTE: The Newshare architecture forbids cookies (auth state is
+    #    carried exclusively via HTTP headers and signed JWT tokens).
+    #    In production, home-site discovery uses WebFinger (RFC 7033);
+    #    the hint header is a shortcut for the single-home-base prototype.
+    home_site_hint = request.headers.get("X-Home-Base-Hint")
+    # For now, we ignore the hint and always go to the configured Keycloak.
+    # A multi-home-base deployment would present a chooser UI here.
+
+    # 4. Store session context in the bounded in-memory store.
     session_key = _make_session_key()
-    _pending_sessions[session_key] = {
+    _session_store_put(session_key, {
         "publisher_client_id": client_id,
         "publisher_redirect_uri": redirect_uri,
         "publisher_state": state,
         "scope": scope,
-    }
+    })
 
-    # 4. Build Keycloak authorization URL
+    # 5. Build Keycloak authorization URL.
+    #    The ALS acts as an intermediary: it redirects the user to the home
+    #    base (Keycloak) with the ALS callback as redirect_uri, not the
+    #    publisher's.  Keycloak will redirect back to /auth/callback after
+    #    the user authenticates.
     als_callback_uri = f"{settings.als_base_url}/auth/callback"
     signed_state = _encode_state(session_key)
 
@@ -241,7 +336,7 @@ async def authorize(
         "authorize: client_id=%s -> redirecting to Keycloak",
         client_id,
     )
-    # 5. Redirect user to Keycloak
+    # 6. Redirect user to Keycloak for authentication.
     return RedirectResponse(url=keycloak_url, status_code=302)
 
 
@@ -252,7 +347,7 @@ async def callback(
     code: str = Query(..., description="Authorization code from Keycloak"),
     state: str = Query(..., description="HMAC-signed state round-tripped through Keycloak"),
     session_state: str = Query("", description="Keycloak session state (informational)"),
-) -> RedirectResponse:
+) -> HTMLResponse:
     """
     Handle the OIDC callback from Keycloak.
 
@@ -323,7 +418,14 @@ async def callback(
         logger.warning("ID-token validation failed: %s", exc)
         raise HTTPException(status_code=401, detail="Invalid ID token from home base")
 
-    # 4. Extract custom claims
+    # 4. Extract Newshare-specific custom claims from the Keycloak ID token.
+    #    These are added by a Keycloak protocol mapper configured per the
+    #    Newshare spec.  ``networkUserId`` is the PPID — a pairwise
+    #    pseudonymous identifier unique to this user+publisher pair.
+    #    ``networkGroupId`` is a bitmask encoding the user's subscription
+    #    tier(s) at the home base.  If the ID token doesn't contain the
+    #    custom claims, we fall back to OIDC standard ``sub`` or publisher
+    #    defaults.
     network_user_id = id_claims.get("networkUserId", id_claims.get("sub", ""))
     home_base_id = id_claims.get("homeBaseId", "")
     network_group_id = id_claims.get("networkGroupId", 0)
@@ -332,21 +434,23 @@ async def callback(
     if not network_user_id:
         raise HTTPException(status_code=502, detail="Missing networkUserId in ID token")
 
-    # 5. Issue ALS session token
+    # 5. Issue ALS session token — a short-lived JWT signed with the ALS
+    #    private RSA key.  The token contains only opaque network-level
+    #    identifiers; no PII ever leaves the home base.
     now = int(time.time())
     session_id = f"sess-{secrets.token_hex(8)}"
 
     als_claims = {
-        "iss": settings.als_base_url,
-        "sub": network_user_id,
-        "aud": pub_mbr_id,
-        "exp": now + settings.session_token_ttl,
+        "iss": settings.als_base_url,           # ALS is the issuer
+        "sub": network_user_id,                 # PPID — pairwise per publisher
+        "aud": pub_mbr_id,                      # Audience = this publisher
+        "exp": now + settings.session_token_ttl, # Short-lived (default 30 min)
         "iat": now,
-        "networkUserId": network_user_id,
-        "homeBaseId": home_base_id,
-        "networkGroupId": network_group_id,
-        "pubMbrId": pub_mbr_id,
-        "sessionId": session_id,
+        "networkUserId": network_user_id,       # Same as sub (Newshare claim)
+        "homeBaseId": home_base_id,             # Which home base authenticated
+        "networkGroupId": network_group_id,     # Subscription tier bitmask
+        "pubMbrId": pub_mbr_id,                 # Publisher member ID
+        "sessionId": session_id,                # Unique session identifier
     }
 
     try:
@@ -377,17 +481,30 @@ async def callback(
         }
     )
 
-    # 7. Redirect back to the publisher
-    separator = "&" if "?" in publisher_redirect_uri else "?"
-    redirect_url = (
-        f"{publisher_redirect_uri}{separator}"
-        f"session_token={urllib.parse.quote(session_token, safe='')}"
-        f"&state={urllib.parse.quote(publisher_state, safe='')}"
-    )
-    return RedirectResponse(url=redirect_url, status_code=302)
+    # 7. Deliver the session token to the publisher via an auto-submitting
+    #    HTML form.  SECURITY: The token is sent in the POST body, NOT in
+    #    the URL query string.  Putting secrets in the URL would expose them
+    #    in browser history, server access logs, and Referer headers.
+    redirect_uri = publisher_redirect_uri
+    html = f"""<!DOCTYPE html>
+<html><body>
+<form id="f" method="POST" action="{redirect_uri}">
+  <input type="hidden" name="sessionToken" value="{session_token}">
+  <input type="hidden" name="state" value="{publisher_state}">
+</form>
+<script>document.getElementById('f').submit();</script>
+</body></html>
+"""
+    return HTMLResponse(content=html)
 
 
 # ── POST /auth/validate ──────────────────────────────────────────────
+#
+# Called by the publisher's WordPress plugin on every protected page load.
+# The plugin sends the ALS session token (received via the POST callback)
+# and this endpoint verifies the signature, expiry, and issuer, then
+# returns the decoded claims so the plugin can enforce access control
+# based on networkGroupId and pageClass.
 
 @app.post(
     "/auth/validate",
@@ -399,6 +516,9 @@ async def validate_token(body: TokenValidationRequest) -> TokenValidationRespons
     Validate an ALS-issued session token.
 
     Returns the decoded claims if the token is valid, or 401 if not.
+    The publisher plugin uses the returned ``networkGroupId`` bitmask to
+    decide whether the user's subscription tier grants access to the
+    requested ``pageClass``.
     """
     if not _public_key_pem:
         raise HTTPException(status_code=503, detail="Public key not loaded")
@@ -434,6 +554,11 @@ async def validate_token(body: TokenValidationRequest) -> TokenValidationRespons
 
 
 # ── GET /auth/home-bases ─────────────────────────────────────────────
+#
+# Returns the list of ITEGA-certified home bases.  The User Dashboard
+# and publisher plugins can use this to present a home-base chooser UI.
+# In the prototype there is only one (Keycloak); in production this
+# list would be populated from the ITEGA Network Discovery JSON.
 
 @app.get("/auth/home-bases", response_model=HomeBasesResponse)
 async def list_home_bases() -> HomeBasesResponse:
@@ -462,26 +587,48 @@ async def openid_configuration() -> OIDCDiscovery:
 
     Publishers and other relying parties can use this to discover ALS
     endpoints programmatically.
+
+    IMPORTANT: The ``token_endpoint`` listed here points to /auth/callback,
+    which is NOT a standard OAuth 2.0 token endpoint.  The ALS acts as a
+    **federation broker**, not a conventional OIDC Provider.  It does not
+    issue tokens in response to a client_credentials or authorization_code
+    grant from publishers directly; instead, the callback handler exchanges
+    the code with the upstream home base (Keycloak) and then mints an ALS
+    session token that is delivered back to the publisher via POST form.
+    The endpoint is listed here for OIDC metadata compliance only.
     """
     base = settings.als_base_url
     return OIDCDiscovery(
         issuer=base,
         authorization_endpoint=f"{base}/auth/authorize",
+        # NOTE: This is the ALS callback handler, not a standard OAuth token
+        # endpoint.  See docstring above for the rationale.
         token_endpoint=f"{base}/auth/callback",
         jwks_uri=f"{base}/.well-known/jwks.json",
         response_types_supported=["code"],
+        # The ALS issues pairwise pseudonymous identifiers (PPID) — each
+        # user gets a different opaque sub claim at each publisher.
         subject_types_supported=["pairwise"],
         id_token_signing_alg_values_supported=["RS256"],
     )
 
 
 # ── GET /.well-known/jwks.json ────────────────────────────────────────
+#
+# Publishes the ALS signing public key so that publishers can verify
+# session tokens locally without calling /auth/validate.  This enables
+# offline token verification at the WordPress plugin level, reducing
+# latency and ALS load.
 
 @app.get("/.well-known/jwks.json")
 async def jwks_endpoint() -> dict[str, Any]:
     """
     Expose the ALS public key in JWKS format so that publishers can
     verify ALS-issued session tokens without a shared secret.
+
+    The ``kid`` ("als-signing-key-1") should be incremented when the
+    ALS key pair is rotated, so that publishers can distinguish old
+    and new keys during the rotation window.
     """
     if not _public_key_pem:
         raise HTTPException(status_code=503, detail="Public key not loaded")

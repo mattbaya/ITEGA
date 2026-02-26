@@ -1,6 +1,15 @@
 -- ============================================================
 -- Migration 003: ALS Settlement
 -- Target database: als_settlement (VPS 2)
+--
+-- Settlement model: The ALS periodically aggregates access_events
+-- from als_logs into settlement_runs. Each run produces per-home-base
+-- debits (what the home base owes) and per-publisher credits (what
+-- the publisher earns). The ITEGA fee is deducted from the gross
+-- wholesale total before crediting publishers.
+--
+-- For the pilot, settlement is simulated (reports only, no real
+-- money movement). Stripe Connect integration is deferred.
 -- ============================================================
 
 BEGIN;
@@ -34,8 +43,11 @@ CREATE TABLE home_base_debits (
     home_base_id    VARCHAR(32) NOT NULL,
     total_events    INTEGER NOT NULL,
     total_wholesale NUMERIC(12,4) NOT NULL,
-    amount_owed     NUMERIC(12,4) NOT NULL
+    amount_owed     NUMERIC(12,4) NOT NULL,
+    created_at      TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE INDEX idx_hb_debits_settlement ON home_base_debits(settlement_id);
 
 -- ------------------------------------------------
 -- Publisher credits
@@ -48,7 +60,10 @@ CREATE TABLE publisher_credits (
     pub_mbr_id      VARCHAR(32) NOT NULL,
     total_events    INTEGER NOT NULL,
     total_wholesale NUMERIC(12,4) NOT NULL,
-    amount_earned   NUMERIC(12,4) NOT NULL
+    amount_earned   NUMERIC(12,4) NOT NULL,
+    created_at      TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE INDEX idx_pub_credits_settlement ON publisher_credits(settlement_id);
 
 COMMIT;

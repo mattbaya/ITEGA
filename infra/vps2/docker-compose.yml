@@ -1,4 +1,16 @@
-version: "3.9"
+# ============================================================
+# VPS 2 — ALS Services (Auth, Logging, Settlement)
+# Target: DigitalOcean 4 GB Droplet
+#
+# NOTE: "version" key is omitted — it is deprecated in Docker
+# Compose V2 and ignored by modern docker compose.
+#
+# Docker networking: All services are on the "als" bridge
+# network and can reach each other by container name (e.g.,
+# als-auth can connect to "postgres:5432" or "als-logging:8001").
+# Host-side ports are bound to 127.0.0.1 only — Nginx on the
+# host terminates TLS and reverse-proxies into these ports.
+# ============================================================
 
 services:
   postgres:
@@ -29,10 +41,17 @@ services:
     container_name: als-auth
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql+asyncpg://als:${POSTGRES_PASSWORD}@postgres:5432/als_logs
-      KEYCLOAK_URL: ${KEYCLOAK_URL}
-      JWT_PRIVATE_KEY_FILE: /run/secrets/jwt_private_key
-      JWT_PUBLIC_KEY_FILE: /run/secrets/jwt_public_key
+      # asyncpg uses plain postgresql:// DSNs, NOT SQLAlchemy-style postgresql+asyncpg://
+      DATABASE_URL: postgresql://als:${POSTGRES_PASSWORD}@postgres:5432/als_logs
+      KEYCLOAK_BASE_URL: ${KEYCLOAK_BASE_URL}
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-newshare}
+      ALS_JWT_PRIVATE_KEY_PATH: /run/secrets/jwt_private_key
+      ALS_JWT_PUBLIC_KEY_PATH: /run/secrets/jwt_public_key
+      SESSION_SECRET: ${SESSION_SECRET}
+      LOGGING_SERVICE_URL: http://als-logging:8001
+      PUBLISHERS_CONFIG: ${PUBLISHERS_CONFIG:-[]}
+      ALS_BASE_URL: ${ALS_BASE_URL:-https://als.newshare.example}
+      LOGGING_API_KEY: ${LOGGING_API_KEY}
     ports:
       - "127.0.0.1:8000:8000"
     secrets:
@@ -51,7 +70,9 @@ services:
     container_name: als-logging
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql+asyncpg://als:${POSTGRES_PASSWORD}@postgres:5432/als_logs
+      # asyncpg uses plain postgresql:// DSNs, NOT SQLAlchemy-style postgresql+asyncpg://
+      DATABASE_URL: postgresql://als:${POSTGRES_PASSWORD}@postgres:5432/als_logs
+      API_KEY: ${ALS_API_KEY}
     ports:
       - "127.0.0.1:8001:8001"
     depends_on:

@@ -2,11 +2,49 @@
 /**
  * Newshare Access Control.
  *
- * Controls content access based on subscription tiers using bitmask logic.
- * NetworkGroupId is a bitmask: 4096=Paid, 4=Print, 8=Digital, etc.
- * Access is checked via bitwise AND: user must have all required bits set.
+ * This class controls content access based on the Newshare Network's bitmask
+ * subscription tier model. It is the gatekeeper that decides whether a given
+ * user can see a given piece of content.
+ *
+ * == Bitmask Access Control Model ==
+ *
+ * The Newshare Network uses a bitmask (NetworkGroupId) to encode subscription
+ * tiers. Each tier is a power of 2, allowing users to hold multiple tiers
+ * simultaneously via bitwise OR:
+ *
+ *   Bit Value | Tier Name
+ *   ----------|------------------
+ *        0    | Free (no bits set)
+ *        2    | Registered (verified identity, no payment)
+ *        4    | Print Subscriber
+ *        8    | Digital Subscriber
+ *     4096    | Paid Subscriber
+ *     8192    | Trial
+ *
+ * Access check uses bitwise AND: a user can access content when ALL of the
+ * content's required bits are present in the user's NetworkGroupId:
+ *
+ *   (user_group_id & required_bits) === required_bits
+ *
+ * Example: Content requires bits 4096 | 8 = 4104 (Paid + Digital).
+ *          User has bits 4096 | 8 | 2 = 4106. Check: 4106 & 4104 = 4104. Access granted.
+ *
+ * == Anonymous Content Meter ==
+ *
+ * Non-network users (anonymous visitors) get a limited number of free article
+ * views before being prompted to log in. This is tracked via a browser cookie
+ * containing an array of viewed post IDs. The meter resets daily. The free
+ * article limit is configurable in Settings > Newshare Network.
+ *
+ * == Access Gate ==
+ *
+ * When a user lacks access, their post content is replaced with:
+ *   1. A truncated preview (first 80 words).
+ *   2. An access gate UI (login prompt for anonymous users, or upgrade prompt
+ *      for authenticated users with insufficient tier).
  *
  * @package Newshare_Network
+ * @since   0.1.0
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -17,6 +55,10 @@ class Newshare_Access {
 
 	/**
 	 * Tier bitmask to human-readable name mapping.
+	 *
+	 * These values correspond to the NetworkGroupId bitmask values defined
+	 * in the Newshare Network protocol specification. Each value is a single
+	 * bit position, allowing them to be combined with bitwise OR.
 	 *
 	 * @var array<int, string>
 	 */
@@ -32,6 +74,9 @@ class Newshare_Access {
 	/**
 	 * Session manager instance.
 	 *
+	 * Used to check if the current user has a network session and to read
+	 * their NetworkGroupId for access control decisions.
+	 *
 	 * @var Newshare_Session
 	 */
 	private Newshare_Session $session;
@@ -39,52 +84,79 @@ class Newshare_Access {
 	/**
 	 * Constructor.
 	 *
-	 * @param Newshare_Session $session Session manager.
+	 * @param Newshare_Session $session Session manager (injected by the main plugin class).
 	 */
 	public function __construct( Newshare_Session $session ) {
 		$this->session = $session;
 	}
 
+	// =========================================================================
+	// Access Checking
+	// =========================================================================
+
 	/**
 	 * Check whether the current user has access to a given post.
+	 *
+	 * Decision flow:
+	 *   1. Look up the post's required_bits (per-post meta, or site default).
+	 *   2. If required_bits is 0, the content is free -- everyone can access it.
+	 *   3. If the user is NOT a network user, fall through to the anonymous meter.
+	 *   4. If the user IS a network user, check session validity and bitmask.
 	 *
 	 * @param int $post_id The post ID to check access for.
 	 * @return bool True if the user has access, false otherwise.
 	 */
 	public function check_access( int $post_id ): bool {
-		// Get the required access bits for this post.
+		// Get the required access bits for this post (per-post override or site default).
 		$required_bits = (int) get_post_meta( $post_id, 'newshare_required_bits', true );
 
-		// Fall back to the site-wide default if not set on the post.
+		// Fall back to the site-wide default if not explicitly set on the post.
 		if ( 0 === $required_bits && '' === get_post_meta( $post_id, 'newshare_required_bits', true ) ) {
 			$required_bits = (int) get_option( 'newshare_default_required_bits', 0 );
 		}
 
-		// Free content — everyone can access.
+		// Free content (required_bits == 0) -- everyone can access, no checks needed.
 		if ( 0 === $required_bits ) {
 			return true;
 		}
 
-		// If user is not logged in via the network, check anonymous meter.
+		// If user is not logged in via the network, check the anonymous article meter.
 		if ( ! $this->session->is_network_user() ) {
 			return $this->check_anonymous_meter( $post_id );
 		}
 
-		// Check session validity.
+		// For network users, verify their session hasn't expired.
 		if ( ! $this->session->is_session_valid() ) {
 			return false;
 		}
 
-		// Bitmask check: user must have ALL required bits set.
+		// Bitmask check: user must have ALL required bits set in their NetworkGroupId.
+		// Example: required=4104 (4096|8), user=4106 (4096|8|2) -> 4106 & 4104 = 4104 -> pass.
 		$user_group_id = (int) get_user_meta( get_current_user_id(), 'newshare_network_group_id', true );
 		return ( $user_group_id & $required_bits ) === $required_bits;
 	}
 
+	// =========================================================================
+	// Anonymous Article Meter
+	// =========================================================================
+
 	/**
 	 * Check the anonymous article meter.
 	 *
-	 * Non-network users get a limited number of free articles per session
-	 * (tracked via a cookie).
+	 * Non-network users get a limited number of free articles per day
+	 * (tracked via a cookie containing an array of viewed post IDs).
+	 * This is a soft gate to encourage registration without completely
+	 * blocking access.
+	 *
+	 * The meter behavior:
+	 *   - Each unique post view counts as one article.
+	 *   - Re-viewing an already-counted post does NOT decrement the meter.
+	 *   - The cookie resets after 24 hours (DAY_IN_SECONDS).
+	 *   - The limit is configurable via Settings > Newshare Network.
+	 *
+	 * Note: This uses a cookie, which is an exception to the "no cookies"
+	 * rule in the OIDC flow. The meter cookie is purely client-side state
+	 * for anonymous users and is NOT related to authentication.
 	 *
 	 * @param int $post_id The post ID being accessed.
 	 * @return bool True if still within the free meter, false if exhausted.
@@ -95,6 +167,7 @@ class Newshare_Access {
 			return false;
 		}
 
+		// Read the current meter state from the cookie.
 		$viewed = array();
 		if ( isset( $_COOKIE['newshare_meter'] ) ) {
 			$decoded = json_decode( sanitize_text_field( wp_unslash( $_COOKIE['newshare_meter'] ) ), true );
@@ -108,13 +181,13 @@ class Newshare_Access {
 			return true;
 		}
 
-		// Check if the meter is exhausted.
+		// Check if the meter is exhausted (user has viewed the max free articles).
 		if ( count( $viewed ) >= $limit ) {
 			return false;
 		}
 
 		// Record this post view in the meter cookie.
-		$viewed[] = $post_id;
+		$viewed[]     = $post_id;
 		$cookie_value = wp_json_encode( $viewed );
 		if ( ! headers_sent() ) {
 			setcookie( 'newshare_meter', $cookie_value, time() + DAY_IN_SECONDS, COOKIEPATH, COOKIE_DOMAIN, is_ssl(), true );
@@ -123,13 +196,25 @@ class Newshare_Access {
 		return true;
 	}
 
+	// =========================================================================
+	// Content Filtering (Access Gate)
+	// =========================================================================
+
 	/**
 	 * Filter post content to show access gate when the user lacks permissions.
 	 *
-	 * Hooked to `the_content`.
+	 * When a user does not have access to a post, this filter replaces the
+	 * full content with:
+	 *   1. A truncated preview (first 80 words of the article).
+	 *   2. The access gate template (login prompt or upgrade message).
+	 *
+	 * Only applies to single post views in the main query loop -- not archives,
+	 * feeds, or secondary queries.
+	 *
+	 * Hooked to: the_content
 	 *
 	 * @param string $content The post content.
-	 * @return string Filtered content, possibly with an access gate.
+	 * @return string Filtered content, possibly with an access gate replacing the body.
 	 */
 	public function filter_content( string $content ): string {
 		// Only gate single post views, not archives or feeds.
@@ -147,17 +232,24 @@ class Newshare_Access {
 			return $content;
 		}
 
-		// Build the access gate.
+		// -- User lacks access: build and display the access gate. --
+
+		// Look up the required bits for this post (needed for the tier name display).
 		$required_bits = (int) get_post_meta( $post_id, 'newshare_required_bits', true );
 		if ( 0 === $required_bits && '' === get_post_meta( $post_id, 'newshare_required_bits', true ) ) {
 			$required_bits = (int) get_option( 'newshare_default_required_bits', 0 );
 		}
 
-		// Generate a truncated preview.
+		// Generate a truncated preview of the article (first 80 words, stripped of HTML).
 		$preview = wp_trim_words( wp_strip_all_tags( $content ), 80, '&hellip;' );
 
+		// Capture the current page URL so the access gate can pass it through the OIDC flow.
+		// This ensures the user returns to this article after logging in.
+		$current_url = get_permalink( $post_id );
+
+		// Render the access gate template.
 		ob_start();
-		$tier_name      = $this->get_tier_name( $required_bits );
+		$tier_name       = $this->get_tier_name( $required_bits );
 		$is_network_user = $this->session->is_network_user();
 		include NEWSHARE_PLUGIN_DIR . 'templates/access-gate.php';
 		$gate_html = ob_get_clean();
@@ -165,22 +257,31 @@ class Newshare_Access {
 		return '<div class="newshare-preview">' . wpautop( $preview ) . '</div>' . $gate_html;
 	}
 
+	// =========================================================================
+	// Tier Name Resolution
+	// =========================================================================
+
 	/**
 	 * Map a bitmask value to a human-readable tier name.
+	 *
+	 * For single-bit values, returns the exact tier name (e.g., "Paid Subscriber").
+	 * For composite bitmasks (multiple bits set), returns a combined name
+	 * (e.g., "Digital Subscriber + Paid Subscriber").
 	 *
 	 * @param int $bits The bitmask value.
 	 * @return string Human-readable tier name.
 	 */
 	public function get_tier_name( int $bits ): string {
+		// Exact match for single-tier bitmasks.
 		if ( isset( self::TIER_NAMES[ $bits ] ) ) {
 			return self::TIER_NAMES[ $bits ];
 		}
 
-		// Build a composite name from individual bits.
+		// Build a composite name from individual bits for multi-tier requirements.
 		$names = array();
 		foreach ( self::TIER_NAMES as $bit => $name ) {
 			if ( 0 === $bit ) {
-				continue;
+				continue; // Skip "Free" -- it's the absence of bits, not a tier.
 			}
 			if ( ( $bits & $bit ) === $bit ) {
 				$names[] = $name;
@@ -190,8 +291,21 @@ class Newshare_Access {
 		return ! empty( $names ) ? implode( ' + ', $names ) : __( 'Premium', 'newshare-network' );
 	}
 
+	// =========================================================================
+	// Post Editor Meta Box
+	// =========================================================================
+
 	/**
 	 * Add the "Newshare Access Control" meta box to the post editor.
+	 *
+	 * This meta box allows editors to set per-post overrides for:
+	 *   - Required access tier (NetworkGroupId bitmask)
+	 *   - Page class (wholesale price)
+	 *   - RSL tag (content license)
+	 *
+	 * If left blank, site-wide defaults from the plugin settings are used.
+	 *
+	 * Hooked to: add_meta_boxes
 	 */
 	public function add_meta_box(): void {
 		add_meta_box(
@@ -205,7 +319,12 @@ class Newshare_Access {
 	}
 
 	/**
-	 * Render the access control meta box.
+	 * Render the access control meta box in the post editor.
+	 *
+	 * Displays three fields:
+	 *   - Required Access Tier (dropdown of known tier bitmasks)
+	 *   - Page Class (numeric input for wholesale price in dollars)
+	 *   - RSL Tag (text input for the content license string)
 	 *
 	 * @param WP_Post $post The current post object.
 	 */
@@ -272,13 +391,23 @@ class Newshare_Access {
 		<?php
 	}
 
+	// =========================================================================
+	// Meta Box Save
+	// =========================================================================
+
 	/**
-	 * Save the access control meta box data.
+	 * Save the access control meta box data when a post is saved.
+	 *
+	 * Validates the nonce, checks permissions, and saves the per-post
+	 * overrides for required_bits, page_class, and rsl_tag. If a field
+	 * is left blank, the post meta is deleted so the site default is used.
+	 *
+	 * Hooked to: save_post
 	 *
 	 * @param int $post_id The post ID being saved.
 	 */
 	public function save_meta_box( int $post_id ): void {
-		// Verify nonce.
+		// Verify nonce to ensure the save request came from our meta box form.
 		if (
 			! isset( $_POST['newshare_access_nonce'] ) ||
 			! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['newshare_access_nonce'] ) ), 'newshare_access_meta' )
@@ -286,17 +415,17 @@ class Newshare_Access {
 			return;
 		}
 
-		// Check autosave.
+		// Don't save during autosave -- only on intentional saves.
 		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
 			return;
 		}
 
-		// Check permissions.
+		// Verify the user has permission to edit this post.
 		if ( ! current_user_can( 'edit_post', $post_id ) ) {
 			return;
 		}
 
-		// Save required bits.
+		// Save required access tier bits (or delete meta if blank to use site default).
 		if ( isset( $_POST['newshare_required_bits'] ) ) {
 			$value = sanitize_text_field( wp_unslash( $_POST['newshare_required_bits'] ) );
 			if ( '' === $value ) {
@@ -306,7 +435,7 @@ class Newshare_Access {
 			}
 		}
 
-		// Save page class.
+		// Save page class / wholesale price (or delete meta if blank).
 		if ( isset( $_POST['newshare_page_class'] ) ) {
 			$value = sanitize_text_field( wp_unslash( $_POST['newshare_page_class'] ) );
 			if ( '' === $value ) {
@@ -316,7 +445,7 @@ class Newshare_Access {
 			}
 		}
 
-		// Save RSL tag.
+		// Save RSL tag / content license (or delete meta if blank).
 		if ( isset( $_POST['newshare_rsl_tag'] ) ) {
 			$value = sanitize_text_field( wp_unslash( $_POST['newshare_rsl_tag'] ) );
 			if ( '' === $value ) {

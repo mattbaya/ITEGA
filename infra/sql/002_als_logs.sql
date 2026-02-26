@@ -1,6 +1,12 @@
 -- ============================================================
 -- Migration 002: ALS Access Logs
 -- Target database: als_logs (VPS 2, TimescaleDB)
+--
+-- This table uses TimescaleDB's hypertable feature to partition
+-- access_events by timestamp. TimescaleDB must be installed as
+-- a PostgreSQL extension (the timescale/timescaledb Docker image
+-- includes it). Hypertables provide automatic partitioning and
+-- efficient time-range queries for settlement aggregation.
 -- ============================================================
 
 BEGIN;
@@ -22,7 +28,8 @@ CREATE TABLE access_events (
     page_class       NUMERIC(8,4) NOT NULL DEFAULT 0.00,
     service_class    INTEGER NOT NULL DEFAULT 0,
     markup_ratio     NUMERIC(4,2) NOT NULL DEFAULT 1.00,
-    event_type       VARCHAR(32) NOT NULL DEFAULT 'content_access',
+    event_type       VARCHAR(32) NOT NULL DEFAULT 'content_access'
+                     CHECK (event_type IN ('content_access', 'authentication', 'ad_view', 'subscription_credit', 'reward', 'logout')),
     session_id       VARCHAR(128) NOT NULL
 );
 

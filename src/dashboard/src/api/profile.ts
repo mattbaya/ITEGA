@@ -1,3 +1,22 @@
+/**
+ * profile.ts -- Demo User Profile Data for the Newshare User Dashboard
+ *
+ * Provides hardcoded demo user profile and PPID (Pairwise Pseudonymous
+ * Identifier) data that simulates what the home base API would return in
+ * production.
+ *
+ * Key concept: Each publisher gets a DIFFERENT pseudonymous identifier (PPID)
+ * for the same user. This is a core privacy feature of the Newshare Network
+ * architecture -- it makes cross-site user correlation architecturally
+ * impossible without home base cooperation. The PPID list below demonstrates
+ * this by showing five distinct PPIDs for five different publishers, all
+ * belonging to the same user.
+ *
+ * In production, profile data is fetched from the home base REST API.
+ * PII (email, display name) NEVER leaves the home base -- it is only shown
+ * in this dashboard because the dashboard is served by the home base itself.
+ */
+
 /** User profile as returned by the home base API. */
 export interface UserProfile {
   networkUserId: string;

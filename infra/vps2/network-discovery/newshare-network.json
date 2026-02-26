@@ -1,4 +1,5 @@
 {
+  "_comment": "Newshare Network federation metadata. This file describes the network topology (home bases, publishers, ALS endpoints) and is served at network.newshare.example for discovery. It is NOT the OIDC client registry — individual publisher OIDC clients are registered in Keycloak on VPS 1.",
   "network": "Newshare Network",
   "version": "1.0",
   "governed_by": "ITEGA",

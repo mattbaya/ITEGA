@@ -1,14 +1,30 @@
+/**
+ * TransactionTable.tsx -- Content Access Event Table Component
+ *
+ * Renders a responsive table of content access events showing timestamp,
+ * publisher, article title (linked), wholesale cost (pageClass), retail
+ * cost (pageClass * markupRatio), and event type badge. Used on the
+ * Transactions page to display the user's reading history across all
+ * Newshare Network publishers.
+ */
+
 import type { ContentEvent } from '../api/events';
 
 interface TransactionTableProps {
   events: ContentEvent[];
 }
 
+/**
+ * Maps spec-compliant event type enums to human-readable labels and
+ * Tailwind badge color classes for display in the transaction table.
+ */
 const EVENT_TYPE_LABELS: Record<string, { label: string; className: string }> = {
-  page_view: { label: 'View', className: 'bg-gray-100 text-gray-700' },
-  paywall_pass: { label: 'Paid', className: 'bg-green-100 text-green-700' },
-  metered_access: { label: 'Metered', className: 'bg-amber-100 text-amber-700' },
-  free_access: { label: 'Free', className: 'bg-blue-100 text-blue-700' },
+  content_access: { label: 'Content', className: 'bg-green-100 text-green-700' },
+  ad_view: { label: 'Ad View', className: 'bg-blue-100 text-blue-700' },
+  subscription_credit: { label: 'Sub Credit', className: 'bg-amber-100 text-amber-700' },
+  reward: { label: 'Reward', className: 'bg-purple-100 text-purple-700' },
+  authentication: { label: 'Auth', className: 'bg-gray-100 text-gray-700' },
+  logout: { label: 'Logout', className: 'bg-gray-100 text-gray-600' },
 };
 
 function formatTimestamp(iso: string): string {
@@ -37,7 +53,7 @@ export default function TransactionTable({ events }: TransactionTableProps) {
         </thead>
         <tbody>
           {events.map((ev) => {
-            const typeInfo = EVENT_TYPE_LABELS[ev.eventType] ?? EVENT_TYPE_LABELS.page_view;
+            const typeInfo = EVENT_TYPE_LABELS[ev.eventType] ?? EVENT_TYPE_LABELS.content_access;
             return (
               <tr
                 key={ev.eventId}

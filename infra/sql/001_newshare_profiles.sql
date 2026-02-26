@@ -1,6 +1,10 @@
 -- ============================================================
 -- Migration 001: Newshare Profiles
 -- Target database: newshare_profiles (VPS 1)
+--
+-- NOTE: SQL uses snake_case column names (e.g. network_user_id).
+-- The API layer maps these to camelCase (e.g. networkUserId) per
+-- the Newshare Network naming conventions.
 -- ============================================================
 
 BEGIN;
@@ -40,6 +44,20 @@ CREATE TABLE user_preferences (
     updated_at       TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Auto-update the updated_at column on any row change
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_user_preferences_updated_at
+    BEFORE UPDATE ON user_preferences
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
 -- ------------------------------------------------
 -- Home Base configuration
 -- Each Home Base is an OIDC-capable identity provider
@@ -49,6 +67,10 @@ CREATE TABLE home_base_config (
     id               VARCHAR(16) PRIMARY KEY,
     name             VARCHAR(255) NOT NULL,
     domain           VARCHAR(255) NOT NULL,
+    -- SECURITY: ppid_secret is used to derive pairwise pseudonymous identifiers.
+    -- In production, this column should be encrypted at rest (e.g., via
+    -- pgcrypto or application-level envelope encryption). For the pilot,
+    -- PostgreSQL disk-level encryption is sufficient.
     ppid_secret      VARCHAR(512) NOT NULL,
     default_markup   NUMERIC(4,2) DEFAULT 1.40,
     itega_cert_date  DATE,

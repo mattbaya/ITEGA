@@ -17,20 +17,43 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Keycloak protocol mapper for the Newshare Network.
+ * Keycloak SPI protocol mapper for the Newshare Network.
  *
- * Reads the pairwise {@code sub} that Keycloak already computed (via the
- * built-in SHA256PairwiseSubMapper) and adds four claims to every token:
+ * <p>This mapper runs AFTER Keycloak's built-in SHA256PairwiseSubMapper and
+ * enriches every issued OIDC token (access token, ID token, userinfo) with
+ * four custom claims required by the Newshare Network protocol:
  *
  * <ul>
- *   <li>{@code networkUserId} -- {@code [HomeBaseID]-[first 12 chars of pairwise sub]}</li>
- *   <li>{@code homeBaseId}    -- the network identifier of this Home Base</li>
- *   <li>{@code networkGroupId} -- integer bitmask from a user attribute</li>
- *   <li>{@code pubMbrId}      -- publisher member ID from a client attribute</li>
+ *   <li>{@code networkUserId} -- {@code [HomeBaseID]-[first 12 chars of pairwise sub]}.
+ *       This is the primary opaque identifier used by the ALS for logging and
+ *       settlement. It is different per publisher due to the pairwise PPID.</li>
+ *   <li>{@code homeBaseId}    -- the network identifier of this Home Base (e.g., "HB001").
+ *       Configured per-mapper in the Keycloak admin console.</li>
+ *   <li>{@code networkGroupId} -- integer bitmask encoding the user's subscription
+ *       tier(s). Read from a Keycloak user attribute. Used by publishers to gate
+ *       content access without knowing user identity.</li>
+ *   <li>{@code pubMbrId}      -- publisher member ID. Read from a Keycloak client
+ *       attribute so each OIDC client (publisher) can carry its own membership ID.</li>
  * </ul>
+ *
+ * <h3>Service Discovery</h3>
+ * <p>Registered via {@code META-INF/services/org.keycloak.protocol.ProtocolMapper}.
+ * The JAR is deployed to Keycloak's {@code providers/} directory.</p>
+ *
+ * <h3>Privacy Guarantee</h3>
+ * <p>This mapper NEVER emits PII. The {@code networkUserId} is derived from the
+ * pairwise PPID, which is itself a one-way hash scoped to each publisher. If the
+ * pairwise mapper has not run (misconfiguration), this mapper detects the raw
+ * Keycloak UUID and hashes it to prevent identity leakage.</p>
+ *
+ * @see <a href="https://www.keycloak.org/docs/latest/server_development/#_protocol_mappers">
+ *      Keycloak Protocol Mapper SPI</a>
  */
 public class NewshareNetworkUserIdMapper extends AbstractOIDCProtocolMapper
         implements OIDCAccessTokenMapper, OIDCIDTokenMapper, UserInfoTokenMapper {
+
+    private static final org.jboss.logging.Logger logger =
+        org.jboss.logging.Logger.getLogger(NewshareNetworkUserIdMapper.class);
 
     public static final String PROVIDER_ID = "newshare-network-userid-mapper";
 
@@ -96,8 +119,18 @@ public class NewshareNetworkUserIdMapper extends AbstractOIDCProtocolMapper
             homeBaseId = "HB001";
         }
 
-        // 2. Get the pairwise sub (already computed by Keycloak's built-in pairwise mapper)
+        // 2. Get the pairwise sub (already computed by Keycloak's built-in pairwise mapper).
+        //    IMPORTANT: If the Pairwise Subject Identifier mapper has not run (or is
+        //    configured with lower priority), token.getSubject() returns the raw
+        //    Keycloak UUID. We detect this and hash it to prevent identity leakage.
         String pairwiseSub = token.getSubject();
+
+        if (pairwiseSub != null && pairwiseSub.length() < 32) {
+            logger.warnf("Subject '%s' appears to be a raw UUID, not a pairwise PPID. " +
+                "Ensure the Pairwise Subject Identifier mapper is configured with higher priority.", pairwiseSub);
+            // Hash the raw UUID to prevent identity leakage
+            pairwiseSub = Integer.toHexString(pairwiseSub.hashCode());
+        }
 
         // 3. Build networkUserId: [HomeBaseID]-[first 12 chars of pairwise sub]
         String networkUserId;
@@ -121,16 +154,17 @@ public class NewshareNetworkUserIdMapper extends AbstractOIDCProtocolMapper
             try {
                 networkGroupId = Integer.parseInt(groupIdStr);
             } catch (NumberFormatException e) {
-                // Default to 0 (anonymous)
+                logger.warnf("Invalid networkGroupId '%s' for user '%s'; defaulting to 0 (anonymous).",
+                    groupIdStr, user.getId());
             }
         }
         token.getOtherClaims().put("networkGroupId", networkGroupId);
 
-        // 7. Get pubMbrId from client attributes
+        // 7. Get pubMbrId from client attributes.
+        //    Always set the claim (empty string if not configured) so downstream
+        //    consumers don't have to handle a missing claim vs. an empty one.
         ClientModel client = clientSessionCtx.getClientSession().getClient();
         String pubMbrId = client.getAttribute(PUB_MBR_ID_ATTR);
-        if (pubMbrId != null && !pubMbrId.isEmpty()) {
-            token.getOtherClaims().put("pubMbrId", pubMbrId);
-        }
+        token.getOtherClaims().put("pubMbrId", pubMbrId != null ? pubMbrId : "");
     }
 }

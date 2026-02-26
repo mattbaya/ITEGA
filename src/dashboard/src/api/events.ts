@@ -1,3 +1,24 @@
+/**
+ * events.ts -- Demo Event Data for the Newshare User Dashboard
+ *
+ * Provides hardcoded demo content-access events that simulate what the ALS
+ * Logging Service would return in production. Each event represents an article
+ * access logged by the ALS with wholesale pricing (pageClass) set by the
+ * publisher and a retail markup (markupRatio) applied by the user's home base.
+ *
+ * Event type enums follow the Newshare protocol spec:
+ *   - content_access  -- user accessed a piece of content
+ *   - ad_view         -- an ad impression was served
+ *   - subscription_credit -- credit applied from a subscription
+ *   - reward          -- reward/loyalty credit
+ *   - authentication  -- login event
+ *   - logout          -- logout event
+ *
+ * In production, events would be fetched from the ALS Logging Service
+ * (TimescaleDB) via the home base proxy, filtered by the user's
+ * networkUserId.
+ */
+
 /** A content access event logged by the ALS. */
 export interface ContentEvent {
   eventId: string;
@@ -5,15 +26,26 @@ export interface ContentEvent {
   publisherName: string;
   articleTitle: string;
   articleUrl: string;
+  /** Wholesale price set by the publisher for this page/article. */
   pageClass: number;
+  /** Retail markup ratio applied by the user's home base. */
   markupRatio: number;
-  eventType: 'page_view' | 'paywall_pass' | 'metered_access' | 'free_access';
+  /**
+   * Event type enum per the Newshare protocol spec.
+   * - content_access: user viewed/accessed content
+   * - ad_view: an ad impression was logged
+   * - subscription_credit: a subscription offset was applied
+   * - reward: a reward/loyalty credit was applied
+   * - authentication: user authenticated to the network
+   * - logout: user logged out
+   */
+  eventType: 'content_access' | 'ad_view' | 'subscription_credit' | 'reward' | 'authentication' | 'logout';
 }
 
 /**
  * Fetch content access events for the current user.
- * In production this calls the ALS logging service through a home base proxy.
- * Returns demo data for the prototype.
+ * In production this calls the ALS Logging Service through a home base proxy.
+ * Returns hardcoded demo data for the prototype.
  */
 export function getContentEvents(): ContentEvent[] {
   return [
@@ -25,7 +57,7 @@ export function getContentEvents(): ContentEvent[] {
       articleUrl: 'https://metrodailynews.com/city-council-transit-2026',
       pageClass: 0.03,
       markupRatio: 1.35,
-      eventType: 'paywall_pass',
+      eventType: 'content_access',
     },
     {
       eventId: 'ev-002',
@@ -35,7 +67,7 @@ export function getContentEvents(): ContentEvent[] {
       articleUrl: 'https://metrodailynews.com/weather-storm-feb-2026',
       pageClass: 0.01,
       markupRatio: 1.35,
-      eventType: 'free_access',
+      eventType: 'ad_view',
     },
     {
       eventId: 'ev-003',
@@ -45,7 +77,7 @@ export function getContentEvents(): ContentEvent[] {
       articleUrl: 'https://pacificherald.com/tech-q4-earnings',
       pageClass: 0.05,
       markupRatio: 1.35,
-      eventType: 'paywall_pass',
+      eventType: 'content_access',
     },
     {
       eventId: 'ev-004',
@@ -55,7 +87,7 @@ export function getContentEvents(): ContentEvent[] {
       articleUrl: 'https://nationalreview.example/fed-rates-analysis',
       pageClass: 0.08,
       markupRatio: 1.35,
-      eventType: 'paywall_pass',
+      eventType: 'content_access',
     },
     {
       eventId: 'ev-005',
@@ -65,7 +97,7 @@ export function getContentEvents(): ContentEvent[] {
       articleUrl: 'https://techwirejournal.com/open-source-ai-enterprise',
       pageClass: 0.04,
       markupRatio: 1.35,
-      eventType: 'metered_access',
+      eventType: 'subscription_credit',
     },
     {
       eventId: 'ev-006',
@@ -75,7 +107,7 @@ export function getContentEvents(): ContentEvent[] {
       articleUrl: 'https://metrodailynews.com/schools-innovation-grants',
       pageClass: 0.03,
       markupRatio: 1.35,
-      eventType: 'paywall_pass',
+      eventType: 'content_access',
     },
     {
       eventId: 'ev-007',
@@ -85,7 +117,7 @@ export function getContentEvents(): ContentEvent[] {
       articleUrl: 'https://pacificherald.com/housing-market-cooling',
       pageClass: 0.05,
       markupRatio: 1.35,
-      eventType: 'paywall_pass',
+      eventType: 'content_access',
     },
     {
       eventId: 'ev-008',
@@ -95,7 +127,7 @@ export function getContentEvents(): ContentEvent[] {
       articleUrl: 'https://coastaltimes.com/marine-sanctuary-expansion',
       pageClass: 0.02,
       markupRatio: 1.35,
-      eventType: 'metered_access',
+      eventType: 'subscription_credit',
     },
     {
       eventId: 'ev-009',
@@ -105,7 +137,7 @@ export function getContentEvents(): ContentEvent[] {
       articleUrl: 'https://nationalreview.example/digital-privacy-future',
       pageClass: 0.08,
       markupRatio: 1.35,
-      eventType: 'paywall_pass',
+      eventType: 'content_access',
     },
     {
       eventId: 'ev-010',
@@ -115,12 +147,16 @@ export function getContentEvents(): ContentEvent[] {
       articleUrl: 'https://metrodailynews.com/restaurant-week-2026',
       pageClass: 0.01,
       markupRatio: 1.35,
-      eventType: 'free_access',
+      eventType: 'ad_view',
     },
   ];
 }
 
-/** Compute the total wholesale and retail costs for a list of events. */
+/**
+ * Compute the total wholesale and retail costs for a list of events.
+ * Wholesale = sum of pageClass values (set by publishers).
+ * Retail = sum of (pageClass * markupRatio) (what the user pays through their home base).
+ */
 export function computeTotals(events: ContentEvent[]): {
   wholesaleTotal: number;
   retailTotal: number;

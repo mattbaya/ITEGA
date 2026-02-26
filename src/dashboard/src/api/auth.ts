@@ -1,8 +1,30 @@
+/**
+ * auth.ts -- Newshare Network Authentication Module
+ *
+ * Handles OIDC-based authentication for the Newshare User Dashboard.
+ * In production, the login flow works as follows:
+ *   1. The user clicks "Log in with Home Base" and is redirected to the ALS
+ *      OIDC authorization endpoint (Authorization Code Flow per OIDC 1.0).
+ *   2. The ALS authenticates the user via their home base (Keycloak IdSP).
+ *   3. The ALS redirects back with a session_token query parameter containing
+ *      a signed JWT with the user's network claims (networkUserId, homeBaseId,
+ *      networkGroupId, pubMbrId, etc.).
+ *   4. The dashboard decodes the JWT and stores the session in localStorage.
+ *
+ * When VITE_ALS_AUTH_URL is not set, a demo session is used instead so that
+ * the dashboard can be previewed without a running backend.
+ *
+ * IMPORTANT: No cookies are used. Authentication state is passed exclusively
+ * via HTTP headers and signed JWT tokens, per the Newshare protocol spec.
+ */
+
 import { decodeJwt } from 'jose';
 
+/** Base URL for the ALS authentication service. Falls back to a placeholder. */
 const ALS_AUTH_URL =
   import.meta.env.VITE_ALS_AUTH_URL ?? 'https://als.newshare.example/auth';
 
+/** localStorage key for the decoded session claims. */
 const STORAGE_KEY = 'newshare_session';
 
 /** Claims embedded in the ALS-issued session JWT. */
@@ -23,7 +45,10 @@ export interface SessionData {
  */
 export function login(): void {
   const callbackUrl = `${window.location.origin}/dashboard`;
-  const authUrl = `${ALS_AUTH_URL}/authorize?redirect_uri=${encodeURIComponent(callbackUrl)}&response_type=token`;
+  // Use Authorization Code Flow (response_type=code) per the OIDC 1.0 spec.
+  // The ALS handles the code-to-token exchange on the server side and returns
+  // the session JWT via the redirect URI's query parameters.
+  const authUrl = `${ALS_AUTH_URL}/authorize?redirect_uri=${encodeURIComponent(callbackUrl)}&response_type=code`;
   window.location.href = authUrl;
 }
 
@@ -38,6 +63,16 @@ export function handleCallback(): SessionData | null {
   if (!token) return null;
 
   try {
+    // NOTE: We use decodeJwt() (decode-only, no signature verification) here
+    // intentionally. This is acceptable for the prototype because:
+    //   1. The dashboard only uses the token claims to display user info in the
+    //      UI -- it does NOT make access-control decisions based on these claims.
+    //   2. The ALS Auth Service is the trusted token issuer; in a production
+    //      deployment, the dashboard SHOULD verify the JWT signature against
+    //      the ALS JWKS endpoint (e.g., https://als.newshare.example/auth/.well-known/jwks.json)
+    //      using jose.jwtVerify() before trusting the claims.
+    //   3. Adding JWKS verification would require an async fetch and caching of
+    //      the ALS public keys, which adds complexity beyond the pilot scope.
     const claims = decodeJwt(token) as unknown as SessionData;
     const session: SessionData = {
       networkUserId: claims.networkUserId,
