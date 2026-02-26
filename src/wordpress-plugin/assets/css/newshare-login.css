@@ -1,0 +1,145 @@
+/**
+ * Newshare Network — Login button and access gate styles.
+ *
+ * @package Newshare_Network
+ */
+
+/* ---------------------------------------------------------------------------
+ * Network Login Button
+ * Used on the WP login form and in content access gates.
+ * --------------------------------------------------------------------------- */
+
+.newshare-login-wrapper {
+	margin: 20px 0 10px;
+	text-align: center;
+}
+
+.newshare-login-separator {
+	display: flex;
+	align-items: center;
+	margin: 15px 0;
+	color: #888;
+	font-size: 13px;
+}
+
+.newshare-login-separator::before,
+.newshare-login-separator::after {
+	content: "";
+	flex: 1;
+	height: 1px;
+	background: #ddd;
+}
+
+.newshare-login-separator::before {
+	margin-right: 12px;
+}
+
+.newshare-login-separator::after {
+	margin-left: 12px;
+}
+
+.newshare-login-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	width: 100%;
+	max-width: 320px;
+	padding: 10px 20px;
+	border: none;
+	border-radius: 4px;
+	background: linear-gradient(135deg, #0077b6, #00a896);
+	color: #fff;
+	font-size: 14px;
+	font-weight: 600;
+	line-height: 1.4;
+	cursor: pointer;
+	text-decoration: none;
+	transition: opacity 0.2s ease, box-shadow 0.2s ease;
+}
+
+.newshare-login-btn:hover,
+.newshare-login-btn:focus {
+	opacity: 0.9;
+	box-shadow: 0 2px 8px rgba(0, 119, 182, 0.35);
+	color: #fff;
+	text-decoration: none;
+}
+
+.newshare-login-btn:active {
+	opacity: 0.8;
+}
+
+.newshare-login-btn .newshare-icon {
+	display: inline-block;
+	width: 18px;
+	height: 18px;
+	flex-shrink: 0;
+}
+
+.newshare-login-btn .newshare-icon svg {
+	fill: currentColor;
+	width: 100%;
+	height: 100%;
+}
+
+/* ---------------------------------------------------------------------------
+ * Access Gate
+ * Shown when content is behind a tier wall.
+ * --------------------------------------------------------------------------- */
+
+.newshare-access-gate {
+	margin: 30px 0;
+	padding: 30px;
+	border: 1px solid #ddd;
+	border-radius: 6px;
+	background: #fafafa;
+	text-align: center;
+}
+
+.newshare-access-gate h3 {
+	margin: 0 0 12px;
+	font-size: 20px;
+	color: #333;
+}
+
+.newshare-access-gate p {
+	margin: 0 0 20px;
+	color: #555;
+	font-size: 15px;
+	line-height: 1.6;
+}
+
+.newshare-access-gate .newshare-login-btn {
+	max-width: 280px;
+}
+
+/* Content preview fade-out effect. */
+.newshare-preview {
+	position: relative;
+}
+
+.newshare-preview::after {
+	content: "";
+	display: block;
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	height: 80px;
+	background: linear-gradient(to bottom, rgba(255, 255, 255, 0), rgba(255, 255, 255, 1));
+	pointer-events: none;
+}
+
+/* ---------------------------------------------------------------------------
+ * Login page overrides
+ * Ensure the button integrates well with the WP login form.
+ * --------------------------------------------------------------------------- */
+
+.login .newshare-login-wrapper {
+	margin-top: 16px;
+}
+
+.login .newshare-login-btn {
+	max-width: 100%;
+}

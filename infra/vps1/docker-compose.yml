@@ -1,0 +1,58 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: newshare-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: keycloak
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - newshare
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.1
+    container_name: newshare-keycloak
+    command: start
+    restart: unless-stopped
+    environment:
+      JAVA_OPTS_APPEND: "-Xms256m -Xmx768m"
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: ${KC_DB_PASSWORD}
+      KC_HOSTNAME: auth.newshare.example
+      KC_PROXY_HEADERS: xforwarded
+      KC_HTTP_ENABLED: "true"
+      KC_HEALTH_ENABLED: "true"
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - ./providers:/opt/keycloak/providers
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - newshare
+
+volumes:
+  pgdata:
+    driver: local
+
+networks:
+  newshare:
+    driver: bridge

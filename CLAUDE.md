@@ -53,19 +53,57 @@ ITEGA/
 │   ├── 05-publisher-wordpress-plugin.md
 │   ├── 06-network-discovery-service.md
 │   └── 07-user-dashboard.md
+├── src/
+│   ├── keycloak-spi/           ← Custom Keycloak protocol mapper (Java)
+│   ├── als-auth/               ← ALS Auth Service (Python/FastAPI)
+│   ├── als-logging/            ← ALS Logging Service (Python/FastAPI)
+│   ├── als-settlement/         ← Settlement batch script (Python)
+│   ├── wordpress-plugin/       ← newshare-network WordPress plugin (PHP)
+│   └── dashboard/              ← User Dashboard (React/TypeScript/Vite)
+├── infra/
+│   ├── vps1/                   ← Docker Compose + Nginx for Home Base VPS
+│   ├── vps2/                   ← Docker Compose + Nginx for ALS VPS
+│   └── sql/                    ← Database migration scripts
 └── research/
 ```
 
+## Prototype Architecture
+
+The prototype runs on **two DigitalOcean 4GB droplets** (~$49/mo total):
+
+- **VPS 1** (`auth.newshare.example`): Keycloak 26.x + PostgreSQL 16 — Home Base IdSP
+- **VPS 2** (`als.newshare.example`): FastAPI services + TimescaleDB + React dashboard + Nginx
+
+WordPress plugin installs on Matt's existing 4+ WordPress sites (no additional servers).
+Settlement is **simulated only** — reports generated, no real money moves.
+
 ## Technology Stack (for code)
 
-When building components, use these technologies per the spec:
-- **Home Base IdSP:** Keycloak or Authentik + PostgreSQL 16 + Redis 7
-- **ALS Auth:** Python (FastAPI) or Node.js (Fastify) sidecar to Keycloak
-- **ALS Logging:** TimescaleDB (PostgreSQL extension) + async Python/Node daemon
-- **ALS Settlement:** Python batch script + Stripe Connect API
-- **Publisher Plugin:** WordPress plugin (PHP 8.1+) with OIDC RP
-- **User Dashboard:** React 19 + TypeScript + Vite + Tailwind CSS
+When building components, use these technologies:
+- **Home Base IdSP:** Keycloak 26.x (Quarkus) + PostgreSQL 16. JVM tuned to `-Xms256m -Xmx768m` for 4GB VPS.
+- **Keycloak SPI:** Custom Java protocol mapper (~120 lines) for `networkUserId` claim format. Extends `AbstractOIDCProtocolMapper`.
+- **ALS Auth:** Python 3.12 + FastAPI. Issues its own `sessionToken` (RS256-signed JWT). Routes auth through Keycloak.
+- **ALS Logging:** Python 3.12 + FastAPI. Writes to TimescaleDB `access_events` hypertable. Append-only.
+- **ALS Settlement:** Python 3.12 batch script. Runs via weekly cron. Queries TimescaleDB, generates CSV/JSON reports.
+- **Publisher Plugin:** WordPress plugin (PHP 8.1+) with OIDC RP flow through ALS (not directly to Keycloak).
+- **User Dashboard:** React 19 + TypeScript + Vite + Tailwind CSS 4.
 - **Content Tagging:** JSON-LD in HTML (`<script type="application/ld+json">`)
+- **Infrastructure:** Docker Compose, Nginx with Let's Encrypt TLS, Cloudflare DNS.
+
+## Key API Contracts
+
+ALS Auth Service endpoints:
+- `GET /auth/authorize` — initiates OIDC flow, redirects to home base
+- `GET /auth/callback` — handles OIDC callback, issues sessionToken
+- `POST /auth/validate` — validates ALS-issued sessionTokens
+- `GET /auth/home-bases` — lists certified home bases
+
+ALS Logging Service endpoints:
+- `POST /log/event` — ingests access events (fire-and-forget from publishers)
+- `GET /log/report/home-base/{id}` — full clickstream for a home base
+- `GET /log/report/publisher/{id}` — aggregated totals only for a publisher
+
+sessionToken JWT claims: `iss`, `sub`, `aud`, `exp`, `iat`, `networkUserId`, `homeBaseId`, `networkGroupId`, `pubMbrId`, `sessionId`
 
 ## Naming Conventions
 

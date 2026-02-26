@@ -559,6 +559,73 @@ Phase 2 (broader rollout + UDEX): ~$2M over 3 years. Not part of this request.
 
 ---
 
+## Prototype: Low-Cost Demo ($49/month)
+
+In addition to the full Missouri Pilot architecture, this repository contains a **working prototype** designed to demonstrate the complete flow on two cheap VPS instances.
+
+### Prototype Architecture
+
+```
+VPS 1: Home Base IdSP ($24/mo)       VPS 2: ALS Services ($24/mo)
+auth.newshare.example                 als.newshare.example
+┌────────────────────────┐            ┌───────────────────────────────┐
+│ Keycloak 26.x          │            │ FastAPI: ALS Auth Service     │
+│  - OIDC Provider       │◄──────────│  - Token validation           │
+│  - Built-in PPID       │            │  - Home-site routing          │
+│  - Custom SPI mapper   │            │  - Session token issuance     │
+│                        │            │                               │
+│ PostgreSQL 16          │            │ FastAPI: ALS Logging Service  │
+│  - User profiles       │            │  - Event ingestion            │
+│  - PPID mappings       │            │  - Usage reports              │
+└────────────────────────┘            │                               │
+                                      │ PostgreSQL 16 + TimescaleDB   │
+                                      │ Python: Settlement (cron)     │
+                                      │ React: User Dashboard         │
+                                      │ Nginx: Reverse proxy + TLS    │
+                                      └───────────────────────────────┘
+                                                    │
+           ┌────────────────┬───────────────────────┼────────────────┐
+           ▼                ▼                        ▼                ▼
+  ┌──────────────┐ ┌──────────────┐       ┌──────────────┐ ┌──────────────┐
+  │ WP Site 1    │ │ WP Site 2    │       │ WP Site 3    │ │ WP Site 4    │
+  │ + Plugin     │ │ + Plugin     │       │ + Plugin     │ │ + Plugin     │
+  └──────────────┘ └──────────────┘       └──────────────┘ └──────────────┘
+           Existing WordPress sites with Newshare plugin
+```
+
+### Key Decisions
+
+- **Keycloak** (not Authentik) — ships with built-in `SHA256PairwiseSubMapper` for PPID. A ~120-line custom Java SPI plugin reformats the pairwise `sub` into Newshare's `[HomeBaseID]-[hash]` format.
+- **FastAPI** for all ALS backend services — lightweight, async, same language as settlement.
+- **Simulated settlement** — generates reports showing what would be debited/credited, no real money moves.
+- **Two VPS** instead of one — Keycloak idles at 400-500MB; separating it from TimescaleDB keeps both under 4GB comfortably.
+
+### Running the Prototype Demo
+
+1. Register a test user at `https://auth.newshare.example/realms/newshare/account`
+2. Set their `networkGroupId` to `4104` (Paid + Print) in Keycloak Admin
+3. Visit a gated article on any WordPress site with the plugin installed
+4. Click "Log in with your news network account"
+5. Authenticate through ALS → Keycloak → back to publisher with sessionToken
+6. Content is served; event is logged to TimescaleDB
+7. Visit a second publisher site — verify a **different** `networkUserId` (PPID isolation)
+8. Run `python settle.py` to generate settlement reports
+
+### What's Simulated vs. Real
+
+| Component | Real | Simulated |
+|-----------|------|-----------|
+| User registration and authentication | Real (Keycloak OIDC) | — |
+| PPID generation (different ID per publisher) | Real (Keycloak built-in) | — |
+| NetworkGroupId bitmask access control | Real (WordPress plugin) | — |
+| Content access event logging | Real (TimescaleDB) | — |
+| RSL content tagging (JSON-LD) | Real (WordPress plugin) | — |
+| Settlement (debits, credits, ITEGA fee) | — | Reports only, no ACH |
+| ACH bank transfers | — | Not implemented |
+| MFA / Passkeys | — | Password auth only (Keycloak supports TOTP, can enable later) |
+
+---
+
 ## Project Structure
 
 ```
@@ -580,6 +647,17 @@ ITEGA/
 │   ├── 05-publisher-wordpress-plugin.md
 │   ├── 06-network-discovery-service.md
 │   └── 07-user-dashboard.md
+├── src/                               ← Prototype source code
+│   ├── keycloak-spi/                  ← Custom Keycloak protocol mapper (Java)
+│   ├── als-auth/                      ← ALS Auth Service (Python/FastAPI)
+│   ├── als-logging/                   ← ALS Logging Service (Python/FastAPI)
+│   ├── als-settlement/                ← Settlement batch script (Python)
+│   ├── wordpress-plugin/              ← newshare-network WordPress plugin (PHP)
+│   └── dashboard/                     ← User Dashboard (React/TypeScript)
+├── infra/                             ← Deployment infrastructure
+│   ├── vps1/                          ← Docker Compose + Nginx for Home Base VPS
+│   ├── vps2/                          ← Docker Compose + Nginx for ALS VPS
+│   └── sql/                           ← Database migration scripts
 └── research/                          ← Research notes and analysis
 ```
 

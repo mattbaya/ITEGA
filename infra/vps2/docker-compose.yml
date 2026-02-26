@@ -1,0 +1,75 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: timescale/timescaledb:latest-pg16
+    container_name: als-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: als
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: als_logs
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U als"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - als
+
+  als-auth:
+    build:
+      context: ../../src/als-auth/
+      dockerfile: Dockerfile
+    container_name: als-auth
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+asyncpg://als:${POSTGRES_PASSWORD}@postgres:5432/als_logs
+      KEYCLOAK_URL: ${KEYCLOAK_URL}
+      JWT_PRIVATE_KEY_FILE: /run/secrets/jwt_private_key
+      JWT_PUBLIC_KEY_FILE: /run/secrets/jwt_public_key
+    ports:
+      - "127.0.0.1:8000:8000"
+    secrets:
+      - jwt_private_key
+      - jwt_public_key
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - als
+
+  als-logging:
+    build:
+      context: ../../src/als-logging/
+      dockerfile: Dockerfile
+    container_name: als-logging
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+asyncpg://als:${POSTGRES_PASSWORD}@postgres:5432/als_logs
+    ports:
+      - "127.0.0.1:8001:8001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - als
+
+secrets:
+  jwt_private_key:
+    file: ${JWT_PRIVATE_KEY_PATH:-./secrets/jwt_private.pem}
+  jwt_public_key:
+    file: ${JWT_PUBLIC_KEY_PATH:-./secrets/jwt_public.pem}
+
+volumes:
+  pgdata:
+    driver: local
+
+networks:
+  als:
+    driver: bridge
