@@ -43,6 +43,8 @@ ITEGA/
 ├── CLAUDE.md                   ← You are here
 ├── README.md                   ← Verbose project overview with examples
 ├── docs/
+│   ├── peer-review-synthesis.md ← Synthesis of Drummond Reed + Don Marti feedback
+│   ├── response-to-bill.md     ← Summary for Bill Densmore
 │   └── source-pdfs/            ← Original documents from Bill Densmore
 ├── plans/
 │   ├── 00-system-architecture-overview.md
@@ -150,6 +152,8 @@ sessionToken JWT claims: `iss`, `sub`, `aud`, `exp`, `iat`, `networkUserId`, `ho
 - **Richard Lerner** — Clickshare CEO, co-inventor, lead architect (Carnegie Mellon PhD)
 - **Sho Rust** — PubGen.AI CEO, technical operator for Missouri pilot
 - **Matt Baya** — Project participant / reviewer
+- **Drummond Reed** — Decentralized identity pioneer, Chief Trust Officer at Evernym, peer reviewer. Recommends VTN/DID evolution path.
+- **Don Marti** — Longtime ITEGA advisor, open source/web standards expert, peer reviewer. Recommends simplifying to minimum demo-able version.
 
 ## Important Constraints
 
@@ -159,6 +163,18 @@ sessionToken JWT claims: `iss`, `sub`, `aud`, `exp`, `iat`, `networkUserId`, `ho
 - The pilot is a **proof-of-concept**, not a scale deployment
 - Success = **50+ real users** complete cross-publisher authentication
 - Phase 2 (UDEX — User Data Exchange) is explicitly deferred; do not build it now
+
+## Evolution Path: Decentralized Identity
+
+The current OIDC-based architecture is a pragmatic starting point. Peer review (Drummond Reed, Feb 2026)
+identified a future migration path to **Verifiable Trust Networks (VTNs)** based on W3C DIDs, Verifiable
+Credentials, and Trust Over IP (ToIP) standards. Key points:
+
+- The four-party model maps one-to-one onto ToIP's VTN concept (ITEGA → VTN Governance, Home Base → Credential Issuer, Publisher → Verifier, ALS → Trust Registry)
+- Current architecture already includes bridge decisions: PPID, no central DB, W3C VCs in protocol stack, no cookies, JWT tokens (same format as JWT-VC)
+- Phase 1 = OIDC pilot (ship now). Phase 2+ = migrate to DID/VC as ecosystem matures.
+- See `docs/peer-review-synthesis.md` for full analysis and migration roadmap.
+- The **First Person Cooperative** and **Content Authenticity Initiative** (Adobe/C2PA) are potential partners for a media-industry VTN.
 
 ## Source Documents
 

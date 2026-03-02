@@ -29,6 +29,8 @@ Governed by the [Information Trust Exchange Governing Association (ITEGA)](https
 - [History and Lineage](#history-and-lineage)
 - [Key People](#key-people)
 - [Source Documents](#source-documents)
+- [Peer Review Feedback](#peer-review-feedback)
+- [Evolution Path: From OIDC to Verifiable Trust Networks](#evolution-path-from-oidc-to-verifiable-trust-networks)
 - [Bill Densmore's 7 Peer Review Questions](#bill-densmores-7-peer-review-questions)
 
 ---
@@ -757,6 +759,54 @@ The definitive technical reference is the **Newshare Network Technical Architect
 The **funder brief** is a 9-page non-technical summary of the above, written for foundation and academic partners. It requests $400,000 over 18 months.
 
 The **chat transcript** is a 20+ page record of Bill Densmore's February 21-22, 2026 conversation with Claude Sonnet 4.6, which produced the tech spec and funder brief. It provides additional context on design decisions.
+
+---
+
+## Peer Review Feedback
+
+In February–March 2026, the Newshare Network technical documents were reviewed by two expert advisors:
+
+### Drummond Reed — Decentralized Identity Pioneer
+
+**Drummond Reed** (Chief Trust Officer, Evernym; co-author, Respect Trust Framework) reviewed the architecture and recommended ITEGA consider becoming a **Verifiable Trust Network (VTN)** using decentralized digital identity standards (DIDs, Verifiable Credentials, Trust Over IP). He argues that OIDC-based federated identity is being superseded by wallet-based decentralized identity, driven by AI agent interoperability needs. He specifically suggested partnering with the **First Person Cooperative**, which is building VTNs across multiple sectors and plans to approach Adobe's **Content Authenticity Initiative** about a media-industry VTN.
+
+Key point: *"With this new infrastructure, you could realize your vision of an international news network in which any reader would have frictionless authenticated access and integrated micropayments."*
+
+### Don Marti — ITEGA Advisor, Open Source/Web Standards
+
+**Don Marti** (longtime ITEGA advisor) recommended simplifying to the **minimum demo-able version** using tools already present on publisher sites. He warned that independent publishers have "extremely brittle tech stacks" and suggested considering advertiser funding to motivate publisher participation.
+
+Key point: *"It should be possible to simplify and work out from one page of an understandable project to get a very basic demo going."*
+
+### Recommended Path
+
+Both perspectives are complementary. The recommended strategy is **dual-track:**
+
+1. **Ship the OIDC pilot now** — follow Don's advice and demonstrate the minimum viable cross-publisher authentication with real Missouri newspapers
+2. **Plan the VTN evolution** — follow Drummond's advice and engage with the First Person Cooperative about a future migration to decentralized identity
+
+The current architecture already incorporates several decentralized principles (PPID, no central identity database, W3C Verifiable Credentials in protocol stack, no cookies) that make this migration feasible.
+
+See [`docs/peer-review-synthesis.md`](docs/peer-review-synthesis.md) for the full analysis.
+
+---
+
+## Evolution Path: From OIDC to Verifiable Trust Networks
+
+The Newshare four-party model maps nearly one-to-one onto the Trust Over IP (ToIP) Verifiable Trust Network concept:
+
+| Newshare Role | VTN Equivalent |
+|--------------|---------------|
+| ITEGA (Governing Authority) | VTN Governance Authority |
+| Home Base (IdSP) | Credential Issuer / Wallet Provider |
+| Publisher (Content Provider) | Verifier / Relying Party |
+| ALS (Auth/Logging/Settlement) | Trust Registry + Verification Service |
+| End User (Reader) | Holder (of Verifiable Credentials) |
+
+**Phase 1 (now):** OIDC-based pilot proves the business model and governance with real publishers and users.
+**Phase 2+:** Migrate to DID/VC-based authentication as the ecosystem matures, preserving the four-party model and all business logic.
+
+Key standards to watch: W3C DIDs, W3C Verifiable Credentials, Trust Over IP Foundation, First Person Cooperative, Content Authenticity Initiative (C2PA).
 
 ---
 
