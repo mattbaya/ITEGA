@@ -332,10 +332,12 @@ async def report_publisher(
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             """
+            -- markup_ratio is deliberately excluded.  page_class alone is
+            -- the wholesale price the publisher is owed; the home base's
+            -- retail markup is its own margin and is not disclosed here.
             SELECT home_base_id,
-                   COUNT(*)::int                     AS total_events,
-                   COALESCE(SUM(page_class), 0)      AS total_page_class,
-                   COALESCE(SUM(page_class * markup_ratio), 0) AS total_wholesale
+                   COUNT(*)::int                 AS total_events,
+                   COALESCE(SUM(page_class), 0)  AS total_wholesale
               FROM access_events
              WHERE pub_mbr_id = $1
                AND timestamp >= $2
@@ -352,7 +354,6 @@ async def report_publisher(
         PublisherAggregate(
             home_base_id=r["home_base_id"],
             total_events=r["total_events"],
-            total_page_class=float(r["total_page_class"]),
             total_wholesale=float(r["total_wholesale"]),
         )
         for r in rows

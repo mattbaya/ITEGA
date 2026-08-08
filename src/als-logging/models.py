@@ -60,8 +60,9 @@ class AccessEvent(BaseModel):
     pageClass: float = Field(default=0.0, ge=0.0)
     # Service classification code (reserved for future use).
     serviceClass: int = Field(default=0, ge=0)
-    # Retail markup ratio set by the home base.  The wholesale value of
-    # an event is: pageClass * markupRatio.
+    # Retail markup ratio applied by the home base when billing its own
+    # user.  Retail price = pageClass * markupRatio; the wholesale value
+    # settled between the parties is pageClass alone.
     markupRatio: float = Field(default=1.0, ge=0.0)
     # Event type — one of the following:
     #   - "content_access"       — user viewed a protected content page
@@ -133,14 +134,15 @@ class PublisherAggregate(BaseModel):
     """
     Aggregated totals for a single home base within a publisher report.
 
-    ``total_wholesale`` = SUM(page_class * markup_ratio) for all
-    content_access events from this home base.
+    ``total_wholesale`` = SUM(page_class): the price this publisher asked
+    and is owed.  The home base's ``markup_ratio`` is deliberately not
+    represented here — the retail price it charges its own users is its
+    margin, and the Rights Owner is not entitled to see it.
     """
 
     home_base_id: str           # Which home base the aggregate covers
     total_events: int           # Number of events from this home base
-    total_page_class: float     # Sum of page_class values
-    total_wholesale: float      # Sum of (page_class * markup_ratio)
+    total_wholesale: float      # Sum of page_class (wholesale owed)
 
 
 class PublisherReport(BaseModel):

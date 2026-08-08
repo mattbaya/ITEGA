@@ -11,12 +11,21 @@ Wholesale-retail pricing model
 ------------------------------
 Each content-access event has two pricing components:
 
-  1. **pageClass** -- a wholesale price tier set by the publisher when
-     tagging content (e.g. 0.01 for a free article, 0.50 for premium).
-  2. **markupRatio** -- a retail multiplier set by the home base, reflecting
-     the subscription plan the user has chosen.
+  1. **pageClass** -- the wholesale price set by the publisher (the Rights
+     Owner) when tagging content (e.g. 0.01 for a free article, 0.50 for
+     premium).  This is what the publisher is owed.
+  2. **markupRatio** -- a retail multiplier applied by the home base (the
+     Retail Agent) when it bills its own End User.
 
-The **wholesale value** of an event is: ``pageClass * markupRatio``.
+    wholesale value = pageClass                  <- settled through the ALS
+    retail price    = pageClass * markupRatio    <- home base bills its user
+
+**Only the wholesale value is settled here.**  The markup is the home base's
+margin for bringing the reader to the publisher, and it is the home base's
+own business: it never reaches the publisher, and it is deliberately not
+disclosed to them.  Per the network's pricing rules a Rights Owner asking
+$0.10 receives $0.10 at settlement, whether the Retail Agent charged its
+user $0.10, $0.11, or bundled the article into a flat-rate subscription.
 
 Money flow
 ----------
@@ -242,7 +251,9 @@ def fetch_aggregates(
     Query the access_events table and return home-base debits and
     publisher credits as lists of dicts.
 
-    Wholesale value = SUM(page_class * markup_ratio).
+    Wholesale value = SUM(page_class) -- the price the publisher asked.
+    The home base's markup is excluded: it is the home base's margin, not
+    part of what moves between the two parties at settlement.
 
     Both queries run within the same REPEATABLE READ transaction to
     guarantee consistent aggregates.
@@ -253,8 +264,8 @@ def fetch_aggregates(
         cur.execute(
             """
             SELECT home_base_id,
-                   COUNT(*)::int                          AS total_events,
-                   COALESCE(SUM(page_class * markup_ratio), 0) AS total_wholesale
+                   COUNT(*)::int                 AS total_events,
+                   COALESCE(SUM(page_class), 0)  AS total_wholesale
               FROM access_events
              WHERE timestamp >= %s
                AND timestamp <  %s
@@ -273,8 +284,8 @@ def fetch_aggregates(
         cur.execute(
             """
             SELECT pub_mbr_id,
-                   COUNT(*)::int                          AS total_events,
-                   COALESCE(SUM(page_class * markup_ratio), 0) AS total_wholesale
+                   COUNT(*)::int                 AS total_events,
+                   COALESCE(SUM(page_class), 0)  AS total_wholesale
               FROM access_events
              WHERE timestamp >= %s
                AND timestamp <  %s
@@ -519,11 +530,17 @@ def generate_reports(
                 "service_class",
                 "markup_ratio",
                 "wholesale",
+                "retail",
                 "event_type",
                 "session_id",
             ])
             for e in events:
-                wholesale = dec(e["page_class"]) * dec(e["markup_ratio"])
+                # Wholesale is what this home base owes the publisher.
+                # Retail is what it may charge its own user -- shown here
+                # because this report goes to the home base itself, which
+                # needs both figures to reconcile its own billing.
+                wholesale = dec(e["page_class"])
+                retail = wholesale * dec(e["markup_ratio"])
                 writer.writerow([
                     e["timestamp"].isoformat(),
                     e["network_user_id"],
@@ -533,6 +550,7 @@ def generate_reports(
                     e["service_class"],
                     e["markup_ratio"],
                     str(wholesale),
+                    str(retail),
                     e["event_type"],
                     e["session_id"],
                 ])
@@ -547,10 +565,12 @@ def generate_reports(
         with logs_conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
                 """
+                -- markup_ratio is deliberately absent: this report goes to
+                -- the publisher, and the Retail Agent's markup is not the
+                -- Rights Owner's business to see.
                 SELECT home_base_id,
-                       COUNT(*)::int                          AS total_events,
-                       COALESCE(SUM(page_class), 0)           AS total_page_class,
-                       COALESCE(SUM(page_class * markup_ratio), 0) AS total_wholesale
+                       COUNT(*)::int                 AS total_events,
+                       COALESCE(SUM(page_class), 0)  AS total_wholesale
                   FROM access_events
                  WHERE pub_mbr_id = %s
                    AND timestamp >= %s
@@ -568,7 +588,6 @@ def generate_reports(
             writer.writerow([
                 "home_base_id",
                 "total_events",
-                "total_page_class",
                 "total_wholesale",
                 "itega_fee",
                 "amount_earned",
@@ -581,7 +600,6 @@ def generate_reports(
                 writer.writerow([
                     a["home_base_id"],
                     a["total_events"],
-                    a["total_page_class"],
                     str(ws),
                     str(fee),
                     str(ws - fee),
