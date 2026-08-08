@@ -121,6 +121,12 @@ class Newshare_Logger {
 			'eventType'     => 'content_access',                           // Event type enum (content_access | ad_view | subscription_credit | reward).
 			'sessionId'     => $claims['newshare_session_id'] ?? '',       // Opaque session reference.
 			'timestamp'     => gmdate( 'c' ),                              // ISO 8601 timestamp in UTC.
+			// Identifies this record as the content site's own. The reader's
+			// home base files a separate record for the same purchase so the
+			// two can be audited against each other; settlement aggregates
+			// this side, so the distinction must be explicit or every sale
+			// would be counted twice.
+			'reporter'      => 'cms',
 		);
 
 		/**

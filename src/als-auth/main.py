@@ -659,6 +659,10 @@ async def callback(
             "markupRatio": 0.0,
             "eventType": "authentication",
             "sessionId": session_id,
+            # The ALS files authentication events itself. They carry no price
+            # and are excluded from settlement, but the filer is recorded for
+            # consistency with the content-access records.
+            "reporter": "als",
         }
     )
 

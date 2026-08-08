@@ -270,6 +270,9 @@ def fetch_aggregates(
              WHERE timestamp >= %s
                AND timestamp <  %s
                AND event_type = 'content_access'
+               -- Publisher and agent each file a record for the same
+               -- purchase; count one side or every sale doubles.
+               AND reporter = 'cms'
              GROUP BY home_base_id
              ORDER BY home_base_id
             """,
@@ -290,6 +293,9 @@ def fetch_aggregates(
              WHERE timestamp >= %s
                AND timestamp <  %s
                AND event_type = 'content_access'
+               -- Publisher and agent each file a record for the same
+               -- purchase; count one side or every sale doubles.
+               AND reporter = 'cms'
              GROUP BY pub_mbr_id
              ORDER BY pub_mbr_id
             """,
@@ -513,6 +519,10 @@ def generate_reports(
                    AND timestamp >= %s
                    AND timestamp <  %s
                    AND event_type = 'content_access'
+                   AND reporter = 'cms'
+               -- Publisher and agent each file a record for the same
+               -- purchase; count one side or every sale doubles.
+               AND reporter = 'cms'
                  ORDER BY timestamp
                 """,
                 (hb_id, period_start, period_end),
@@ -576,6 +586,10 @@ def generate_reports(
                    AND timestamp >= %s
                    AND timestamp <  %s
                    AND event_type = 'content_access'
+                   AND reporter = 'cms'
+               -- Publisher and agent each file a record for the same
+               -- purchase; count one side or every sale doubles.
+               AND reporter = 'cms'
                  GROUP BY home_base_id
                  ORDER BY home_base_id
                 """,

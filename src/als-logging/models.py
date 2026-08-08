@@ -80,6 +80,18 @@ class AccessEvent(BaseModel):
     )
     # Unique session identifier correlating this event to an auth session.
     sessionId: str = Field(default="", max_length=128)
+    # Which party filed this record:
+    #   "cms" -- the content publisher's ITEGA client code
+    #   "asp" -- the reader's home base, acting as their Retail Agent
+    #   "als" -- the ALS itself (authentication and logout events)
+    #
+    # The pricing rules require the publisher and the agent to report each
+    # purchase independently so the two records can be audited against each
+    # other. That makes duplicate rows for one purchase EXPECTED, so settlement
+    # must aggregate exactly one side -- see the reporter filter in settle.py.
+    # Without this field the two reports are indistinguishable and every
+    # negotiated purchase would be counted twice.
+    reporter: str = Field(default="cms", max_length=8)
 
 
 # ── Report: individual event record ──────────────────────────────────

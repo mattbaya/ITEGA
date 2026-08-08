@@ -118,9 +118,16 @@ async def lifespan(app: FastAPI):
                     service_class   INTEGER         NOT NULL DEFAULT 0,
                     markup_ratio    NUMERIC(4,2)   NOT NULL DEFAULT 1.0,
                     event_type      VARCHAR(32)     NOT NULL,
-                    session_id      VARCHAR(128)    NOT NULL DEFAULT ''
+                    session_id      VARCHAR(128)    NOT NULL DEFAULT '',
+                    reporter        VARCHAR(8)      NOT NULL DEFAULT 'cms'
                 );
             """)
+            # Added after the table shipped, so bring existing deployments
+            # forward rather than requiring a manual migration.
+            await conn.execute(
+                "ALTER TABLE access_events "
+                "ADD COLUMN IF NOT EXISTS reporter VARCHAR(8) NOT NULL DEFAULT 'cms';"
+            )
             # Attempt to create a TimescaleDB hypertable.  If TimescaleDB
             # is not installed the extension call will fail gracefully.
             try:
@@ -218,8 +225,8 @@ async def log_event(
             INSERT INTO access_events (
                 timestamp, network_user_id, home_base_id, pub_mbr_id,
                 resource_id, page_class, service_class, markup_ratio,
-                event_type, session_id
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                event_type, session_id, reporter
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
             """,
             now,
             event.networkUserId,
@@ -231,11 +238,13 @@ async def log_event(
             event.markupRatio,
             event.eventType,
             event.sessionId,
+            event.reporter,
         )
 
     logger.info(
-        "Logged %s event: user=%s pub=%s",
+        "Logged %s event from %s: user=%s pub=%s",
         event.eventType,
+        event.reporter,
         event.networkUserId[:12] + "…",
         event.pubMbrId,
     )

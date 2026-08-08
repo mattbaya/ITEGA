@@ -188,6 +188,10 @@ async def _log_agent_report(
         "markupRatio": markup,
         "eventType": "content_access",
         "sessionId": req.sessionId,
+        # Mark this as the agent's own record. The publisher files its own for
+        # the same purchase; settlement counts the publisher's side and uses
+        # this one to audit against, so the two must be distinguishable.
+        "reporter": "asp",
     }
     url = f"{settings.logging_service_url}/log/event"
     headers = {"X-API-Key": settings.logging_api_key}
