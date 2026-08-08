@@ -12,6 +12,7 @@
       "auth_url": "https://auth.newshare.example/realms/publisher-c/protocol/openid-connect/auth",
       "certification_status": "active",
       "certification_tier": "idsp",
+      "agent_url": "https://agent.publisher-c.example",
       "signup_url": "https://auth.newshare.example/realms/publisher-c/protocol/openid-connect/registrations",
       "ip_hints": []
     },
@@ -24,6 +25,7 @@
       "auth_url": "https://auth.newshare.example/realms/newshare/protocol/openid-connect/auth",
       "certification_status": "active",
       "certification_tier": "idsp",
+      "agent_url": "https://agent.newshare.example",
       "signup_url": "https://auth.newshare.example/realms/newshare/protocol/openid-connect/registrations",
       "ip_hints": []
     }

@@ -1,0 +1,42 @@
+"""
+Retail Agent (ASP) — configuration via environment variables.
+
+Represents the ITEGA client code a home base runs to buy content on behalf of
+its readers. See plans/01-home-base-idsp-server.md (billing and retail markup)
+and the wholesale-retail pricing section of the demo script.
+"""
+
+from __future__ import annotations
+
+from pydantic_settings import BaseSettings
+
+
+class Settings(BaseSettings):
+    """Application settings populated from environment variables."""
+
+    # ── Identity ──────────────────────────────────────────────────────
+    # ITEGA identifier of the home base this agent acts for.
+    home_base_id: str = "HB001"
+    home_base_name: str = "Publisher C Home Base"
+
+    # ── Pricing policy ────────────────────────────────────────────────
+    # Retail multiplier applied when billing this home base's own readers.
+    # Never disclosed to publishers.
+    markup_ratio: float = 1.1
+    # Wholesale price at or below which the agent buys without negotiating.
+    auto_accept_below: float = 0.10
+    # Wholesale price above which the agent refuses outright.
+    decline_above: float = 0.50
+    # Between those bounds, counter at this fraction of the asking price.
+    counter_fraction: float = 0.75
+
+    # ── Downstream services ───────────────────────────────────────────
+    # The agent files its own log report for every purchase it authorises, so
+    # its record can be reconciled against the publisher's independently.
+    logging_service_url: str = "http://localhost:8001"
+    logging_api_key: str = ""
+
+    model_config = {"env_prefix": "", "case_sensitive": False}
+
+
+settings = Settings()

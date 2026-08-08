@@ -27,6 +27,10 @@ class HomeBase(BaseModel):
     auth_url: str
     certification_status: str = "active"
     certification_tier: str = "idsp"
+    # Where this home base's Retail Agent answers pricing offers. A publisher
+    # reads it from the registry to ask whether the reader's home base will
+    # authorise payment (demo script step 28).
+    agent_url: str = ""
     # Optional signup URL, used when offering an unmatched visitor a place
     # to establish an account (demo script step 24).
     signup_url: str = ""
