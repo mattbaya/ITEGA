@@ -23,7 +23,7 @@ publishers in that room than a mockup.
 | Steps 9, 12–17: redirect, session token, tier enforcement | Built — `src/als-auth/main.py` |
 | Path Option 2 (steps 20–24): home base discovery | **Built this round** — see below |
 | Steps 31–42: transparent SSO at a third publisher | Needs end-to-end verification, likely no new code |
-| Step 18 + wholesale-retail section: price negotiation | **Gap — largest remaining work** |
+| Step 18 + wholesale-retail section: price negotiation | Built; needs an end-to-end run |
 | Step 43: duplicate aggregated log reports | Partly built — reporting endpoints exist |
 | AI answer-engine section (14 steps) | **Deferred by decision** — see below |
 
@@ -104,8 +104,22 @@ content-vending publishers. An unhinted visitor now gets the chooser from Path O
 pick a certified member, look one up by name or Publishing Member ID, or be offered a
 place to sign up when nothing matches.
 
+**Retail Agent service** (`src/asp-agent/`) — the home base's buying code, as its own
+party. It holds the markup ratio, answers a publisher's asking price with accept,
+counter, or decline, and files its own log report for purchases it authorises. All
+three outcomes tested, including that the markup never appears in a response to the
+publisher.
+
+**Price negotiation in the plugin** — publishers now ask before vending, answer a
+counter-offer against a configurable floor, and show the script's refusal message when
+payment is not authorised.
+
 **Settlement pricing corrected** — see the defect note under pricing below. Wholesale is
 now settled correctly and the markup is no longer disclosed to publishers.
+
+**A fatal parse error fixed** — `class-newshare-oidc.php` declared a return type PHP
+rejects, so the file did not parse and the plugin could not load on any supported PHP
+version. Found by linting; it would have stopped the demo dead.
 
 *Still needed to exercise the above end to end:* a second Keycloak realm representing
 Publisher C's home base. The code paths are in place and tested against the discovery
@@ -113,7 +127,7 @@ registry; the realms themselves are a deployment step.
 
 ## Remaining gaps
 
-### 1. Dynamic pricing negotiation — now fully specified
+### 1. Dynamic pricing negotiation — built, not yet exercised end to end
 The 08-07 script defines this properly, and it is more than a static price lookup:
 
 - **Three outcomes must all be demonstrated**: the End User accepts the offered price,
@@ -127,8 +141,25 @@ The 08-07 script defines this properly, and it is more than a static price looku
   be audited. The Agent's report carries the markup ratio applied; the amount the End
   User's Agent owes at settlement is the *wholesale* price.
 
-This implies an event-schema change (a field identifying which party filed a given
-report) and a negotiation exchange between the publisher's client code and the home base.
+**Now built.** A Retail Agent service (`src/asp-agent/`) represents the home base's
+buying code and answers accept, counter, or decline; the WordPress plugin negotiates
+before releasing content and shows the specified refusal message when payment is not
+authorised. All three outcomes are tested, and the markup is not disclosed to the
+publisher in any response.
+
+Two pieces remain:
+
+- **Dual-report reconciliation.** Both parties now file log reports, but the events
+  are not yet distinguishable by filer, so they cannot actually be reconciled. This
+  wants a field identifying which party submitted a given record — otherwise the two
+  reports are indistinguishable in the table and settlement would double-count.
+- **Exercising it end to end** against a running WordPress site and home base. The
+  service logic and money math are verified; the full path is not.
+
+### 1b. Deferred: home-base-specific pricing policy
+Each home base currently reads one policy from configuration. The demo only needs one
+home base making decisions, but a network with several would want per-home-base policy
+storage. Not needed for Aug 25.
 
 > **Defect found and fixed while reviewing this against the code.** The settlement
 > engine treated `pageClass * markupRatio` as the wholesale value. That is the
@@ -142,6 +173,26 @@ report) and a negotiation exchange between the publisher's client code and the h
 > the script's own example (100 accesses at $0.10 with a 1.1 markup now settle $10.00
 > to the publisher, not $11.00).
 
+### 1a. Verifying transparent SSO across three publishers (steps 31–42)
+
+No new code is expected here — every `/auth/authorize` call now routes through the
+reader's home base, and that home base's own session keeps a second publisher's login
+transparent. But this has never been exercised with three publishers in sequence, and
+nothing in the ALS explicitly guarantees it, so treat it as unverified until walked
+through:
+
+1. Sign in at Publisher B via Network Login; confirm a session token is issued.
+2. Without signing out, visit Publisher A and request paywalled content. Expect no
+   login prompt — the home base should recognise the reader and issue a fresh token.
+3. Repeat at Publisher C. Confirm the PPID differs at each publisher (that is the
+   privacy guarantee) while the reader is never asked to log in again.
+4. Wait out the session token TTL and repeat step 2. Expect a silent re-authentication,
+   not an error.
+
+If step 2 prompts for login, the cause is almost certainly home-base session
+configuration rather than ALS logic — check the SSO session lifetime on the realm
+before changing any code here.
+
 ### 2. First-party cookie step (Path Option 1, steps 10–11)
 The script has the Authenticator look for "a first-party cookie in the ITEGA domain,"
 but the architecture forbids auth cookies on publisher domains. Keycloak's own IdP
@@ -149,11 +200,10 @@ session cookie, on its own domain, already produces the behavior the script desc
 and is what makes the transparent-SSO section work. Worth one clarifying question to
 Bill rather than a design change.
 
-### 3. Refusal copy (script step 29)
-Step 29 specifies wording for the case where a home base *declines* to authorize
-payment — distinct from the existing insufficient-tier message. That state cannot
-arise until negotiation exists, so this belongs with the pricing work rather than
-as a standalone change.
+### 3. Refusal copy (script step 29) — done
+Built as part of the pricing work, in its own template
+(`templates/payment-declined.php`) rather than folded into the tier-upgrade gate,
+since the two situations call for different remedies.
 
 ## Deferred by decision: AI answer-engine section
 
