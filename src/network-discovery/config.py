@@ -1,0 +1,30 @@
+"""
+Network Discovery Service — Configuration via environment variables.
+
+See also: plans/06-network-discovery-service.md
+"""
+
+from __future__ import annotations
+
+from pydantic_settings import BaseSettings
+
+
+class Settings(BaseSettings):
+    """Application settings populated from environment variables."""
+
+    # Externally-reachable base URL of this service. Used as the `issuer`
+    # in the network-wide OIDC discovery document.
+    discovery_base_url: str = "https://network.itega.example"
+
+    # Path to the JSON registry of certified home bases and publishers.
+    # A flat file is sufficient at pilot scale (a handful of members) and
+    # keeps ITEGA's certification decisions reviewable in version control.
+    registry_path: str = "data/registry.json"
+
+    # Name of the network, surfaced in the discovery document.
+    network_name: str = "Newshare Network"
+
+    model_config = {"env_prefix": "", "case_sensitive": False}
+
+
+settings = Settings()

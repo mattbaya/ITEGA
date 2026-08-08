@@ -1,0 +1,57 @@
+{
+  "network": "Newshare Network",
+  "version": "1.0",
+  "governed_by": "ITEGA",
+  "home_bases": [
+    {
+      "id": "HB001",
+      "name": "Publisher C Home Base",
+      "publishing_member_id": "ITEGA-PC-0001",
+      "oidc_issuer": "https://auth.newshare.example/realms/publisher-c",
+      "jwks_uri": "https://auth.newshare.example/realms/publisher-c/protocol/openid-connect/certs",
+      "auth_url": "https://auth.newshare.example/realms/publisher-c/protocol/openid-connect/auth",
+      "certification_status": "active",
+      "certification_tier": "idsp",
+      "signup_url": "https://auth.newshare.example/realms/publisher-c/protocol/openid-connect/registrations",
+      "ip_hints": []
+    },
+    {
+      "id": "HB002",
+      "name": "Newshare Demo Home Base",
+      "publishing_member_id": "ITEGA-DEMO-0002",
+      "oidc_issuer": "https://auth.newshare.example/realms/newshare",
+      "jwks_uri": "https://auth.newshare.example/realms/newshare/protocol/openid-connect/certs",
+      "auth_url": "https://auth.newshare.example/realms/newshare/protocol/openid-connect/auth",
+      "certification_status": "active",
+      "certification_tier": "idsp",
+      "signup_url": "https://auth.newshare.example/realms/newshare/protocol/openid-connect/registrations",
+      "ip_hints": []
+    }
+  ],
+  "publishers": [
+    {
+      "id": "PUB001",
+      "name": "Publisher A",
+      "publishing_member_id": "ITEGA-PA-0001",
+      "domain": "publisher-a.example",
+      "certification_status": "active",
+      "certification_tier": "content_publisher"
+    },
+    {
+      "id": "PUB002",
+      "name": "Publisher B",
+      "publishing_member_id": "ITEGA-PB-0001",
+      "domain": "publisher-b.example",
+      "certification_status": "active",
+      "certification_tier": "content_publisher"
+    },
+    {
+      "id": "PUB003",
+      "name": "Publisher C",
+      "publishing_member_id": "ITEGA-PC-0001",
+      "domain": "publisher-c.example",
+      "certification_status": "active",
+      "certification_tier": "content_publisher"
+    }
+  ]
+}

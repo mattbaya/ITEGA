@@ -26,3 +26,8 @@ target/
 # Environment secrets
 .env
 .env.*
+
+# Reference material: source documents, correspondence, and Bill's working
+# demo scripts. Kept local only -- this repository is public, and the
+# correspondence in particular is not ours to publish.
+reference/
