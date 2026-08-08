@@ -258,6 +258,8 @@ The Joplin Globe publishes an investigative piece and sets `pageClass = $0.10` (
 
 The Globe doesn't know or care what retail price each user sees. It just gets its wholesale price. This is how free markets work.
 
+**The markup is deliberately confidential.** The Rights Owner does not need to know the Retail Agent's markup ratio, and under network governance may not be permitted to. Only the wholesale price is settled through the ALS; publisher-facing reports carry wholesale totals and nothing derived from the markup. What a home base charges its own readers — per article, bundled, or absorbed into a flat subscription — is its own business.
+
 ---
 
 ## The NetworkGroupId: How Subscription Tiers Work
@@ -461,7 +463,7 @@ auth.newshare.example                 als.newshare.example
 | **ALS Logging Service** | Records every content access event in Extended Common Log Format | Python 3.12 / FastAPI + TimescaleDB |
 | **ALS Settlement Service** | Weekly batch: aggregates logs, computes debits/credits, generates reports | Python 3.12 batch script |
 | **Publisher Plugin** | "Network Login" button, OIDC Relying Party, content tagging | WordPress plugin (PHP) |
-| **Network Discovery** | Directory of certified home bases and publishers | OIDC Discovery endpoint + WebFinger |
+| **Network Discovery** | Directory of certified home bases and publishers; resolves a reader to their home base | Python 3.12 / FastAPI + WebFinger |
 | **User Dashboard** | Shows users their session, reading history, balance, privacy controls | React + TypeScript |
 
 See `plans/` directory for detailed implementation plans for each component.
@@ -669,11 +671,15 @@ ITEGA/
 ├── CLAUDE.md                          ← Instructions for Claude Code
 ├── README.md                          ← This file
 ├── docs/
+│   ├── demo-script-gap-analysis.md     ← Aug 25 demo script vs. the code; open questions
+│   ├── peer-review-synthesis.md        ← Drummond Reed + Don Marti feedback
 │   └── source-pdfs/                   ← Original documents from Bill Densmore
 │       ├── claude-itega-newshare-tech-spec-02-22-26b-1110pest.pdf  (20pp, tech spec)
 │       ├── claude-itega-funder-brief-02-23-26b-1201aest.pdf        (9pp, funder brief)
 │       ├── claude-itega-chat-02-22-26b.-ORIG.pdf                   (20+pp, chat transcript)
 │       └── Claude AI chat, funder pitch and tech for ITEGA_Newshare_Missouri.pdf
+├── reference/                          ← Not in version control. Working demo scripts,
+│                                          correspondence, and background reading.
 ├── plans/                             ← Detailed server/component implementation plans
 │   ├── 00-system-architecture-overview.md
 │   ├── 01-home-base-idsp-server.md
@@ -688,6 +694,7 @@ ITEGA/
 │   ├── als-auth/                      ← ALS Auth Service (Python/FastAPI, main.py)
 │   ├── als-logging/                   ← ALS Logging Service (Python/FastAPI, main.py)
 │   ├── als-settlement/                ← Settlement batch script (Python, settle.py)
+│   ├── network-discovery/             ← Network Discovery Service (Python/FastAPI, main.py)
 │   ├── wordpress-plugin/              ← newshare-network WordPress plugin (PHP, 8 classes)
 │   └── dashboard/                     ← User Dashboard (React 19/TypeScript/Vite/Tailwind 3)
 ├── infra/                             ← Deployment infrastructure

@@ -43,9 +43,12 @@ ITEGA/
 ├── CLAUDE.md                   ← You are here
 ├── README.md                   ← Verbose project overview with examples
 ├── docs/
+│   ├── demo-script-gap-analysis.md ← Aug 25 demo script vs. the code; open questions
 │   ├── peer-review-synthesis.md ← Synthesis of Drummond Reed + Don Marti feedback
 │   ├── response-to-bill.md     ← Summary for Bill Densmore
 │   └── source-pdfs/            ← Original documents from Bill Densmore
+├── reference/                  ← GITIGNORED. Source PDFs, correspondence, and Bill's
+│                                  working demo scripts. Local only — this repo is public.
 ├── plans/
 │   ├── 00-system-architecture-overview.md
 │   ├── 01-home-base-idsp-server.md
@@ -60,6 +63,7 @@ ITEGA/
 │   ├── als-auth/               ← ALS Auth Service (Python/FastAPI)
 │   ├── als-logging/            ← ALS Logging Service (Python/FastAPI)
 │   ├── als-settlement/         ← Settlement batch script (Python)
+│   ├── network-discovery/      ← Network Discovery Service (Python/FastAPI)
 │   ├── wordpress-plugin/       ← newshare-network WordPress plugin (PHP)
 │   └── dashboard/              ← User Dashboard (React/TypeScript/Vite)
 ├── infra/
@@ -125,17 +129,35 @@ When building components, use these technologies:
 ## Key API Contracts
 
 ALS Auth Service endpoints:
-- `GET /auth/authorize` — initiates OIDC flow, redirects to home base
+- `GET /auth/authorize` — initiates OIDC flow; resolves the visitor's home base or presents the chooser
+- `GET /auth/select-home-base` — handles the chooser answer (name or Publishing Member ID)
 - `GET /auth/callback` — handles OIDC callback, issues sessionToken
 - `POST /auth/validate` — validates ALS-issued sessionTokens
-- `GET /auth/home-bases` — lists certified home bases
+- `GET /auth/home-bases` — lists certified home bases (sourced from Network Discovery)
 
 ALS Logging Service endpoints:
 - `POST /log/event` — ingests access events (fire-and-forget from publishers)
 - `GET /log/report/home-base/{id}` — full clickstream for a home base
 - `GET /log/report/publisher/{id}` — aggregated totals only for a publisher
 
+Network Discovery Service endpoints:
+- `GET /discovery/home-bases` — all certified home bases
+- `GET /discovery/home-bases/resolve` — resolve a visitor to a home base (by id, name, or IP hint)
+- `GET /discovery/home-bases/{id}` — a single certified home base
+- `GET /discovery/publishers` — all certified publishers
+- `GET /.well-known/webfinger` — WebFinger (RFC 7033) home-site discovery
+- `GET /.well-known/newshare-network` — network-wide discovery document
+
 sessionToken JWT claims: `iss`, `sub`, `aud`, `exp`, `iat`, `networkUserId`, `homeBaseId`, `networkGroupId`, `pubMbrId`, `sessionId`
+
+## Wholesale vs. retail — get this right
+
+- `pageClass` **is** the wholesale price: what the publisher (Rights Owner) asks and is owed.
+- `pageClass * markupRatio` is the **retail** price: what the home base (Retail Agent) bills its own user.
+- **Only wholesale is settled through the ALS.** The markup is the home base's margin and never reaches the publisher.
+- **Never disclose `markupRatio` or retail totals to publishers.** Per the pricing rules the Rights Owner does not need to know the markup and may not be permitted to.
+
+Settlement previously had this inverted (crediting publishers the retail amount); see `docs/demo-script-gap-analysis.md`.
 
 ## Naming Conventions
 
@@ -154,6 +176,19 @@ sessionToken JWT claims: `iss`, `sub`, `aud`, `exp`, `iat`, `networkUserId`, `ho
 - **Matt Baya** — Project participant / reviewer
 - **Drummond Reed** — Decentralized identity pioneer, Chief Trust Officer at Evernym, peer reviewer. Recommends VTN/DID evolution path.
 - **Don Marti** — Longtime ITEGA advisor, open source/web standards expert, peer reviewer. Recommends simplifying to minimum demo-able version.
+- **Glen Gerbush** — Developer Bill consulted. Argued the AI-generated codebase should be discarded rather than extended. Bill overrode this ("a bird in the hand") and chose to build on `src/` for Aug 25.
+
+## Current work: the Aug 25 demo
+
+Work is driven by Bill's demo script for the RJI/ITEGA roundtable on **Aug 25, 2026**.
+The script lives in `reference/` (gitignored) and Bill revises it — check for the newest
+`ITEGA-RJI-demo-script-*.md` before building. `docs/demo-script-gap-analysis.md` tracks
+what is built, what is missing, and the open questions for Bill.
+
+**Build it really working.** A simulated or narrated demo is the fallback, not the goal.
+
+**This repository is public** — Bill's Editor & Publisher column links to it directly.
+Correspondence and source documents belong in `reference/`, never in a commit.
 
 ## Important Constraints
 
