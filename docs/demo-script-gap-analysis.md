@@ -27,6 +27,66 @@ publishers in that room than a mockup.
 | Step 43: duplicate aggregated log reports | Partly built — reporting endpoints exist |
 | AI answer-engine section (14 steps) | **Deferred by decision** — see below |
 
+## Two findings that should shape the pricing work
+
+### X402 may be the right rail for the AI-agent section
+
+Bill circulated the Linux Foundation's adoption of **X402** (incubated by
+Cloudflare and Coinbase) and asked Don Marti whether "an ITEGA ecosystem, if one
+existed, would want to be compatible with" it. It is worth taking seriously,
+because its roles map onto the four-party model almost exactly:
+
+| X402 | Newshare |
+|---|---|
+| `resource server` | CMS / content publisher |
+| `client` | End User's Agent, or an AI Agent |
+| `facilitator` (verifies and settles) | **the ALS** |
+| `PaymentRequirements` | the publisher's asking price (`pageClass`) |
+| deferred payment scheme | ITEGA's batch settlement |
+
+The flow is an HTTP-native negotiation: the server answers a request with
+`402 Payment Required` and its terms, the client returns a signed payment
+payload, the server verifies — directly or through a facilitator — and then
+serves the content. That is recognisably the exchange the demo script describes
+in prose, expressed as a standard.
+
+Cloudflare's proposed **deferred payment scheme** is the closest fit of all: it
+decouples the cryptographic handshake from settlement so that crawlers can be
+billed a single aggregated fee at the end of the day against a card or bank
+account, supporting "pre-negotiated licensing agreements, batch settlements, or
+subscriptions." That is ITEGA's settlement model, already standardised.
+
+This also offers a better answer to Drummond Reed's objection than either option
+previously on the table. He argued AI agents "don't use browsers, don't use
+OpenID." X402 agrees — and solves it without waiting for the DID/VC ecosystem to
+mature. Worth raising with Bill before any AI-agent code is written.
+
+### Rick Lerner questions the premise of price negotiation
+
+Rick Lerner — co-inventor of the original system — pushed back on the dynamic
+pricing idea in his May review of Bill's essay:
+
+> "I think you need to suggest why any publisher would want to have to negotiate
+> prices, rather than just set them and adjust to maximize demand. I always
+> thought the original idea was that each publisher set their own price."
+
+He also notes they "never came up with a way to present prices in a way that let
+consumers choose which provider they wanted to use," and warns more broadly that
+leaving publishers to invent their own pricing models "is where I think we went
+wrong."
+
+This does not block the work — the script specifies negotiation clearly and it is
+demonstrable. But the person who built the original system is unconvinced
+publishers want it, so it is worth Bill reconciling the two views before the
+roundtable, where Rick's question ("why would a publisher want to negotiate?")
+is likely to be asked from the floor.
+
+Separately, Rick argues the AI problem "should be handled separately from
+consumers... publishers are more likely to want to fix that problem without
+uprooting their consumer relationships." That independently supports both
+deferring the AI section from the consumer flow and treating it as its own
+track — which is what X402 would allow.
+
 ## Completed this round
 
 **Network Discovery service** (`src/network-discovery/`) — Plan 06 implemented for real.
@@ -37,15 +97,23 @@ default home base for sign-up. Also serves WebFinger (RFC 7033) and a network di
 document. The registry lives in `data/registry.json` so ITEGA's certification decisions
 stay reviewable in version control.
 
+**Multi-home-base routing** (`src/als-auth/`) — the ALS no longer assumes one Keycloak
+realm. Home bases come from Network Discovery, each with its own JWKS cache, token
+endpoint, and issuer, so Publisher C can act as a genuine Home Base/ASP distinct from the
+content-vending publishers. An unhinted visitor now gets the chooser from Path Option 2:
+pick a certified member, look one up by name or Publishing Member ID, or be offered a
+place to sign up when nothing matches.
+
+**Settlement pricing corrected** — see the defect note under pricing below. Wholesale is
+now settled correctly and the markup is no longer disclosed to publishers.
+
+*Still needed to exercise the above end to end:* a second Keycloak realm representing
+Publisher C's home base. The code paths are in place and tested against the discovery
+registry; the realms themselves are a deployment step.
+
 ## Remaining gaps
 
-### 1. Multi-home-base routing in als-auth
-`GET /auth/home-bases` still returns one hardcoded Keycloak entry and `/auth/authorize`
-always redirects to the single configured realm. Both need to consult Network Discovery.
-The script requires Publisher C to act as a real, distinct Home Base/ASP while Publishers
-A and B act only as content sites, so a second Keycloak realm is needed.
-
-### 2. Dynamic pricing negotiation — now fully specified
+### 1. Dynamic pricing negotiation — now fully specified
 The 08-07 script defines this properly, and it is more than a static price lookup:
 
 - **Three outcomes must all be demonstrated**: the End User accepts the offered price,
@@ -62,24 +130,30 @@ The 08-07 script defines this properly, and it is more than a static price looku
 This implies an event-schema change (a field identifying which party filed a given
 report) and a negotiation exchange between the publisher's client code and the home base.
 
-> **Defect found while reviewing this against the code.** In
-> `src/als-logging/main.py`, the publisher report computes
-> `SUM(page_class * markup_ratio) AS total_wholesale`. That value is the *retail*
-> total, not wholesale — `page_class` alone is the wholesale price. The column is both
-> mislabeled and exposed to publishers, which under the 08-07 script is precisely the
-> number the Rights Owner is not supposed to learn. Fix alongside the pricing work.
+> **Defect found and fixed while reviewing this against the code.** The settlement
+> engine treated `pageClass * markupRatio` as the wholesale value. That is the
+> *retail* price — `pageClass` alone is wholesale. The consequence was not cosmetic:
+> publishers were credited the marked-up amount and home bases debited it, so the
+> home base's margin was paid to the publisher. That margin is the home base's whole
+> incentive to send a reader to another publisher, so the code inverted the business
+> model the demo exists to show. `plans/04` already described the correct flow.
+> Publisher-facing reports also carried markup-derived totals, which the 08-07 pricing
+> rules say the Rights Owner is not entitled to see. Both corrected; verified against
+> the script's own example (100 accesses at $0.10 with a 1.1 markup now settle $10.00
+> to the publisher, not $11.00).
 
-### 3. First-party cookie step (Path Option 1, steps 10–11)
+### 2. First-party cookie step (Path Option 1, steps 10–11)
 The script has the Authenticator look for "a first-party cookie in the ITEGA domain,"
 but the architecture forbids auth cookies on publisher domains. Keycloak's own IdP
 session cookie, on its own domain, already produces the behavior the script describes
 and is what makes the transparent-SSO section work. Worth one clarifying question to
 Bill rather than a design change.
 
-### 4. Minor
-Script step 29 specifies refusal copy for a declined payment authorization
-("Your requested content is not available at this time. Please contact your ITEGA Home
-Base for options.") — distinct from the existing insufficient-tier message.
+### 3. Refusal copy (script step 29)
+Step 29 specifies wording for the case where a home base *declines* to authorize
+payment — distinct from the existing insufficient-tier message. That state cannot
+arise until negotiation exists, so this belongs with the pricing work rather than
+as a standalone change.
 
 ## Deferred by decision: AI answer-engine section
 
@@ -100,8 +174,14 @@ demonstrated.
 
 ## Open questions for Bill
 
-1. Does "first-party cookie in the ITEGA domain" mean the identity provider's own session
+1. **X402.** Should the AI-agent section target X402 rather than a bespoke extension of
+   the OIDC session-token model? It is HTTP-native, now under Linux Foundation
+   governance, already used by Cloudflare for paid crawling, and its deferred-payment
+   scheme matches ITEGA's batch settlement. Bill has already asked Don Marti about it.
+2. **Price negotiation.** Rick Lerner questions why a publisher would want to negotiate
+   rather than set a price and adjust it. The script specifies negotiation in detail;
+   these two views should be reconciled before the roundtable.
+3. Does "first-party cookie in the ITEGA domain" mean the identity provider's own session
    cookie, or something visible on publisher domains?
-2. Should the AI answer-engine sequence be built on the current OIDC model, deferred, or
-   reconsidered in light of the peer-review recommendation?
-3. For Aug 25, which sections must be genuinely live versus narrated from a simulation?
+4. For Aug 25, which sections must be genuinely live versus narrated from a simulation?
+   Current working assumption: as much genuinely live as possible.
