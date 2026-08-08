@@ -147,14 +147,14 @@ before releasing content and shows the specified refusal message when payment is
 authorised. All three outcomes are tested, and the markup is not disclosed to the
 publisher in any response.
 
-Two pieces remain:
+Dual reporting is in place: events record which party filed them, settlement
+aggregates the publisher's side, and the agent's record remains as the audit
+cross-check. (Worth noting because it briefly wasn't — with both parties filing and
+nothing distinguishing them, settlement would have billed every negotiated purchase
+twice.)
 
-- **Dual-report reconciliation.** Both parties now file log reports, but the events
-  are not yet distinguishable by filer, so they cannot actually be reconciled. This
-  wants a field identifying which party submitted a given record — otherwise the two
-  reports are indistinguishable in the table and settlement would double-count.
-- **Exercising it end to end** against a running WordPress site and home base. The
-  service logic and money math are verified; the full path is not.
+Remaining: **exercising it end to end** against a running WordPress site and home
+base. The service logic and money math are verified directly; the full path is not.
 
 ### 1b. Deferred: home-base-specific pricing policy
 Each home base currently reads one policy from configuration. The demo only needs one
