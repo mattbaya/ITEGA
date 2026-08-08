@@ -389,7 +389,10 @@ class Newshare_OIDC {
 	 * @param string $token The raw JWT string from the ALS callback.
 	 * @return object|WP_Error Decoded JWT claims on success, WP_Error on failure.
 	 */
-	private function validate_jwt( string $token ): object|WP_Error {
+	// The return type is left off deliberately: WP_Error is itself an object,
+	// and PHP rejects a union that combines `object` with a specific class.
+	// The contract is documented in the @return tag above.
+	private function validate_jwt( string $token ) {
 		// Step 3a: Structural validation -- JWT must have exactly 3 parts (header.payload.signature).
 		$token_parts = explode( '.', $token );
 		if ( count( $token_parts ) !== 3 ) {

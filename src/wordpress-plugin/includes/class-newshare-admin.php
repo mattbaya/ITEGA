@@ -156,6 +156,17 @@ class Newshare_Admin {
 		);
 
 		$this->add_text_field(
+			'newshare_discovery_endpoint',
+			__( 'Network Discovery URL', 'newshare-network' ),
+			'newshare_endpoints',
+			__(
+				'ITEGA network directory (e.g., https://network.itega.example). Used to find a visiting reader\'s home base and its buying agent.',
+				'newshare-network'
+			),
+			'url'
+		);
+
+		$this->add_text_field(
 			'newshare_als_api_key',
 			__( 'ALS API Key', 'newshare-network' ),
 			'newshare_endpoints',

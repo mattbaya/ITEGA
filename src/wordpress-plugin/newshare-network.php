@@ -82,6 +82,7 @@ if ( file_exists( NEWSHARE_PLUGIN_DIR . 'vendor/autoload.php' ) ) {
  */
 require_once NEWSHARE_PLUGIN_DIR . 'includes/class-newshare-session.php';
 require_once NEWSHARE_PLUGIN_DIR . 'includes/class-newshare-oidc.php';
+require_once NEWSHARE_PLUGIN_DIR . 'includes/class-newshare-pricing.php';
 require_once NEWSHARE_PLUGIN_DIR . 'includes/class-newshare-access.php';
 require_once NEWSHARE_PLUGIN_DIR . 'includes/class-newshare-rsl.php';
 require_once NEWSHARE_PLUGIN_DIR . 'includes/class-newshare-logger.php';
@@ -124,6 +125,9 @@ final class Newshare_Network {
 	/** @var Newshare_Session Session state management. */
 	private Newshare_Session $session;
 
+	/** @var Newshare_Pricing Price negotiation with the reader's home base. */
+	private Newshare_Pricing $pricing;
+
 	/**
 	 * Get the singleton instance.
 	 *
@@ -147,7 +151,8 @@ final class Newshare_Network {
 		// OIDC, Access, and Logger all depend on it.
 		$this->session = new Newshare_Session();
 		$this->oidc    = new Newshare_OIDC( $this->session );
-		$this->access  = new Newshare_Access( $this->session );
+		$this->pricing = new Newshare_Pricing( $this->session );
+		$this->access  = new Newshare_Access( $this->session, $this->pricing );
 		$this->rsl     = new Newshare_RSL();
 		$this->logger  = new Newshare_Logger( $this->session );
 		$this->admin   = new Newshare_Admin();

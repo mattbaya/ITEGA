@@ -1,0 +1,277 @@
+<?php
+/**
+ * Newshare Pricing Negotiation.
+ *
+ * Before this site releases paywalled content to a visiting network reader, it
+ * asks that reader's home base whether it will pay the asking price. The home
+ * base -- acting as the reader's Retail Agent -- accepts, counters, or declines.
+ *
+ * == Why this is a real exchange, not a lookup ==
+ *
+ * The network's pricing rules require that both the seller and the buyer of
+ * usage rights be free to set their own terms and reach a binding agreement in
+ * real time. A publisher may ask what it likes; a home base may refuse, or
+ * offer less. All three outcomes are supported here.
+ *
+ * == Wholesale and retail ==
+ *
+ * This site only ever states and receives the WHOLESALE price -- what it is
+ * owed. The reader's home base applies its own markup when billing its reader,
+ * and that markup ratio is deliberately not disclosed to us. We may be told the
+ * resulting retail figure so we can show the reader what they are committing
+ * to, but we never learn how it was derived and we are never paid it.
+ *
+ * == Blocking, unlike event logging ==
+ *
+ * Newshare_Logger fires events asynchronously because a dropped log entry is
+ * recoverable. This request is different: we must not release content before
+ * knowing payment is authorised, so the call blocks. It is kept to a short
+ * timeout, and a failure to reach the agent is treated as "not authorised"
+ * rather than silently serving content nobody has agreed to pay for.
+ *
+ * @package Newshare_Network
+ * @since   0.2.0
+ */
+
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
+class Newshare_Pricing {
+
+	/**
+	 * Session manager, used to read the reader's network claims.
+	 *
+	 * @var Newshare_Session
+	 */
+	private Newshare_Session $session;
+
+	/**
+	 * Seconds to wait for the reader's home base to answer.
+	 *
+	 * Short by design: the reader is waiting on this request. If the agent
+	 * cannot answer promptly we decline rather than stall the page.
+	 */
+	private const QUOTE_TIMEOUT = 5;
+
+	/**
+	 * Constructor.
+	 *
+	 * @param Newshare_Session $session Session manager instance.
+	 */
+	public function __construct( Newshare_Session $session ) {
+		$this->session = $session;
+	}
+
+	/**
+	 * Ask the reader's home base to authorise payment for a resource.
+	 *
+	 * @param int $post_id The post being requested.
+	 * @return array {
+	 *     @type string $decision     'accept', 'decline', or 'unavailable'.
+	 *     @type float  $agreed_price Wholesale price we will be settled at, on accept.
+	 *     @type float  $retail_price What the reader owes their home base, on accept.
+	 *     @type string $reason       Human-readable explanation.
+	 * }
+	 */
+	public function negotiate( int $post_id ): array {
+		$claims = $this->session->get_network_claims();
+		if ( empty( $claims ) ) {
+			return $this->unavailable( __( 'No network session.', 'newshare-network' ) );
+		}
+
+		$home_base = $this->resolve_home_base( $claims['newshare_home_base_id'] ?? '' );
+		$agent_url = (string) ( $home_base['agent_url'] ?? '' );
+		if ( '' === $agent_url ) {
+			return $this->unavailable(
+				__( 'Could not locate the reader\'s home base agent.', 'newshare-network' )
+			);
+		}
+
+		// Kept so a refusal can point the reader back to the party that made
+		// the decision, per the specified copy.
+		$home_base_url = (string) ( $home_base['oidc_issuer'] ?? '' );
+
+		$wholesale = $this->get_page_class( $post_id );
+
+		// Round one: state our asking price.
+		$offer = $this->send_quote( $agent_url, $post_id, $claims, $wholesale, '' );
+		if ( null === $offer ) {
+			return $this->unavailable(
+				__( 'The reader\'s home base could not be reached.', 'newshare-network' ),
+				$home_base_url
+			);
+		}
+
+		// Round two: the agent proposed a lower price. Accept it if it clears
+		// our floor, otherwise treat the negotiation as failed. A publisher
+		// that would rather hold its price simply sets the floor at its ask.
+		if ( 'counter' === ( $offer['decision'] ?? '' ) ) {
+			$counter = (float) ( $offer['counterPrice'] ?? 0 );
+			$floor   = (float) get_option( 'newshare_minimum_page_class', 0 );
+
+			if ( $counter < $floor ) {
+				return array(
+					'decision'      => 'decline',
+					'reason'        => __( 'Offer below this publisher\'s minimum price.', 'newshare-network' ),
+					'home_base_url' => $home_base_url,
+				);
+			}
+
+			$offer = $this->send_quote(
+				$agent_url,
+				$post_id,
+				$claims,
+				$counter,
+				(string) ( $offer['negotiationId'] ?? '' )
+			);
+			if ( null === $offer ) {
+				return $this->unavailable(
+					__( 'The reader\'s home base could not be reached.', 'newshare-network' ),
+					$home_base_url
+				);
+			}
+		}
+
+		if ( 'accept' === ( $offer['decision'] ?? '' ) ) {
+			return array(
+				'decision'      => 'accept',
+				'agreed_price'  => (float) ( $offer['agreedPrice'] ?? 0 ),
+				'retail_price'  => (float) ( $offer['retailPrice'] ?? 0 ),
+				'reason'        => (string) ( $offer['reason'] ?? '' ),
+				'home_base_url' => $home_base_url,
+			);
+		}
+
+		return array(
+			'decision'      => 'decline',
+			'reason'        => (string) ( $offer['reason'] ?? '' ),
+			'home_base_url' => $home_base_url,
+		);
+	}
+
+	/**
+	 * POST a single offer to the reader's home base agent.
+	 *
+	 * @param string $agent_url       Base URL of the agent service.
+	 * @param int    $post_id         Post being priced.
+	 * @param array  $claims          The reader's network claims.
+	 * @param float  $wholesale       Price we are asking.
+	 * @param string $negotiation_id  Set when continuing an exchange.
+	 * @return array|null Decoded response, or null if the agent was unreachable.
+	 */
+	private function send_quote(
+		string $agent_url,
+		int $post_id,
+		array $claims,
+		float $wholesale,
+		string $negotiation_id
+	): ?array {
+		$response = wp_remote_post(
+			trailingslashit( $agent_url ) . 'agent/quote',
+			array(
+				'timeout'  => self::QUOTE_TIMEOUT,
+				'blocking' => true,
+				'headers'  => array( 'Content-Type' => 'application/json' ),
+				'body'     => wp_json_encode(
+					array(
+						'networkUserId'  => $claims['newshare_network_user_id'] ?? '',
+						'homeBaseId'     => $claims['newshare_home_base_id'] ?? '',
+						'pubMbrId'       => get_option( 'newshare_pub_mbr_id', '' ),
+						'resourceId'     => get_permalink( $post_id ),
+						'wholesalePrice' => $wholesale,
+						'sessionId'      => $claims['newshare_session_id'] ?? '',
+						'negotiationId'  => $negotiation_id,
+					)
+				),
+			)
+		);
+
+		if ( is_wp_error( $response ) ) {
+			return null;
+		}
+		if ( 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
+			return null;
+		}
+
+		$decoded = json_decode( wp_remote_retrieve_body( $response ), true );
+		return is_array( $decoded ) ? $decoded : null;
+	}
+
+	/**
+	 * Look up a home base in the ITEGA network registry.
+	 *
+	 * Read from the registry rather than configured per site, so a publisher
+	 * does not need reconfiguring every time the network certifies another home
+	 * base. Cached briefly, since the registry changes only when ITEGA
+	 * certifies or suspends a member.
+	 *
+	 * @param string $home_base_id ITEGA identifier of the reader's home base.
+	 * @return array Registry record, or an empty array if unknown.
+	 */
+	private function resolve_home_base( string $home_base_id ): array {
+		if ( '' === $home_base_id ) {
+			return array();
+		}
+
+		$cache_key = 'newshare_home_base_' . md5( $home_base_id );
+		$cached    = get_transient( $cache_key );
+		if ( false !== $cached && is_array( $cached ) ) {
+			return $cached;
+		}
+
+		$discovery = get_option( 'newshare_discovery_endpoint', '' );
+		if ( '' === $discovery ) {
+			return array();
+		}
+
+		$response = wp_remote_get(
+			trailingslashit( $discovery ) . 'discovery/home-bases/' . rawurlencode( $home_base_id ),
+			array( 'timeout' => self::QUOTE_TIMEOUT )
+		);
+		if ( is_wp_error( $response ) || 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
+			return array();
+		}
+
+		$decoded = json_decode( wp_remote_retrieve_body( $response ), true );
+		if ( ! is_array( $decoded ) ) {
+			return array();
+		}
+
+		set_transient( $cache_key, $decoded, 5 * MINUTE_IN_SECONDS );
+		return $decoded;
+	}
+
+	/**
+	 * The publisher's asking price for a post, falling back to the site default.
+	 *
+	 * @param int $post_id Post to price.
+	 * @return float Wholesale price.
+	 */
+	private function get_page_class( int $post_id ): float {
+		$page_class = get_post_meta( $post_id, 'newshare_page_class', true );
+		if ( '' === $page_class ) {
+			$page_class = get_option( 'newshare_default_page_class', '0.05' );
+		}
+		return (float) $page_class;
+	}
+
+	/**
+	 * Build an 'unavailable' result.
+	 *
+	 * Distinct from 'decline': the home base did not refuse, we simply could
+	 * not complete the exchange. Both withhold content, but only a decline
+	 * reflects a decision the home base actually made.
+	 *
+	 * @param string $reason        Explanation for logs.
+	 * @param string $home_base_url Reader's home base, when known.
+	 * @return array Result array.
+	 */
+	private function unavailable( string $reason, string $home_base_url = '' ): array {
+		return array(
+			'decision'      => 'unavailable',
+			'reason'        => $reason,
+			'home_base_url' => $home_base_url,
+		);
+	}
+}

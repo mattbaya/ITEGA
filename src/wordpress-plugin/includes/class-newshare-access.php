@@ -82,12 +82,21 @@ class Newshare_Access {
 	private Newshare_Session $session;
 
 	/**
+	 * Pricing negotiator, used to get payment authorised before vending.
+	 *
+	 * @var Newshare_Pricing
+	 */
+	private Newshare_Pricing $pricing;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param Newshare_Session $session Session manager (injected by the main plugin class).
+	 * @param Newshare_Pricing $pricing Pricing negotiator (injected by the main plugin class).
 	 */
-	public function __construct( Newshare_Session $session ) {
+	public function __construct( Newshare_Session $session, Newshare_Pricing $pricing ) {
 		$this->session = $session;
+		$this->pricing = $pricing;
 	}
 
 	// =========================================================================
@@ -196,6 +205,49 @@ class Newshare_Access {
 		return true;
 	}
 
+	/**
+	 * Whether a post carries a price this publisher is willing to sell at.
+	 *
+	 * A page_class of zero means the article is not for individual sale, so
+	 * there is nothing to negotiate and the reader sees the ordinary tier gate.
+	 *
+	 * @param int $post_id Post to check.
+	 * @return bool True if the post has a non-zero asking price.
+	 */
+	private function is_priced( int $post_id ): bool {
+		$page_class = get_post_meta( $post_id, 'newshare_page_class', true );
+		if ( '' === $page_class ) {
+			$page_class = get_option( 'newshare_default_page_class', '0.05' );
+		}
+		return (float) $page_class > 0;
+	}
+
+	/**
+	 * Render the disclosure shown when a purchase has been authorised.
+	 *
+	 * The reader is told what they now owe their home base -- the retail price,
+	 * which includes their home base's markup. This publisher is settled at the
+	 * wholesale figure and never learns how the retail price was derived.
+	 *
+	 * @param array $quote Result from Newshare_Pricing::negotiate().
+	 * @return string HTML notice.
+	 */
+	private function render_purchase_notice( array $quote ): string {
+		return sprintf(
+			'<div class="newshare-purchase-notice"><p>%s</p></div>',
+			esc_html(
+				sprintf(
+					/* translators: %s: retail price charged by the reader's home base */
+					__(
+						'Purchased through your home base. Your account will be billed %s at settlement.',
+						'newshare-network'
+					),
+					'$' . number_format( (float) $quote['retail_price'], 2 )
+				)
+			)
+		);
+	}
+
 	// =========================================================================
 	// Content Filtering (Access Gate)
 	// =========================================================================
@@ -227,9 +279,33 @@ class Newshare_Access {
 			return $content;
 		}
 
-		// If the user has access, return content unchanged.
+		// If the user's subscription tier grants access, the content is covered
+		// by their existing relationship -- nothing to negotiate, serve it.
 		if ( $this->check_access( $post_id ) ) {
 			return $content;
+		}
+
+		// The tier does not cover this article, but a network reader may still
+		// buy it if their home base authorises payment. Ask before vending.
+		if ( $this->session->is_network_user() && $this->is_priced( $post_id ) ) {
+			$quote = $this->pricing->negotiate( $post_id );
+
+			if ( 'accept' === $quote['decision'] ) {
+				// Payment authorised. Show the reader what they have committed
+				// to pay their home base, then release the article.
+				return $this->render_purchase_notice( $quote ) . $content;
+			}
+
+			// The home base was reached and refused, or could not be reached.
+			// Either way we withhold the article and tell the reader to take it
+			// up with their home base, which is the party that decides.
+			ob_start();
+			$decline_reason = $quote['reason'];
+			$home_base_url  = $quote['home_base_url'] ?? '';
+			include NEWSHARE_PLUGIN_DIR . 'templates/payment-declined.php';
+			$gate = ob_get_clean();
+
+			return wp_trim_words( wp_strip_all_tags( $content ), 80, '&hellip;' ) . $gate;
 		}
 
 		// -- User lacks access: build and display the access gate. --
