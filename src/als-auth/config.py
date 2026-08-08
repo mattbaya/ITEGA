@@ -75,6 +75,12 @@ class Settings(BaseSettings):
     als_jwt_public_key_path: str = "/etc/als/keys/public.pem"
 
     # ── Downstream services ───────────────────────────────────────────
+    # Internal URL of the Network Discovery Service, which holds the
+    # registry of ITEGA-certified home bases.  The ALS consults it to
+    # resolve a visitor to a home base and to learn that home base's
+    # OIDC endpoints, rather than assuming a single configured realm.
+    discovery_service_url: str = "http://localhost:8002"
+
     # Internal URL of the ALS Logging Service (POST /log/event).
     logging_service_url: str = "http://localhost:8001"
     # API key used to authenticate calls to the ALS Logging Service.

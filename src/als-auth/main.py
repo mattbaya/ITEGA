@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import html
 import json
 import logging
 import secrets
@@ -47,6 +48,7 @@ from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 from config import Settings, settings
+from discovery import DiscoveryClient
 from jwt_utils import JWKSCache, sign_session_token, verify_keycloak_id_token, verify_session_token
 from jose import JWTError
 from models import (
@@ -77,7 +79,11 @@ app = FastAPI(
 
 # ── State holders (populated on startup) ──────────────────────────────
 
-_jwks_cache: JWKSCache | None = None
+_discovery: DiscoveryClient | None = None
+# One JWKS cache per home base, keyed by ITEGA home base id.  Each home base
+# signs its own ID tokens, so the ALS must verify against that home base's
+# keys -- never a single shared key set.
+_jwks_caches: dict[str, JWKSCache] = {}
 _publishers: dict[str, Any] = {}          # client_id -> PublisherEntry
 _private_key_pem: str = ""
 _public_key_pem: str = ""
@@ -131,7 +137,7 @@ def _session_store_put(key: str, value: dict[str, Any]) -> None:
 
 @app.on_event("startup")
 async def _startup() -> None:
-    global _jwks_cache, _publishers, _private_key_pem, _public_key_pem
+    global _discovery, _publishers, _private_key_pem, _public_key_pem
 
     logger.info("Starting ALS Auth Service")
 
@@ -156,12 +162,24 @@ async def _startup() -> None:
     except Exception:
         logger.exception("Failed to load publishers config")
 
-    # Initialise JWKS cache (first fetch is deferred to first use)
-    _jwks_cache = JWKSCache(
-        jwks_url=settings.keycloak_jwks_url,
+    # Connect to Network Discovery — the registry of certified home bases.
+    _discovery = DiscoveryClient(
+        base_url=settings.discovery_service_url,
         ttl=settings.jwks_cache_ttl,
     )
-    logger.info("JWKS cache initialised (url=%s)", settings.keycloak_jwks_url)
+    logger.info("Discovery client initialised (url=%s)", settings.discovery_service_url)
+
+
+def _jwks_cache_for(home_base: dict[str, Any]) -> JWKSCache:
+    """Return (creating on first use) the JWKS cache for one home base."""
+    hb_id = home_base["id"]
+    if hb_id not in _jwks_caches:
+        _jwks_caches[hb_id] = JWKSCache(
+            jwks_url=home_base["jwks_uri"],
+            ttl=settings.jwks_cache_ttl,
+        )
+        logger.info("JWKS cache created for %s (%s)", hb_id, home_base["jwks_uri"])
+    return _jwks_caches[hb_id]
 
 
 # ── Helpers ───────────────────────────────────────────────────────────
@@ -297,47 +315,199 @@ async def authorize(
             detail="redirect_uri does not match the publisher's registered domain",
         )
 
-    # 3. Check for home-site hint via the X-Home-Base-Hint header.
-    #    NOTE: The Newshare architecture forbids cookies (auth state is
-    #    carried exclusively via HTTP headers and signed JWT tokens).
-    #    In production, home-site discovery uses WebFinger (RFC 7033);
-    #    the hint header is a shortcut for the single-home-base prototype.
-    home_site_hint = request.headers.get("X-Home-Base-Hint")
-    # For now, we ignore the hint and always go to the configured Keycloak.
-    # A multi-home-base deployment would present a chooser UI here.
-
-    # 4. Store session context in the bounded in-memory store.
+    # 3. Store session context in the bounded in-memory store.  The chosen
+    #    home base is filled in below, or by /auth/select-home-base once the
+    #    visitor identifies theirs.
     session_key = _make_session_key()
     _session_store_put(session_key, {
         "publisher_client_id": client_id,
         "publisher_redirect_uri": redirect_uri,
         "publisher_state": state,
         "scope": scope,
+        "home_base_id": "",
     })
 
-    # 5. Build Keycloak authorization URL.
-    #    The ALS acts as an intermediary: it redirects the user to the home
-    #    base (Keycloak) with the ALS callback as redirect_uri, not the
-    #    publisher's.  Keycloak will redirect back to /auth/callback after
-    #    the user authenticates.
-    als_callback_uri = f"{settings.als_base_url}/auth/callback"
-    signed_state = _encode_state(session_key)
+    # 4. Determine which home base to send the visitor to.
+    #    The X-Home-Base-Hint header carries a prior affiliation when the
+    #    publisher knows one.  The Newshare architecture forbids auth cookies,
+    #    so there is no cookie to consult here -- an unhinted visitor is asked
+    #    directly (demo script Path Option 2, step 20).
+    if _discovery is None:
+        raise HTTPException(status_code=503, detail="Discovery client not initialised")
+
+    hint = request.headers.get("X-Home-Base-Hint", "")
+    client_ip = request.client.host if request.client else ""
+    resolved = await _discovery.resolve(q=hint, client_ip=client_ip)
+
+    if resolved.get("exact") and resolved.get("matches"):
+        home_base = resolved["matches"][0]
+        return await _redirect_to_home_base(session_key, home_base, client_id, scope)
+
+    # 5. No confident match — present the home-base chooser.
+    return _render_home_base_chooser(
+        session_key=session_key,
+        candidates=resolved.get("matches") or await _discovery.home_bases(),
+        default_signup=resolved.get("default_signup"),
+    )
+
+
+async def _redirect_to_home_base(
+    session_key: str,
+    home_base: dict[str, Any],
+    client_id: str,
+    scope: str,
+) -> RedirectResponse:
+    """
+    Send the visitor to their home base to authenticate.
+
+    The ALS puts *its own* callback in redirect_uri rather than the
+    publisher's, so the authorization code comes back here to be exchanged —
+    the publisher never talks to the home base directly.
+    """
+    session = _pending_sessions.get(session_key)
+    if session is None:
+        raise HTTPException(status_code=400, detail="Session expired or unknown")
+    session["home_base_id"] = home_base["id"]
 
     params = {
         "client_id": client_id,
-        "redirect_uri": als_callback_uri,
+        "redirect_uri": f"{settings.als_base_url}/auth/callback",
         "response_type": "code",
         "scope": scope,
-        "state": signed_state,
+        "state": _encode_state(session_key),
     }
-    keycloak_url = f"{settings.keycloak_auth_url}?{urllib.parse.urlencode(params)}"
+    auth_url = f"{home_base['auth_url']}?{urllib.parse.urlencode(params)}"
 
     logger.info(
-        "authorize: client_id=%s -> redirecting to Keycloak",
+        "authorize: client_id=%s -> home base %s",
         client_id,
+        home_base["id"],
     )
-    # 6. Redirect user to Keycloak for authentication.
-    return RedirectResponse(url=keycloak_url, status_code=302)
+    return RedirectResponse(url=auth_url, status_code=302)
+
+
+def _render_home_base_chooser(
+    session_key: str,
+    candidates: list[dict[str, Any]],
+    default_signup: dict[str, Any] | None,
+    message: str = "",
+) -> HTMLResponse:
+    """
+    Ask the visitor which home base is theirs (demo script steps 20, 24).
+
+    Offers the certified members we can suggest, a free-text field for a name
+    or Publishing Member ID, and — when nothing matched — an invitation to
+    sign up with a default home base rather than a dead end.
+
+    All interpolated values are HTML-escaped: candidate names come from the
+    ITEGA registry and the message may echo visitor input.
+    """
+    signed_state = html.escape(_encode_state(session_key))
+
+    options = "".join(
+        f'<li><a href="/auth/select-home-base?state={signed_state}'
+        f'&amp;q={html.escape(urllib.parse.quote(hb["publishing_member_id"]))}">'
+        f'{html.escape(hb["name"])}</a></li>'
+        for hb in candidates
+    )
+    note = f"<p class=\"note\">{html.escape(message)}</p>" if message else ""
+
+    signup = ""
+    if default_signup:
+        signup = (
+            '<p class="signup">Not affiliated with a member yet? '
+            f'<a href="{html.escape(default_signup.get("signup_url", ""))}">'
+            f'Create an account with {html.escape(default_signup["name"])}</a>.</p>'
+        )
+
+    return HTMLResponse(content=f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Choose your home base</title>
+  <style>
+    body {{ font-family: system-ui, sans-serif; max-width: 34rem; margin: 3rem auto;
+           padding: 0 1rem; line-height: 1.5; }}
+    ul {{ padding-left: 1.2rem; }}
+    li {{ margin: .35rem 0; }}
+    .note {{ background: #fff6e5; border-left: 3px solid #e8a33d; padding: .6rem .8rem; }}
+    .signup {{ color: #555; font-size: .95rem; }}
+    input[type=text] {{ width: 100%; padding: .5rem; font-size: 1rem; }}
+    button {{ margin-top: .6rem; padding: .5rem 1rem; font-size: 1rem; }}
+  </style>
+</head>
+<body>
+  <h1>Where do you have an account?</h1>
+  <p>Sign in through the publisher or service that maintains your account —
+     your <strong>home base</strong>. It is the only party that knows who you are.</p>
+  {note}
+  <ul>{options}</ul>
+  <form method="GET" action="/auth/select-home-base">
+    <input type="hidden" name="state" value="{signed_state}">
+    <label for="q">Or enter its name or Publishing Member ID</label>
+    <input type="text" id="q" name="q" autocomplete="off">
+    <button type="submit">Continue</button>
+  </form>
+  {signup}
+</body>
+</html>
+""")
+
+
+# ── GET /auth/select-home-base ───────────────────────────────────────
+
+@app.get("/auth/select-home-base")
+async def select_home_base(
+    request: Request,
+    state: str = Query(..., description="Signed state from the chooser"),
+    q: str = Query("", description="Home base name or Publishing Member ID"),
+):
+    """
+    Handle the visitor's answer to the home-base chooser (script steps 20-24).
+
+    On a confident match, redirect onward to that home base to authenticate.
+    Otherwise re-present the chooser with whatever candidates were found, or
+    an invitation to sign up if nothing matched at all.
+    """
+    if _discovery is None:
+        raise HTTPException(status_code=503, detail="Discovery client not initialised")
+
+    try:
+        session_key = _decode_state(state)
+    except ValueError as exc:
+        logger.warning("select-home-base: invalid state — %s", exc)
+        raise HTTPException(status_code=400, detail="Invalid state parameter")
+
+    session = _pending_sessions.get(session_key)
+    if session is None:
+        raise HTTPException(status_code=400, detail="Session expired or unknown")
+
+    client_ip = request.client.host if request.client else ""
+    resolved = await _discovery.resolve(q=q, client_ip=client_ip)
+    matches = resolved.get("matches") or []
+
+    if resolved.get("exact") and matches:
+        return await _redirect_to_home_base(
+            session_key,
+            matches[0],
+            session["publisher_client_id"],
+            session["scope"],
+        )
+
+    if matches:
+        message = "More than one home base matched — please pick yours."
+    else:
+        message = (
+            f"We could not find a home base matching “{q}”. "
+            "Choose from the list, or create an account below."
+        )
+    return _render_home_base_chooser(
+        session_key=session_key,
+        candidates=matches or await _discovery.home_bases(),
+        default_signup=resolved.get("default_signup"),
+        message=message,
+    )
 
 
 # ── GET /auth/callback ───────────────────────────────────────────────
@@ -374,7 +544,21 @@ async def callback(
     if publisher is None:
         raise HTTPException(status_code=400, detail="Publisher no longer registered")
 
-    # 2. Exchange authorization code with Keycloak
+    # 2. Recover the home base this session authenticated against.  Every
+    #    home base has its own token endpoint, issuer, and signing keys, so
+    #    the rest of this handler is scoped to that one member.
+    if _discovery is None:
+        raise HTTPException(status_code=503, detail="Discovery client not initialised")
+
+    home_base = await _discovery.get(session.get("home_base_id", ""))
+    if home_base is None:
+        logger.warning(
+            "callback: session referenced unknown home base %s",
+            session.get("home_base_id"),
+        )
+        raise HTTPException(status_code=400, detail="Unknown home base for this session")
+
+    # 3. Exchange authorization code with the home base
     als_callback_uri = f"{settings.als_base_url}/auth/callback"
     token_payload = {
         "grant_type": "authorization_code",
@@ -384,16 +568,14 @@ async def callback(
         "client_secret": publisher.client_secret,
     }
 
+    token_url = f"{home_base['oidc_issuer']}/protocol/openid-connect/token"
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.post(
-                settings.keycloak_token_url,
-                data=token_payload,
-            )
+            resp = await client.post(token_url, data=token_payload)
             resp.raise_for_status()
             token_data = resp.json()
     except httpx.HTTPError as exc:
-        logger.error("Token exchange failed: %s", exc)
+        logger.error("Token exchange with %s failed: %s", home_base["id"], exc)
         raise HTTPException(
             status_code=502,
             detail="Failed to exchange authorization code with home base",
@@ -401,17 +583,14 @@ async def callback(
 
     id_token_raw = token_data.get("id_token")
     if not id_token_raw:
-        raise HTTPException(status_code=502, detail="No id_token in Keycloak response")
+        raise HTTPException(status_code=502, detail="No id_token in home base response")
 
-    # 3. Validate the ID token
-    if _jwks_cache is None:
-        raise HTTPException(status_code=503, detail="JWKS cache not initialised")
-
+    # 4. Validate the ID token against that home base's published keys
     try:
         id_claims = await verify_keycloak_id_token(
             token=id_token_raw,
-            jwks_cache=_jwks_cache,
-            issuer=settings.keycloak_issuer,
+            jwks_cache=_jwks_cache_for(home_base),
+            issuer=home_base["oidc_issuer"],
             audience=publisher_client_id,
         )
     except JWTError as exc:
@@ -427,7 +606,9 @@ async def callback(
     #    custom claims, we fall back to OIDC standard ``sub`` or publisher
     #    defaults.
     network_user_id = id_claims.get("networkUserId", id_claims.get("sub", ""))
-    home_base_id = id_claims.get("homeBaseId", "")
+    # Fall back to the home base we actually authenticated against, so the
+    # claim is correct even before a home base deploys the Keycloak mapper.
+    home_base_id = id_claims.get("homeBaseId") or home_base["id"]
     network_group_id = id_claims.get("networkGroupId", 0)
     pub_mbr_id = id_claims.get("pubMbrId", publisher.pub_mbr_id)
 
@@ -485,17 +666,20 @@ async def callback(
     #    HTML form.  SECURITY: The token is sent in the POST body, NOT in
     #    the URL query string.  Putting secrets in the URL would expose them
     #    in browser history, server access logs, and Referer headers.
-    redirect_uri = publisher_redirect_uri
-    html = f"""<!DOCTYPE html>
+    #    All three interpolated values are HTML-escaped before being placed in
+    #    attributes.  ``publisher_state`` is echoed back from the publisher's
+    #    original query string, so without escaping a crafted state could
+    #    close the attribute and inject markup into this page.
+    form_html = f"""<!DOCTYPE html>
 <html><body>
-<form id="f" method="POST" action="{redirect_uri}">
-  <input type="hidden" name="sessionToken" value="{session_token}">
-  <input type="hidden" name="state" value="{publisher_state}">
+<form id="f" method="POST" action="{html.escape(publisher_redirect_uri, quote=True)}">
+  <input type="hidden" name="sessionToken" value="{html.escape(session_token, quote=True)}">
+  <input type="hidden" name="state" value="{html.escape(publisher_state, quote=True)}">
 </form>
 <script>document.getElementById('f').submit();</script>
 </body></html>
 """
-    return HTMLResponse(content=html)
+    return HTMLResponse(content=form_html)
 
 
 # ── POST /auth/validate ──────────────────────────────────────────────
@@ -565,17 +749,17 @@ async def list_home_bases() -> HomeBasesResponse:
     """
     Return the list of certified home bases in the network.
 
-    For the prototype this is a single Keycloak instance.  In production
-    the list would come from the ITEGA network-discovery JSON.
+    Sourced from ITEGA's Network Discovery Service, which is the authority
+    on who is currently certified — a suspended member disappears from this
+    list without the ALS being redeployed.
     """
-    home_bases = [
-        HomeBaseEntry(
-            id="HB001",
-            name="Newshare Home Base (Keycloak)",
-            auth_url=settings.keycloak_auth_url,
-        ),
-    ]
-    return HomeBasesResponse(home_bases=home_bases)
+    if _discovery is None:
+        raise HTTPException(status_code=503, detail="Discovery client not initialised")
+
+    return HomeBasesResponse(home_bases=[
+        HomeBaseEntry(id=hb["id"], name=hb["name"], auth_url=hb["auth_url"])
+        for hb in await _discovery.home_bases()
+    ])
 
 
 # ── GET /.well-known/openid-configuration ─────────────────────────────
