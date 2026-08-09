@@ -3,87 +3,14 @@
 *What each piece of the network is, where it should run, and how to get the hosts
 ready to receive code.*
 
-## The constraint that drives the layout
+## Component sizing and layout
 
-ITEGA governs but does not operate. That is the whole argument of the project, and
-the demo has to survive someone asking "so who runs that box?" So the split below is
-not about resources — it is about which party operates what:
+Moved to [`server-specs.md`](server-specs.md) — what each host runs, how it is sized,
+which ports are exposed, and why the Retail Agent belongs on the home-base host rather
+than the ITEGA one. Read that first; this document is the build steps.
 
-| Party | Operates | Runs on |
-|---|---|---|
-| A home base (e.g. Publisher C) | Keycloak realm, user accounts, **Retail Agent** | VPS 1 |
-| ITEGA | Authenticator, Logger, Settlement, Network Directory | VPS 2 |
-| Publishers | WordPress + the ITEGA plugin | Matt's existing sites |
-
-**The Retail Agent must not live on the ITEGA box.** It holds the markup ratio and
-decides whether to authorise a purchase — both of which are the home base's business,
-and neither of which ITEGA is allowed to see. Co-locating it would contradict the
-architecture on stage.
-
-## Component inventory
-
-### VPS 1 — Home Base (the ASP side)
-
-| Component | Port | Purpose | Est. RAM |
-|---|---|---|---|
-| Keycloak 26.x | 8080 | OIDC provider; one realm per home base | 800–900 MB |
-| PostgreSQL 16 | 5432 | Keycloak store + user profiles | 200–300 MB |
-| `asp-agent` (×2) | 8003, 8004 | Retail Agent per home base — accept/counter/decline | 100–160 MB |
-| Nginx + OS | 80/443 | TLS termination, Ubuntu 24.04 baseline | ~300 MB |
-| **Idle total** | | | **~1.5–1.7 GB** |
-
-**Size: 4 GB / 2 vCPU ($24/mo).** Keycloak's JVM is the whole cost here; everything
-else is rounding. 2 GB would technically boot with `-Xmx512m` but leaves no headroom
-for a live demo, which is exactly the wrong place to be tight.
-
-### VPS 2 — ALS (the ITEGA side)
-
-| Component | Port | Purpose | Est. RAM |
-|---|---|---|---|
-| TimescaleDB (PG16) | 5432 | `als_logs` + `als_settlement` | 200–300 MB |
-| `als-auth` | 8000 | Authenticator: token issue/validate, home-base chooser | 50–80 MB |
-| `als-logging` | 8001 | Logger: append-only event store, reports | 50–80 MB |
-| `network-discovery` | 8002 | The ITEGA directory + WebFinger | 50–80 MB |
-| `als-settlement` | — | Weekly cron batch, not a daemon | negligible |
-| Nginx + dashboard | 80/443 | TLS, static React app | ~30 MB |
-| OS | | Ubuntu 24.04 | ~300 MB |
-| **Idle total** | | | **~700–900 MB** |
-
-**Size: 2 GB / 1 vCPU ($12/mo) is genuinely enough**, even with the new discovery
-service. 4 GB if you want room for TimescaleDB growth or a live-demo safety margin.
-
-### Publishers — no new hosts
-
-Three WordPress sites on Matt's existing hosting, running the `newshare-network`
-plugin. The script casts Publishers A and B as content sites and Publisher C as the
-home base; the transparent-SSO section needs a third content site to prove the login
-travels. Each needs outbound HTTPS to VPS 1 and 2, and nothing else.
-
-### Running total
-
-| Option | VPS 1 | VPS 2 | Domain | Monthly |
-|---|---|---|---|---|
-| Comfortable | 4 GB $24 | 4 GB $24 | ~$1 | **~$49** |
-| **Recommended** | 4 GB $24 | 2 GB $12 | ~$1 | **~$37** |
-
-Well inside the $300–500/mo pilot budget, with room to add a second home-base host if
-the independence story needs to be more literal (see below).
-
-## One decision to make first: how many home bases?
-
-The chooser is unconvincing with one option in it, and multi-home-base routing is now
-built, so the demo wants at least two.
-
-- **Two realms on one Keycloak (recommended).** Each realm has its own issuer, JWKS,
-  and users — technically distinct in every way the ALS code cares about, and each
-  gets its own Retail Agent. Costs nothing extra.
-- **Two separate hosts.** More literally true to "different organisations," at +$12–24/mo
-  and roughly double the setup. Worth it only if Bill expects to claim on the call that
-  the home bases are genuinely independently operated.
-
-The plan below assumes two realms on one host. Moving to two hosts later is a config
-change, not a rewrite, because home bases are resolved from the registry rather than
-hardcoded.
+**Short version:** VPS 1 (home base) 4 GB / $24, VPS 2 (ALS) 2 GB / $12, publishers on
+existing WordPress hosting. ~$37/mo including the domain.
 
 ## DNS
 
