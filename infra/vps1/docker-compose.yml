@@ -64,6 +64,66 @@ services:
     # Memory limit: Keycloak JVM is set to -Xmx768m; allow ~1.2GB total for JVM overhead
     mem_limit: 1280m
 
+  # ----------------------------------------------------------------
+  # Retail Agents — one per home base.
+  #
+  # These run HERE, on the home-base host, and deliberately not on the
+  # ALS host. Each holds its home base's markup ratio and decides
+  # whether to authorise a purchase; both are the home base's own
+  # business, and ITEGA is not permitted to see either. Co-locating
+  # them with the Authenticator would contradict the separation the
+  # whole network is built to demonstrate.
+  #
+  # They are tiny (~50-80MB each) and stateless.
+  # ----------------------------------------------------------------
+
+  asp-agent-publisher-c:
+    build:
+      context: ../../src/asp-agent/
+      dockerfile: Dockerfile
+    container_name: asp-agent-publisher-c
+    restart: unless-stopped
+    environment:
+      HOME_BASE_ID: HB001
+      HOME_BASE_NAME: ${AGENT_C_NAME:-Publisher C Home Base}
+      MARKUP_RATIO: ${AGENT_C_MARKUP_RATIO:-1.1}
+      AUTO_ACCEPT_BELOW: ${AGENT_C_AUTO_ACCEPT_BELOW:-0.10}
+      DECLINE_ABOVE: ${AGENT_C_DECLINE_ABOVE:-0.50}
+      COUNTER_FRACTION: ${AGENT_C_COUNTER_FRACTION:-0.75}
+      # The agent files its own log report for every purchase it
+      # authorises, so the ALS record can be audited against it.
+      LOGGING_SERVICE_URL: ${LOGGING_SERVICE_URL}
+      LOGGING_API_KEY: ${LOGGING_API_KEY}
+    ports:
+      - "127.0.0.1:8003:8003"
+    networks:
+      - newshare
+    mem_limit: 128m
+
+  asp-agent-demo:
+    build:
+      context: ../../src/asp-agent/
+      dockerfile: Dockerfile
+    container_name: asp-agent-demo
+    restart: unless-stopped
+    environment:
+      HOME_BASE_ID: HB002
+      HOME_BASE_NAME: ${AGENT_DEMO_NAME:-Newshare Demo Home Base}
+      # A deliberately different markup from the other home base, so the
+      # demo can show two readers paying different retail prices for the
+      # same article -- the point of the wholesale-retail model.
+      MARKUP_RATIO: ${AGENT_DEMO_MARKUP_RATIO:-1.4}
+      AUTO_ACCEPT_BELOW: ${AGENT_DEMO_AUTO_ACCEPT_BELOW:-0.10}
+      DECLINE_ABOVE: ${AGENT_DEMO_DECLINE_ABOVE:-0.50}
+      COUNTER_FRACTION: ${AGENT_DEMO_COUNTER_FRACTION:-0.75}
+      LOGGING_SERVICE_URL: ${LOGGING_SERVICE_URL}
+      LOGGING_API_KEY: ${LOGGING_API_KEY}
+    ports:
+      - "127.0.0.1:8004:8003"
+    networks:
+      - newshare
+    mem_limit: 128m
+
 volumes:
   pgdata:
     driver: local

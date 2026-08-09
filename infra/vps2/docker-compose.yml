@@ -49,6 +49,10 @@ services:
       ALS_JWT_PUBLIC_KEY_PATH: /run/secrets/jwt_public_key
       SESSION_SECRET: ${SESSION_SECRET}
       LOGGING_SERVICE_URL: http://als-logging:8001
+      # Where the certified-home-base registry lives. Without this the
+      # Authenticator cannot resolve a reader to a home base and every
+      # authorize request fails, so it is not optional.
+      DISCOVERY_SERVICE_URL: http://network-discovery:8002
       PUBLISHERS_CONFIG: ${PUBLISHERS_CONFIG:-[]}
       ALS_BASE_URL: ${ALS_BASE_URL:-https://als.newshare.example}
       LOGGING_API_KEY: ${LOGGING_API_KEY}
@@ -60,6 +64,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      network-discovery:
+        condition: service_started
     networks:
       - als
 
@@ -80,6 +86,37 @@ services:
         condition: service_healthy
     networks:
       - als
+
+  # ----------------------------------------------------------------
+  # Network Discovery — the ITEGA directory of certified members.
+  #
+  # The trust anchor for the network: which home bases and publishers
+  # ITEGA currently certifies, and where each home base's OIDC
+  # endpoints and Retail Agent can be found. The Authenticator reads
+  # it to resolve a visiting reader to their home base, so a suspended
+  # member disappears from the network without redeploying anything.
+  #
+  # The registry file is mounted read-only from the repo, keeping
+  # ITEGA's certification decisions reviewable in version control.
+  # ----------------------------------------------------------------
+
+  network-discovery:
+    build:
+      context: ../../src/network-discovery/
+      dockerfile: Dockerfile
+    container_name: network-discovery
+    restart: unless-stopped
+    environment:
+      DISCOVERY_BASE_URL: ${DISCOVERY_BASE_URL:-https://network.newshare.example}
+      REGISTRY_PATH: /app/data/registry.json
+      NETWORK_NAME: ${NETWORK_NAME:-Newshare Network}
+    volumes:
+      - ../../src/network-discovery/data/registry.json:/app/data/registry.json:ro
+    ports:
+      - "127.0.0.1:8002:8002"
+    networks:
+      - als
+    mem_limit: 128m
 
 secrets:
   jwt_private_key:
