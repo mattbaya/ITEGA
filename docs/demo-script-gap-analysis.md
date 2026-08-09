@@ -29,12 +29,29 @@ publishers in that room than a mockup.
 
 ## Two findings that should shape the pricing work
 
-### X402 may be the right rail for the AI-agent section
+### X402 — corrected, and settled
 
-Bill circulated the Linux Foundation's adoption of **X402** (incubated by
-Cloudflare and Coinbase) and asked Don Marti whether "an ITEGA ecosystem, if one
-existed, would want to be compatible with" it. It is worth taking seriously,
-because its roles map onto the four-party model almost exactly:
+> **Correction (Aug 9).** The analysis below overstated the fit. Drummond Reed
+> clarified that **x402 is strictly for payments and does not do identity
+> management**. The identity half is a separate, much less mature effort: `x401`
+> is a *proposal* from Proof (Daniel Buchner) to layer verifiable credentials onto
+> x402, published as a blog post in June 2026, and the underlying work is in ToIP's
+> Decentralized Trust Graph Working Group with reference code at OpenVTC (LF
+> Decentralized Trust Labs).
+>
+> That matters because the AI-agent section needs **authentication** first — deciding
+> whether a crawler is an ITEGA member at all — and x402 would not have supplied it.
+> The facilitator mapping below still holds for the *payment* leg, and is worth
+> keeping in view, but x402 was never going to carry the part Bill most needs working.
+>
+> **Decision (Bill, Aug 8):** build our own approach now, keep the seam open, and be
+> able to state that ITEGA "intends to support x402 when it becomes an operating
+> standard." AI-agent support must work for Aug 25 regardless.
+
+The mapping that remains accurate, for the payment leg:
+
+**X402** (incubated by Cloudflare and Coinbase, now at the Linux Foundation) puts
+payment into HTTP directly, and its roles map onto the four-party model closely:
 
 | X402 | Newshare |
 |---|---|
@@ -56,10 +73,14 @@ billed a single aggregated fee at the end of the day against a card or bank
 account, supporting "pre-negotiated licensing agreements, batch settlements, or
 subscriptions." That is ITEGA's settlement model, already standardised.
 
-This also offers a better answer to Drummond Reed's objection than either option
-previously on the table. He argued AI agents "don't use browsers, don't use
-OpenID." X402 agrees — and solves it without waiting for the DID/VC ecosystem to
-mature. Worth raising with Bill before any AI-agent code is written.
+**What keeps the migration credible.** The current architecture already separates
+the three things x402 would slot into: authentication (the Authenticator issues a
+session token), price agreement (the publisher and the Retail Agent negotiate
+directly), and settlement (a weekly batch reading the log). Payment is already
+decoupled from identity, so adopting x402 later means replacing the price-agreement
+and settlement legs without touching how readers are authenticated. That makes
+"we intend to support x402" an architectural statement rather than a hopeful one —
+worth being able to say plainly on Aug 25.
 
 ### Rick Lerner questions the premise of price negotiation
 
@@ -222,16 +243,28 @@ Note this is not a peripheral request: the E&P op-ed and the RJI event page both
 with AI agents paying for content, so it will likely come up on Aug 25 even if it isn't
 demonstrated.
 
-## Open questions for Bill
+## Answered by Bill (Aug 8–9)
 
-1. **X402.** Should the AI-agent section target X402 rather than a bespoke extension of
-   the OIDC session-token model? It is HTTP-native, now under Linux Foundation
-   governance, already used by Cloudflare for paid crawling, and its deferred-payment
-   scheme matches ITEGA's batch settlement. Bill has already asked Don Marti about it.
-2. **Price negotiation.** Rick Lerner questions why a publisher would want to negotiate
-   rather than set a price and adjust it. The script specifies negotiation in detail;
-   these two views should be reconciled before the roundtable.
-3. Does "first-party cookie in the ITEGA domain" mean the identity provider's own session
-   cookie, or something visible on publisher domains?
-4. For Aug 25, which sections must be genuinely live versus narrated from a simulation?
-   Current working assumption: as much genuinely live as possible.
+1. **X402** — build our own approach now; keep the seam open; state that ITEGA intends
+   to support x402 when it becomes an operating standard. AI-agent support ships for
+   Aug 25 regardless, because the handshake for authentication, logging and settlement
+   is central to ITEGA's pitch to publishers. See the correction above: x402 is
+   payments-only and would not have covered the authentication half anyway.
+2. **Price negotiation** — a settled business decision, build it. Refined flow: the
+   publisher posts a price, waits a very short interval for the agent to accept or ask
+   to negotiate, then either negotiates or declares the posted price take-it-or-leave-it.
+   Rick's scepticism is exactly why it needs to be demonstrable — that is how you elicit
+   the feedback.
+3. **First-party cookie** — resolved by adding a step *before* step 10: the Authenticator
+   first checks its own cached store of authenticated readers and reuses a still-fresh
+   token, falling back to steps 10–14 only when stale. Wanted as working code. Multi-
+   authenticator coordination at scale is explicitly out of scope for Aug 25.
+4. **Session token lifetime** — Bill proposed 30 minutes; the implementation already uses
+   exactly that (`session_token_ttl` = 1800s). Short enough to limit replay, long enough
+   that a live demo will not re-authenticate mid-sentence.
+5. **Publisher naming** — Publisher C and "Publisher 3" are the same party, as are A/B and
+   1/2. Settling on **letters** throughout, since the script's Definitions section
+   establishes them.
+6. **Aug 25 scope** — the full system operating across three publishers, plus a
+   step-through demo narrating the background exchanges in pop-ups and closing on what is
+   logged where and how settlement works, markup included.
