@@ -12,26 +12,49 @@ roughly 4x for identical specs.
 
 | Option | VPS 1 (4 GB) | VPS 2 (2 GB) | Monthly | Notes |
 |---|---|---|---|---|
-| **Hetzner Cloud** | CAX21 / CPX21 | CAX11 / CPX11 | **~$10–13** | US regions available (Ashburn VA, Hillsboro OR). Cheapest credible option. Verify current pricing. |
-| DigitalOcean | s-2vcpu-4gb $24 | s-1vcpu-2gb $12 | ~$36 | Plan of record. Simplest tooling (`doctl`), most familiar. |
-| Vultr / Linode | equivalent | equivalent | ~$30 | Between the two. |
+| **Hetzner Cloud** | CPX21 | CPX11 | **~$11–13** | Cheapest per GB. US regions (Ashburn VA, Hillsboro OR). |
+| **InterServer** | 2 slices | 1 slice | **~$18** | US (Secaucus NJ / LA). Priced per slice — 1 slice ≈ 1 core / 2 GB / 30 GB. Price-lock guarantee. |
+| DigitalOcean | s-2vcpu-4gb | s-1vcpu-2gb | ~$36 | Simplest tooling (`doctl`), most familiar. |
 
-**Recommendation: Hetzner in a US region.** Same specs, roughly a quarter of the
-DigitalOcean bill, and the pilot budget line ($300–500/mo) is nowhere near either — so
-the saving is not the point. The point is that a cheap monthly cost is easier to keep
-running after Aug 25, when nobody is watching it.
+*Verify current pricing before committing — all three change their sheets.*
+
+**Hetzner vs InterServer.** On price and hardware Hetzner wins outright; it is the
+cheapest credible RAM on the market and the machines are fast. Two things weigh the
+other way for this particular job:
+
+- **New Hetzner accounts are sometimes held for identity verification**, occasionally
+  asking for photo ID, and that can take a day or more. With a fixed public date, that
+  is a small but real risk. If you already have an account in good standing, it
+  evaporates.
+- **InterServer provisions immediately and is US-based**, including support, and its
+  price-lock guarantee means the pilot's running cost will not drift after the demo.
+
+The gap is roughly $6/mo — noise against a $300–500/mo budget line. **If you already
+have a Hetzner account, use it. If you would be signing up today, InterServer removes a
+scheduling risk for the price of a coffee.** Either is a sound choice; do not spend an
+evening deciding.
 
 ### What about existing hardware?
 
-`dev.svaha.com` was checked (Aug 2026): AlmaLinux 10, 2 vCPU, 7.5 GB RAM with ~3.4 GB
-available, Docker 29.5 already installed. RAM is adequate for the ALS stack.
+Two of Matt's hosts were checked in August 2026.
 
-**But its disk is 91% full — 15 GB free of 157 GB**, and ports 80/443 are already
-serving something. Container images plus database volumes for this stack run to several
-gigabytes, and a disk-full event during a live demo is unrecoverable in the moment. It
-could host the ALS side if the disk were cleared first and Nginx were integrated as a
-vhost rather than standing alone, but it is not a good foundation for a date you cannot
-move. Rent the two hosts.
+**`dev.svaha.com`** — AlmaLinux 10, 2 vCPU, 7.5 GB RAM (~3.4 GB free), Docker present.
+Ruled out on disk: **91% full, 15 GB free of 157 GB.** Images plus database volumes run
+to several gigabytes, and a disk-full event mid-demo is unrecoverable in the moment.
+
+**`bolt.svaha.com`** — AlmaLinux 9, 2 vCPU, 3.6 GB RAM (~2.5 GB free), 32 GB disk free,
+Docker present, load average 0.02. On resources alone it could carry the ALS stack
+comfortably. It is ruled out for a different reason: it is **a production server
+answering DNS for 548 zones**, plus MariaDB, a Gogs git host and cPanel, behind csf/lfd.
+
+That last point is the one that matters. Keycloak wants 4 GB to itself and would leave
+this host with no margin; more importantly, an experiment that destabilises bolt takes
+down DNS for 548 domains along with the demo. Coupling a public demonstration to a
+production nameserver is a bad trade for the $10/mo it saves.
+
+**Use bolt for DNS instead.** It already runs PowerDNS, which means the six A records
+the demo needs can be created immediately, without waiting on ITEGA's registrar — a
+genuine unblock, and a much better use of a box that is already doing that job well.
 
 ---
 

@@ -112,8 +112,26 @@ issue, and it was never filed to the archive, so there is nothing to check again
 Removing two third parties' personal addresses from a public repo is a defensible
 default, but the decision should be put to him explicitly rather than assumed.
 
-Separately: history still holds the unredacted originals. Removing those needs a
-rewrite and force push, which breaks clones and forks. A deliberate call.
+Separately: history still holds the unredacted originals — `git show` on the previous
+commit returns both addresses. Removing them needs a rewrite and force push.
+
+**What a rewrite actually buys, and costs.** There are no forks (checked Aug 10), so
+nothing downstream breaks in that sense. But:
+
+- **Existing clones keep the old objects regardless.** Roughly 53 unique cloners pulled
+  this repo in the preceding fortnight — mostly automated mirrors, as any public repo
+  attracts. A rewrite cannot reach any of them.
+- **A careless `git pull` after a force push can put the old history back.** Anyone
+  with a stale clone who merges rather than re-cloning reintroduces exactly the commits
+  the rewrite removed.
+- **GitHub keeps unreachable commits addressable by SHA** after a force push. They stop
+  appearing in the branch, but remain fetchable by direct URL until GitHub Support is
+  asked to garbage-collect them. A rewrite alone does not purge their copy.
+
+So the realistic framing for Bill is that redaction stops *continuing* to publish the
+addresses; it cannot un-publish them. A rewrite is cheap here and tidies the public
+face of the repo, but is not a remedy, and should not be sold to Don or Rick as one.
+If it matters to them, the honest step is telling them it happened.
 
 ### 5. Rehearse
 Bill presents this. The demo is presenter-paced by design, but he has not seen it.
