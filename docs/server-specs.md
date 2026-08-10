@@ -10,13 +10,28 @@ For the steps to build and configure these hosts, see
 The sizing below is what the software needs. Where you rent it changes the bill by
 roughly 4x for identical specs.
 
-| Option | VPS 1 (4 GB) | VPS 2 (2 GB) | Monthly | Notes |
-|---|---|---|---|---|
-| **Hetzner Cloud** | CPX21 | CPX11 | **~$11–13** | Cheapest per GB. US regions (Ashburn VA, Hillsboro OR). |
-| **InterServer** | 2 slices | 1 slice | **~$18** | US (Secaucus NJ / LA). Priced per slice — 1 slice ≈ 1 core / 2 GB / 30 GB. Price-lock guarantee. |
-| DigitalOcean | s-2vcpu-4gb | s-1vcpu-2gb | ~$36 | Simplest tooling (`doctl`), most familiar. |
+**Chosen: Hetzner, Falkenstein (fsn1) — `cx33` + `cx23`, $15.48/mo.** Prices below were
+read from the live API on Aug 10 2026, not from memory.
 
-*Verify current pricing before committing — all three change their sheets.*
+| Option | VPS 1 | VPS 2 | Monthly |
+|---|---|---|---|
+| **Hetzner EU** (fsn1/nbg1/hel1) | cx33 — 4 vCPU / 8 GB | cx23 — 2 vCPU / 4 GB | **$15.48** |
+| Hetzner US (ash/hil) | cpx21 — 3 vCPU / 4 GB | cpx11 — 2 vCPU / 2 GB | $57.98 |
+| InterServer | 2 slices | 1 slice | ~$18 |
+| DigitalOcean | s-2vcpu-4gb | s-1vcpu-2gb | ~$36 |
+
+**Hetzner's cheap reputation is EU-only.** Identical hardware in Ashburn costs 3.4x
+Falkenstein — `cpx11` is $5.99 in fsn1 and $20.49 in ash. Quoting Hetzner's headline
+price alongside a US region is an easy and expensive mistake to make.
+
+Two other traps worth recording:
+
+- **`cpx21` is discontinued** and cannot be ordered, though existing servers keep running.
+- **The `cx` line beats the `cpx` line** on both price and size: `cx33` is 8 GB for
+  $8.99 where `cpx21` was 4 GB for $10.99. Always read `hcloud server-type list` against
+  the live API rather than trusting a remembered table.
+
+*All vendors change their sheets; re-check before committing.*
 
 **Hetzner vs InterServer.** On price and hardware Hetzner wins outright; it is the
 cheapest credible RAM on the market and the machines are fast. Two things weigh the

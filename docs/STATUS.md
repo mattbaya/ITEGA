@@ -83,6 +83,49 @@ locally. Treat the full end-to-end path as untested until it has actually been w
 Every build task from Bill's Aug 7 script and his Aug 8 replies is done. What
 remains is deployment and rehearsal, not development.
 
+### 0. RESUME HERE — Hetzner is ready, nothing provisioned yet
+
+State as of Aug 10:
+
+- `hcloud` CLI installed, context **`Newshare`** created and authenticated. Run
+  `hcloud server list` to confirm; the token lives in Matt's `~/.config/hcloud/cli.toml`
+  and is never in the repo or a transcript.
+- SSH key **`newshare-deploy-pub`** (ID 116854754) registered in the project.
+- Region decided: **Falkenstein (fsn1)**. EU pricing is a third of Hetzner's US
+  regions for identical hardware — `cpx11` is $5.99 in fsn1 against $20.49 in Ashburn.
+  ~110–130 ms to Missouri, imperceptible for a click-through demo. Revisit if the pilot
+  ever holds real reader accounts, where US residency may matter.
+- **Nothing has been created. Zero spend so far.**
+
+**Server types — `cpx21` is discontinued, do not try to order it.** The `cx` line is
+both cheaper and larger:
+
+| Host | Type | Specs | $/mo |
+|---|---|---|---|
+| `newshare-vps1` (home base) | **cx33** | 4 vCPU / 8 GB / 80 GB | 8.99 |
+| `newshare-vps2` (ALS) | **cx23** | 2 vCPU / 4 GB / 40 GB | 6.49 |
+| | | **total** | **15.48** |
+
+Plus $0.60/mo per primary IPv4. 8 GB on VPS 1 gives Keycloak real headroom rather than
+the 4 GB minimum originally planned.
+
+To create both:
+
+```bash
+hcloud server create --name newshare-vps1 --type cx33 --image ubuntu-24.04 --location fsn1 --ssh-key newshare-deploy-pub
+```
+
+```bash
+hcloud server create --name newshare-vps2 --type cx23 --image ubuntu-24.04 --location fsn1 --ssh-key newshare-deploy-pub
+```
+
+**Blocked on one decision: the domain.** Certificates depend on it, so settle it before
+provisioning. Either ITEGA subdomains (`auth.itega.org` — needs whoever holds ITEGA's
+DNS, most convincing to publishers) or an `svaha.com` subdomain (Matt runs PowerDNS on
+`bolt.svaha.com`, which already answers for 548 zones, so records can be created
+immediately). Hostnames live in config rather than code, so starting on svaha and
+moving later is an edit plus a cert re-issue, not a rebuild.
+
 ### 1. Stand up the two hosts
 `docs/vps-provisioning-plan.md` has the runbook; `docs/server-specs.md` has the
 sizing. Creating droplets spends money and is Matt's to run. A session can deploy and
