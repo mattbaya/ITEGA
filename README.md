@@ -16,6 +16,7 @@ Governed by the [Information Trust Exchange Governing Association (ITEGA)](https
 - [How It's Different from "Sign in with Google"](#how-its-different-from-sign-in-with-google)
 - [The Privacy Architecture: Pairwise Pseudonymous Identifiers](#the-privacy-architecture-pairwise-pseudonymous-identifiers)
 - [The Wholesale-Retail Pricing Model](#the-wholesale-retail-pricing-model)
+- [AI Answer Engines: Buying Content Instead of Taking It](#ai-answer-engines-buying-content-instead-of-taking-it)
 - [The NetworkGroupId: How Subscription Tiers Work](#the-networkgroupid-how-subscription-tiers-work)
 - [Authentication Flow: Step by Step](#authentication-flow-step-by-step)
 - [What Gets Logged (and What Doesn't)](#what-gets-logged-and-what-doesnt)
@@ -24,6 +25,7 @@ Governed by the [Information Trust Exchange Governing Association (ITEGA)](https
 - [Protocol Stack](#protocol-stack)
 - [Technology Stack](#technology-stack)
 - [Missouri Pilot: Proof of Concept](#missouri-pilot-proof-of-concept)
+- [Prototype: Low-Cost Demo](#prototype-low-cost-demo-15month)
 - [Project Structure](#project-structure)
 - [Competitive Landscape](#competitive-landscape)
 - [History and Lineage](#history-and-lineage)
@@ -124,7 +126,15 @@ The ALS Settlement Service runs a batch job:
 
 ### What if Susan Visits a Third Newspaper?
 
-If Susan later visits the **Springfield News-Leader**, the same flow repeats — but the Missourian generates a **completely different pseudonymous ID** for Susan at the News-Leader. The Globe sees `HB001-a7f3bc92e41d`. The News-Leader sees `HB001-5e8912dc7b3a`. These IDs cannot be correlated. The Globe and the News-Leader cannot determine that the same person visited both sites. This is by design.
+If Susan later visits the **Springfield News-Leader**, she is **not asked to log in again**. The Authenticator already knows this browser authenticated with the Missourian, so it sends her straight back there and the Missourian recognises her without prompting. From Susan's side, she simply reads the article.
+
+But the Missourian still generates a **completely different pseudonymous ID** for her at the News-Leader. The Globe sees `HB001-a7f3bc92e41d`. The News-Leader sees `HB001-5e8912dc7b3a`. These cannot be correlated, and the two publishers cannot determine that the same person visited both sites.
+
+Those two facts are worth holding together, because the second is what makes the first safe. A network that recognised Susan everywhere *by giving every publisher the same identifier* would be surveillance infrastructure with better manners. The convenience comes from her home base vouching for her each time — not from handing her identity around.
+
+### What if Susan reads something her subscription doesn't cover?
+
+Then the Globe and the Missourian negotiate, in the moment, before anything is served. The Globe posts its price; the Missourian accepts it, asks to negotiate, or declines on Susan's behalf. If it declines, Susan is told the article is unavailable and pointed back to the Missourian — the party that made the decision. See [Prices are agreed, not just posted](#the-wholesale-retail-pricing-model).
 
 ### What if Susan Wants to "Disappear"?
 
@@ -259,6 +269,63 @@ The Joplin Globe publishes an investigative piece and sets `pageClass = $0.10` (
 The Globe doesn't know or care what retail price each user sees. It just gets its wholesale price. This is how free markets work.
 
 **The markup is deliberately confidential.** The Rights Owner does not need to know the Retail Agent's markup ratio, and under network governance may not be permitted to. Only the wholesale price is settled through the ALS; publisher-facing reports carry wholesale totals and nothing derived from the markup. What a home base charges its own readers — per article, bundled, or absorbed into a flat subscription — is its own business.
+
+
+### Prices are agreed, not just posted
+
+A publisher does not simply publish a number and hope. It **posts a price to the
+reader's home base**, and the home base answers on the reader's behalf:
+
+- **Accept** — the price is within what the home base will pay for this reader.
+  Content is released and the publisher is settled at that wholesale figure.
+- **Negotiate** — the home base does not refuse, but asks to open a negotiation and
+  names the figure it would prefer. The publisher then chooses: meet it, or re-post
+  its own price as final.
+- **Decline** — the home base will not authorise payment. The reader is told the
+  content is unavailable and pointed back to their home base, which is the party that
+  made the decision and the only one that can explain it.
+
+A publisher that never wants to haggle can mark its posted prices **final** from the
+outset, in which case the exchange is one round: accept or decline. The home base gets
+exactly one turn to ask for a better price, so a negotiation always terminates.
+
+This is what makes the market real rather than notional. The seller sets its terms, the
+buyer's agent can push back, and neither is obliged to trade.
+
+---
+
+## AI Answer Engines: Buying Content Instead of Taking It
+
+An AI answer engine is a member of the network like any other, but nothing about the
+reader flow applies to it. It has no browser, cannot follow a redirect, and never logs
+in. So it identifies itself on every request and agrees a price machine-to-machine:
+
+1. The engine requests an article, presenting its ITEGA member credentials.
+2. The publisher asks the Authenticator whether it is a member in good standing, and
+   what business rules it agreed to on joining.
+3. **Not a member?** The request is refused with **a note saying where to join** —
+   not a bare block. A crawler told only "no" learns nothing; one told where to sign up
+   might become a paying member.
+4. **A member?** The publisher answers with **HTTP 402 Payment Required** and its price.
+5. The engine re-sends carrying its acceptance. The agreement is recorded and the
+   content served.
+6. The engine then crawls under a **grant** — no repeated handshake — until the grant
+   times out. Every fulfilled request is still logged and billed individually; the
+   grant removes the negotiation, not the meter.
+
+Grants are scoped to one agent at one publisher, so a price agreed cheaply at one site
+is not a licence to crawl the network. ITEGA refuses to record an agreement above what
+an agent contracted for as a condition of membership.
+
+**On x402.** The 402 exchange above is deliberately the same shape as
+[x402](https://x402.org), the HTTP-native payment standard incubated by Cloudflare and
+Coinbase and now at the Linux Foundation. If x402 becomes an operating standard,
+adopting it is a substitution rather than a redesign. Note that x402 covers payment
+only — deciding whether a crawler is a member at all has no x402 equivalent today,
+which is why that half is ITEGA's.
+
+The argument here is simple: publishers cannot win a scraping arms race, but they can
+make paying easier than taking.
 
 ---
 
@@ -419,7 +486,7 @@ ACH TRANSFERS:
 
 ### Deployment for Missouri Pilot
 
-The prototype runs on two DigitalOcean 4GB droplets (~$49/month total). Keycloak is separated from the ALS services because its Java JVM idles at 400-500MB and both benefit from dedicated resources:
+The prototype runs on two Hetzner cloud servers in Falkenstein (~$15.48/month total). Keycloak is separated from the ALS services partly because its Java JVM idles at 400-500MB, but mainly because the two hosts belong to **different parties** — see the note under Key Decisions below:
 
 ```
 VPS 1: Home Base IdSP ($24/mo)       VPS 2: ALS Services ($24/mo)
@@ -459,10 +526,11 @@ auth.newshare.example                 als.newshare.example
 | Component | What It Does | Technology |
 |-----------|-------------|------------|
 | **Home Base (IdSP)** | Authenticates users, generates PPIDs, stores profiles | Keycloak 26.x + PostgreSQL 16 |
-| **ALS Auth Service** | Validates JWT tokens in real time, routes authentication flows | Python 3.12 / FastAPI sidecar |
+| **ALS Auth Service** | Validates tokens, routes authentication, remembers signed-in readers, runs the AI agent handshake | Python 3.12 / FastAPI |
 | **ALS Logging Service** | Records every content access event in Extended Common Log Format | Python 3.12 / FastAPI + TimescaleDB |
 | **ALS Settlement Service** | Weekly batch: aggregates logs, computes debits/credits, generates reports | Python 3.12 batch script |
-| **Publisher Plugin** | "Network Login" button, OIDC Relying Party, content tagging | WordPress plugin (PHP) |
+| **Retail Agent (ASP)** | Buys content on a reader's behalf: accepts, negotiates, or declines a publisher's price. Holds the retail markup | Python 3.12 / FastAPI |
+| **Publisher Plugin** | "Network Login" button, OIDC Relying Party, price negotiation, content tagging | WordPress plugin (PHP) |
 | **Network Discovery** | Directory of certified home bases and publishers; resolves a reader to their home base | Python 3.12 / FastAPI + WebFinger |
 | **User Dashboard** | Shows users their session, reading history, balance, privacy controls | React + TypeScript |
 
@@ -561,29 +629,35 @@ Phase 2 (broader rollout + UDEX): ~$2M over 3 years. Not part of this request.
 
 ---
 
-## Prototype: Low-Cost Demo ($49/month)
+## Prototype: Low-Cost Demo (~$15/month)
 
 In addition to the full Missouri Pilot architecture, this repository contains a **working prototype** designed to demonstrate the complete flow on two cheap VPS instances.
+
+Hosting is two Hetzner cloud servers in Falkenstein — `cx33` (4 vCPU / 8 GB) for the home base and `cx23` (2 vCPU / 4 GB) for the ALS — at about **$15.48/month** for the pair. Hetzner's US regions cost roughly 3.4x their EU ones for identical hardware, which is worth knowing before comparing quotes.
 
 ### Prototype Architecture
 
 ```
-VPS 1: Home Base IdSP ($24/mo)       VPS 2: ALS Services ($24/mo)
-auth.newshare.example                 als.newshare.example
+VPS 1: Home Base (the ASP side)      VPS 2: ALS (the ITEGA side)
+cx33 — 4 vCPU / 8 GB — $8.99/mo      cx23 — 2 vCPU / 4 GB — $6.49/mo
 ┌────────────────────────┐            ┌───────────────────────────────┐
 │ Keycloak 26.x          │            │ FastAPI: ALS Auth Service     │
-│  - OIDC Provider       │◄──────────│  - Token validation           │
-│  - Built-in PPID       │            │  - Home-site routing          │
-│  - Custom SPI mapper   │            │  - Session token issuance     │
+│  - OIDC Provider       │◄──────────│  - Token issue and validation │
+│  - Built-in PPID       │            │  - Home-base chooser          │
+│  - Custom SPI mapper   │            │  - Reader session cache       │
+│  - TWO realms:         │            │  - AI agent handshake         │
+│    publisher-c (HB001) │            │                               │
+│    newshare    (HB002) │            │ FastAPI: Network Discovery    │
+│                        │            │  - Certified-member registry  │
+│ FastAPI: Retail Agents │            │  - WebFinger (RFC 7033)       │
+│  - one per home base   │            │                               │
+│  - accepts/negotiates  │            │ FastAPI: ALS Logging Service  │
+│  - HOLDS THE MARKUP    │            │  - Event ingestion, reports   │
 │                        │            │                               │
-│ PostgreSQL 16          │            │ FastAPI: ALS Logging Service  │
-│  - User profiles       │            │  - Event ingestion            │
-│  - PPID mappings       │            │  - Usage reports              │
-└────────────────────────┘            │                               │
-                                      │ PostgreSQL 16 + TimescaleDB   │
-                                      │ Python: Settlement (cron)     │
-                                      │ React: User Dashboard         │
-                                      │ Nginx: Reverse proxy + TLS    │
+│ PostgreSQL 16          │            │ PostgreSQL 16 + TimescaleDB   │
+│  - User profiles       │            │ Python: Settlement (cron)     │
+│  - PPID mappings       │            │ React: Dashboard + /demo      │
+└────────────────────────┘            │ Nginx: Reverse proxy + TLS    │
                                       └───────────────────────────────┘
                                                     │
            ┌────────────────┬───────────────────────┼────────────────┐
@@ -600,7 +674,12 @@ auth.newshare.example                 als.newshare.example
 - **Keycloak** (not Authentik) — ships with built-in `SHA256PairwiseSubMapper` for PPID. A ~120-line custom Java SPI plugin reformats the pairwise `sub` into Newshare's `[HomeBaseID]-[hash]` format.
 - **FastAPI** for all ALS backend services — lightweight, async, same language as settlement.
 - **Simulated settlement** — generates reports showing what would be debited/credited, no real money moves.
-- **Two VPS** instead of one — Keycloak idles at 400-500MB; separating it from TimescaleDB keeps both under 4GB comfortably.
+- **Two VPS** instead of one — but the split is about *which party operates what*, not
+  resources. The Retail Agent holds the markup and decides purchases, so it runs on the
+  home base's host, never ITEGA's. Co-locating them would contradict the separation the
+  whole architecture is arguing for.
+- **Hetzner, EU region** — identical hardware costs roughly 3.4x more in their US
+  regions. Latency to Missouri is ~110-130 ms, imperceptible for a click-through demo.
 
 ### Running the Prototype Demo
 
@@ -610,27 +689,41 @@ auth.newshare.example                 als.newshare.example
 4. Click "Log in with your news network account"
 5. Authenticate through ALS → Keycloak → back to publisher with sessionToken
 6. Content is served; event is logged to TimescaleDB
-7. Visit a second publisher site — verify a **different** `networkUserId` (PPID isolation)
-8. Run `python settle.py` to generate settlement reports
+7. Visit a second publisher site — no second login, and verify a **different**
+   `networkUserId` (PPID isolation holds even though the reader was not asked to sign in again)
+8. Request a more expensive article to watch the home base negotiate the price
+9. Crawl an article as an AI agent to see the 402 exchange, the grant, and its expiry
+10. Run `python settle.py` to generate settlement reports
+11. Open `/demo` on the dashboard for the narrated step-through of all of the above
 
 ### What's Simulated vs. Real
 
-| Component | Real | Simulated |
-|-----------|------|-----------|
-| User registration and authentication | Real (Keycloak OIDC) | — |
-| PPID generation (different ID per publisher) | Real (Keycloak built-in) | — |
-| NetworkGroupId bitmask access control | Real (WordPress plugin) | — |
-| Content access event logging | Real (TimescaleDB) | — |
-| RSL content tagging (JSON-LD) | Real (WordPress plugin) | — |
-| Settlement (debits, credits, ITEGA fee) | — | Reports only, no ACH |
-| ACH bank transfers | — | Not implemented |
-| MFA / Passkeys | — | Password auth only (Keycloak supports TOTP, can enable later) |
+| Component | State |
+|-----------|-------|
+| User registration and authentication | **Real** — Keycloak OIDC, two home-base realms |
+| PPID generation (different ID per publisher) | **Real** — Keycloak pairwise mapper, separate salt per realm |
+| Home-base discovery and the chooser | **Real** — Network Discovery registry, by member ID, name or hint |
+| Cross-publisher sign-on | **Real** — the Authenticator remembers signed-in readers |
+| Price negotiation (accept / negotiate / decline) | **Real** — Retail Agent service, all three outcomes |
+| AI answer-engine handshake (402, grants, expiry) | **Real** — membership check, price agreement, per-request logging |
+| NetworkGroupId bitmask access control | **Real** — WordPress plugin |
+| Content access event logging | **Real** — TimescaleDB, each party files its own record |
+| RSL content tagging (JSON-LD) | **Real** — WordPress plugin |
+| Settlement arithmetic (debits, credits, ITEGA fee) | **Real** — reports generated from actual logged events |
+| ACH bank transfers | **Simulated** — reports only; no money moves |
+| MFA / passkeys | **Not enabled** — password auth; Keycloak supports TOTP whenever wanted |
+
+**Honest caveat on "real":** every service above has been exercised and its logic
+verified, including the money arithmetic. What has *not* yet happened at the time of
+writing is a full end-to-end run against live Keycloak, WordPress and Postgres
+instances — the servers are not yet standing. Treat the joined-up path as untested
+until it has actually been walked.
 
 ### VPS Resource Estimates
 
 These are initial estimates based on component defaults. Revisit once the code is running under real load — actual usage may differ.
 
-**VPS 1 — Home Base IdSP** (DigitalOcean 4GB RAM / 2 vCPU — $24/mo):
+**VPS 1 — Home Base** (Hetzner `cx33`, 8 GB RAM / 4 vCPU — $8.99/mo):
 
 | Process | Estimated RAM | Notes |
 |---------|---------------|-------|
@@ -641,7 +734,7 @@ These are initial estimates based on component defaults. Revisit once the code i
 
 Keycloak is the memory bottleneck (it's Java). A 2GB droplet ($12/mo) works with `-Xmx512m` for a handful of demo users but leaves almost no headroom for spikes. 4GB is the safe choice for anything beyond trivial use.
 
-**VPS 2 — ALS Services** (DigitalOcean 4GB RAM / 2 vCPU — $24/mo):
+**VPS 2 — ALS Services** (Hetzner `cx23`, 4 GB RAM / 2 vCPU — $6.49/mo):
 
 | Process | Estimated RAM | Notes |
 |---------|---------------|-------|
@@ -695,6 +788,7 @@ ITEGA/
 │   ├── als-logging/                   ← ALS Logging Service (Python/FastAPI, main.py)
 │   ├── als-settlement/                ← Settlement batch script (Python, settle.py)
 │   ├── network-discovery/             ← Network Discovery Service (Python/FastAPI, main.py)
+│   ├── asp-agent/                     ← Retail Agent: price negotiation on the reader's behalf
 │   ├── wordpress-plugin/              ← newshare-network WordPress plugin (PHP, 8 classes)
 │   └── dashboard/                     ← User Dashboard (React 19/TypeScript/Vite/Tailwind 3)
 ├── infra/                             ← Deployment infrastructure
