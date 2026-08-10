@@ -180,10 +180,14 @@ Settlement previously had this inverted (crediting publishers the retail amount)
 
 ## Current work: the Aug 25 demo
 
+**Start by reading `docs/STATUS.md`** — it is the living handoff document: what is
+built, what is verified, what comes next in priority order, and the decisions already
+settled with Bill. Keep it current as work lands.
+
 Work is driven by Bill's demo script for the RJI/ITEGA roundtable on **Aug 25, 2026**.
 The script lives in `reference/` (gitignored) and Bill revises it — check for the newest
 `ITEGA-RJI-demo-script-*.md` before building. `docs/demo-script-gap-analysis.md` tracks
-what is built, what is missing, and the open questions for Bill.
+what is built, what is missing, and Bill's answers to the open questions.
 
 **Build it really working.** A simulated or narrated demo is the fallback, not the goal.
 
