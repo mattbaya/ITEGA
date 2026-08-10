@@ -164,6 +164,10 @@ Settlement previously had this inverted (crediting publishers the retail amount)
 - The consumer-facing brand is **"Newshare"** (or "Newshare Network")
 - The governing body is **"ITEGA"**
 - The technical/developer-facing brand can be **"NewsSSO"**
+- **Publishers are named by letter: A, B, C.** Bill's demo script also calls them
+  "Publisher 1/2/3" in places — those are the same parties (C == 3, A/B == 1/2), an
+  artefact of the Definitions section being written before the later steps. Letters
+  win everywhere: code, docs, registry data, demo copy.
 - Use `networkUserId`, `homeBaseId`, `networkGroupId`, `pubMbrId`, `pageClass`, `markupRatio` for field names (camelCase, per the spec)
 - Use `content_access`, `authentication`, `ad_view`, `subscription_credit`, `reward`, `logout` for event type enums
 - Use `sessionId` for the ALS-issued session identifier claim in JWTs

@@ -3,7 +3,7 @@
 *Living handoff document. Anyone — or any session — picking this up cold should be
 able to read this file and continue without reconstructing context.*
 
-**Last updated:** 2026-08-09 (late)
+**Last updated:** 2026-08-10
 **Deadline:** Aug 25, 2026 — RJI/ITEGA roundtable, 2 p.m. EDT
 
 ---
@@ -39,9 +39,11 @@ to make.
    generate one, and never hand the same one to two publishers.
 4. **The Retail Agent runs on the home base's host,** never on the ITEGA host. It
    holds the markup and decides purchases; ITEGA may see neither.
-5. **No auth cookies between parties.** The one cookie in the system is first-party on
+5. **Publishers are named by letter (A, B, C).** The script's "Publisher 1/2/3" are
+   the same parties; letters win everywhere.
+6. **No auth cookies between parties.** The one cookie in the system is first-party on
    the Authenticator's own domain and holds only an opaque handle.
-6. **The repo is public.** Correspondence and source documents live in `reference/`,
+7. **The repo is public.** Correspondence and source documents live in `reference/`,
    which is gitignored. Bill's Editor & Publisher column links to the repo directly.
 
 ---
@@ -51,11 +53,11 @@ to make.
 | Component | State |
 |---|---|
 | `src/network-discovery/` | Working. Registry, home-base resolution, WebFinger. |
-| `src/als-auth/` | Working. Multi-home-base routing, chooser, session cache. |
+| `src/als-auth/` | Working. Multi-home-base routing, chooser, session cache, AI agent handshake. |
 | `src/asp-agent/` | Working. Accept / negotiate / decline, markup withheld. |
 | `src/als-logging/` | Working. Per-filer event records. |
 | `src/als-settlement/` | Working. Wholesale settlement, corrected. |
-| `src/wordpress-plugin/` | Negotiation wired in; not yet run against live WordPress. |
+| `src/wordpress-plugin/` | Negotiation and AI-agent 402 flow wired in; not yet run against live WordPress. |
 | `infra/vps1`, `infra/vps2` | All six services defined; nginx routes in place. |
 
 **Verified directly:** service logic, negotiation outcomes, settlement arithmetic,
@@ -77,45 +79,38 @@ locally. Treat the full end-to-end path as untested until it has actually been w
 
 ## Plan forward, in priority order
 
-### 1. AI agent handshake — task #16
-No longer deferred; Bill calls it central to ITEGA's pitch. Implement the 14-step
-machine-to-machine sequence from the 08-07 script: member lookup, business rules,
-price confirmation, continue-until-timeout, per-request logging, graceful rejection of
-non-members.
+### 1. Step-through demo UI — task #18
+The thing Bill actually presents, and the largest remaining piece. See below.
 
-**On x402:** build our own approach now. x402 is **payments only** — it does not do
+**On x402, for whenever it comes up:** build our own approach now. x402 is **payments only** — it does not do
 identity, so it would not have solved the authentication half anyway. Keep the seam
 open and be able to state ITEGA "intends to support x402 when it becomes an operating
 standard." That claim is already true structurally: authentication, price agreement,
 and settlement are three separate steps here, so x402 would later replace two of them
 without touching how readers are authenticated.
 
-### 2. Step-through demo UI — task #18
-The thing Bill actually presents. His specified sequence: reader starts at their home
+#### What the demo UI must show
+His specified sequence: reader starts at their home
 base → follows a URL to content at another publisher → is authenticated → welcomed as
 an ITEGA user with their home base named → the publisher handshakes with the home base
 on price → transaction logged, content served. Background exchanges narrated in
 pop-ups, closing on what is logged where and how settlement works including markup.
 
-### 3. Second Keycloak realm — task #12
+### 2. Second Keycloak realm — task #12
 The chooser needs more than one option to be convincing. Two realms on one Keycloak
 gives two genuinely distinct issuers, JWKS, and user sets at no extra hosting cost.
 
-### 4. Settle publisher naming — task #17
-Bill confirmed Publisher C == "Publisher 3" and A/B == 1/2. Use **letters** throughout
-and tell him. Affects docs, plans, registry data, demo copy.
-
-### 5. Redact third-party emails — task #13
+### 3. Redact third-party emails — task #13
 Bill approved redacting Rick Lerner's and Don Marti's addresses from the tracked PDFs;
 leave Bill's own as-is at his request. **Note:** git history retains the originals, so
 decide whether that matters before treating this as closed.
 
-### 6. Correspondence archive — task #19
+### 4. Correspondence archive — task #19
 Bill asked that correspondence be kept locally and be deliverable on request under the
 name **"ITEGA-CORRESPONDENCE-ARCHIVE"**. Organise `reference/` accordingly with an
 index. Stays gitignored.
 
-### 7. Deployment
+### 5. Deployment
 Nothing is deployed. No VPSes exist yet. `docs/vps-provisioning-plan.md` has the
 runbook; creating droplets spends money and is Matt's to run. For a session to deploy
 or read logs on those hosts it needs SSH access Matt has explicitly set up — do not
