@@ -49,6 +49,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 from config import Settings, settings
 from discovery import DiscoveryClient
+from session_cache import AuthenticatorSessionCache
 from jwt_utils import JWKSCache, sign_session_token, verify_keycloak_id_token, verify_session_token
 from jose import JWTError
 from models import (
@@ -87,6 +88,14 @@ _jwks_caches: dict[str, JWKSCache] = {}
 _publishers: dict[str, Any] = {}          # client_id -> PublisherEntry
 _private_key_pem: str = ""
 _public_key_pem: str = ""
+
+# Readers already authenticated at the Authenticator. Consulted before any
+# home-base discovery happens, per the step preceding script step 10.
+_session_cache: AuthenticatorSessionCache | None = None
+
+# Name of the first-party cookie holding an opaque handle into that cache.
+# It carries no identifiers and is scoped to the Authenticator's own domain.
+_SESSION_COOKIE = "itega_session"
 
 # ── Bounded in-memory session store ───────────────────────────────
 #
@@ -137,9 +146,13 @@ def _session_store_put(key: str, value: dict[str, Any]) -> None:
 
 @app.on_event("startup")
 async def _startup() -> None:
-    global _discovery, _publishers, _private_key_pem, _public_key_pem
+    global _discovery, _publishers, _private_key_pem, _public_key_pem, _session_cache
 
     logger.info("Starting ALS Auth Service")
+
+    # Readers stay recognised here for the life of a session token, so a
+    # second publisher does not send them back through login.
+    _session_cache = AuthenticatorSessionCache(ttl=settings.session_token_ttl)
 
     # Load RSA key pair
     try:
@@ -315,7 +328,23 @@ async def authorize(
             detail="redirect_uri does not match the publisher's registered domain",
         )
 
-    # 3. Store session context in the bounded in-memory store.  The chosen
+    # 3. Before anything else, look in our own store of readers who have
+    #    already authenticated (the step preceding script step 10).  Only
+    #    when nothing fresh is found do we fall back to discovery.
+    handle = request.cookies.get(_SESSION_COOKIE, "")
+    if _session_cache is not None and handle:
+        cached_token = _session_cache.token_for(handle, publisher.pub_mbr_id)
+        if cached_token is not None:
+            # This reader already holds a valid token for THIS publisher, so
+            # the pairwise identifier inside it is the right one.  Hand it
+            # straight back; no home base round trip at all.
+            logger.info(
+                "authorize: served %s from Authenticator cache",
+                publisher.pub_mbr_id,
+            )
+            return _post_token_to_publisher(redirect_uri, cached_token, state)
+
+    # 4. Store session context in the bounded in-memory store.  The chosen
     #    home base is filled in below, or by /auth/select-home-base once the
     #    visitor identifies theirs.
     session_key = _make_session_key()
@@ -327,14 +356,28 @@ async def authorize(
         "home_base_id": "",
     })
 
-    # 4. Determine which home base to send the visitor to.
-    #    The X-Home-Base-Hint header carries a prior affiliation when the
-    #    publisher knows one.  The Newshare architecture forbids auth cookies,
-    #    so there is no cookie to consult here -- an unhinted visitor is asked
-    #    directly (demo script Path Option 2, step 20).
+    # 5. Determine which home base to send the visitor to.
     if _discovery is None:
         raise HTTPException(status_code=503, detail="Discovery client not initialised")
 
+    # A reader we already recognise goes straight back to the home base they
+    # use.  We still make the round trip, because only the home base can mint
+    # this publisher's pairwise identifier -- but it recognises them and
+    # answers without prompting, so nothing is asked of the reader.
+    if _session_cache is not None and handle:
+        known_id = _session_cache.home_base_for(handle)
+        if known_id:
+            known = await _discovery.get(known_id)
+            if known is not None:
+                logger.info(
+                    "authorize: known reader -> home base %s, chooser skipped",
+                    known_id,
+                )
+                return await _redirect_to_home_base(session_key, known, client_id, scope)
+
+    # Otherwise fall back to discovery.  The X-Home-Base-Hint header carries a
+    # prior affiliation when the publisher knows one; an unhinted visitor is
+    # asked directly (demo script Path Option 2, step 20).
     hint = request.headers.get("X-Home-Base-Hint", "")
     client_ip = request.client.host if request.client else ""
     resolved = await _discovery.resolve(q=hint, client_ip=client_ip)
@@ -343,7 +386,7 @@ async def authorize(
         home_base = resolved["matches"][0]
         return await _redirect_to_home_base(session_key, home_base, client_id, scope)
 
-    # 5. No confident match — present the home-base chooser.
+    # 6. No confident match — present the home-base chooser.
     return _render_home_base_chooser(
         session_key=session_key,
         candidates=resolved.get("matches") or await _discovery.home_bases(),
@@ -514,6 +557,7 @@ async def select_home_base(
 
 @app.get("/auth/callback")
 async def callback(
+    request: Request,
     code: str = Query(..., description="Authorization code from Keycloak"),
     state: str = Query(..., description="HMAC-signed state round-tripped through Keycloak"),
     session_state: str = Query("", description="Keycloak session state (informational)"),
@@ -670,20 +714,61 @@ async def callback(
     #    HTML form.  SECURITY: The token is sent in the POST body, NOT in
     #    the URL query string.  Putting secrets in the URL would expose them
     #    in browser history, server access logs, and Referer headers.
-    #    All three interpolated values are HTML-escaped before being placed in
-    #    attributes.  ``publisher_state`` is echoed back from the publisher's
-    #    original query string, so without escaping a crafted state could
-    #    close the attribute and inject markup into this page.
-    form_html = f"""<!DOCTYPE html>
+    response = _post_token_to_publisher(
+        publisher_redirect_uri, session_token, publisher_state
+    )
+
+    # 8. Remember this reader so the next publisher does not send them back
+    #    through login, and record the token we just issued so a return visit
+    #    to THIS publisher needs no round trip at all.
+    if _session_cache is not None:
+        handle = _session_cache.remember(
+            request.cookies.get(_SESSION_COOKIE, ""), home_base["id"]
+        )
+        _session_cache.store_token(
+            handle, pub_mbr_id, session_token, now + settings.session_token_ttl
+        )
+        # First-party, on the Authenticator's own domain, holding nothing but
+        # an opaque handle.  HttpOnly so page scripts cannot read it; SameSite
+        # Lax so it survives the top-level redirect back from the home base
+        # but is not sent on cross-site subrequests.
+        response.set_cookie(
+            key=_SESSION_COOKIE,
+            value=handle,
+            max_age=settings.session_token_ttl,
+            httponly=True,
+            secure=True,
+            samesite="lax",
+        )
+
+    return response
+
+
+def _post_token_to_publisher(
+    redirect_uri: str,
+    session_token: str,
+    publisher_state: str,
+) -> HTMLResponse:
+    """
+    Hand a session token to the publisher via an auto-submitting form.
+
+    The token travels in a POST body rather than the URL, keeping it out of
+    browser history, server access logs, and Referer headers.
+
+    All three interpolated values are HTML-escaped before being placed in
+    attributes.  ``publisher_state`` is echoed back from the publisher's
+    original query string, so without escaping a crafted state could close the
+    attribute and inject markup into this page.
+    """
+    return HTMLResponse(content=f"""<!DOCTYPE html>
 <html><body>
-<form id="f" method="POST" action="{html.escape(publisher_redirect_uri, quote=True)}">
+<form id="f" method="POST" action="{html.escape(redirect_uri, quote=True)}">
   <input type="hidden" name="sessionToken" value="{html.escape(session_token, quote=True)}">
   <input type="hidden" name="state" value="{html.escape(publisher_state, quote=True)}">
 </form>
 <script>document.getElementById('f').submit();</script>
 </body></html>
-"""
-    return HTMLResponse(content=form_html)
+""")
 
 
 # ── POST /auth/validate ──────────────────────────────────────────────
