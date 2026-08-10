@@ -213,6 +213,28 @@ class Newshare_Admin {
 			'0'
 		);
 
+		$this->add_number_field(
+			'newshare_minimum_page_class',
+			__( 'Minimum Acceptable Price', 'newshare-network' ),
+			'newshare_pricing',
+			__(
+				'The lowest wholesale price you will accept in a negotiation. If a reader\'s home base asks to pay less than this, your posted price is re-stated as final.',
+				'newshare-network'
+			),
+			'0.01',
+			'0'
+		);
+
+		$this->add_checkbox_field(
+			'newshare_posted_price_is_final',
+			__( 'Posted Prices Are Final', 'newshare-network' ),
+			'newshare_pricing',
+			__(
+				'Never negotiate. Your posted price is offered take-it-or-leave-it and a reader\'s home base may only accept or decline it.',
+				'newshare-network'
+			)
+		);
+
 		// -----------------------------------------------------------------
 		// Section 4: Access Control
 		// Default subscription tier and anonymous meter settings.
@@ -581,6 +603,47 @@ class Newshare_Admin {
 					esc_attr( $value ),
 					esc_attr( $step ),
 					esc_attr( $min )
+				);
+				if ( ! empty( $description ) ) {
+					printf( '<p class="description">%s</p>', esc_html( $description ) );
+				}
+			},
+			'newshare-network',
+			$section
+		);
+	}
+
+	/**
+	 * Register a boolean setting rendered as a checkbox.
+	 *
+	 * @param string $option_name Option key.
+	 * @param string $label       Field label.
+	 * @param string $section     Settings section id.
+	 * @param string $description Help text shown beneath the field.
+	 */
+	private function add_checkbox_field(
+		string $option_name,
+		string $label,
+		string $section,
+		string $description = ''
+	): void {
+		register_setting( 'newshare-network', $option_name, array(
+			'type'              => 'boolean',
+			'sanitize_callback' => function ( $value ) {
+				return ! empty( $value );
+			},
+			'default'           => false,
+		) );
+
+		add_settings_field(
+			$option_name,
+			$label,
+			function () use ( $option_name, $description ) {
+				printf(
+					'<input type="checkbox" id="%s" name="%s" value="1" %s />',
+					esc_attr( $option_name ),
+					esc_attr( $option_name ),
+					checked( (bool) get_option( $option_name, false ), true, false )
 				);
 				if ( ! empty( $description ) ) {
 					printf( '<p class="description">%s</p>', esc_html( $description ) );

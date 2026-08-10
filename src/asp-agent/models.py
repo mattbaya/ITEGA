@@ -32,11 +32,20 @@ class QuoteRequest(BaseModel):
     homeBaseId: str = Field(..., max_length=32)
     pubMbrId: str = Field(..., max_length=32, description="Publisher asking for payment")
     resourceId: str = Field(..., description="URL or identifier of the resource")
-    wholesalePrice: float = Field(..., ge=0.0, description="Publisher's asking price")
+    wholesalePrice: float = Field(..., ge=0.0, description="Publisher's posted price")
     sessionId: str = Field(default="", max_length=128)
-    # Set when the publisher is responding to a previous counter-offer, so the
-    # agent can tell a fresh negotiation from a continuing one.
+    # Set when the publisher is responding within an existing exchange, so the
+    # agent can tell a fresh posting from a continuing one.
     negotiationId: str = Field(default="", max_length=64)
+    # How the publisher is offering this price:
+    #   "open"  -- willing to enter a negotiation if asked
+    #   "final" -- take it or leave it; the agent may accept or decline only
+    #
+    # The publisher decides this per request. It may post a price openly, see
+    # that the agent wants to negotiate, and then choose to hold firm by
+    # re-posting the same price as final -- which is the sequence the demo
+    # script describes.
+    terms: str = Field(default="open", description="open | final")
 
 
 class QuoteResponse(BaseModel):
@@ -44,13 +53,18 @@ class QuoteResponse(BaseModel):
     The Retail Agent's answer.
 
     ``decision`` is one of:
-      - ``accept``  -- the agent authorises payment; the publisher may release
-                       the content and will be settled at ``agreedPrice``.
-      - ``counter`` -- the agent proposes a lower price. The publisher may
-                       accept by re-quoting at that figure, or decline.
-      - ``decline`` -- the agent will not authorise payment at any offered
-                       price. The publisher shows the reader the refusal
-                       message from script step 29.
+      - ``accept``    -- the agent authorises payment at the posted price; the
+                         publisher may release the content and will be settled
+                         at ``agreedPrice``.
+      - ``negotiate`` -- the agent does not reject the price but asks to open a
+                         negotiation, naming the price it would prefer in
+                         ``desiredPrice``. The publisher then chooses: meet it,
+                         or re-post its price as final.
+      - ``decline``   -- the agent will not authorise payment. The publisher
+                         shows the reader the refusal message from step 29.
+
+    An agent that asked to negotiate and was answered with a final price gets
+    one more turn: accept it, or decline. It cannot ask again.
 
     ``retailPrice`` is what the reader will be billed and is included so the
     reader can be shown their obligation before committing. It is returned to
@@ -58,12 +72,13 @@ class QuoteResponse(BaseModel):
     ``markupRatio`` producing it is never disclosed.
     """
 
-    decision: str = Field(..., description="accept | counter | decline")
+    decision: str = Field(..., description="accept | negotiate | decline")
     negotiationId: str = Field(..., max_length=64)
     # Present on accept: the wholesale figure the publisher will be settled at.
     agreedPrice: float | None = Field(default=None, ge=0.0)
-    # Present on counter: the wholesale figure the agent is willing to pay.
-    counterPrice: float | None = Field(default=None, ge=0.0)
+    # Present on negotiate: the wholesale figure the agent would prefer to pay.
+    # An invitation, not a demand -- the publisher is free to refuse it.
+    desiredPrice: float | None = Field(default=None, ge=0.0)
     # Present on accept: what the reader owes their agent. Disclosure only.
     retailPrice: float | None = Field(default=None, ge=0.0)
     # Human-readable rationale, shown in the demo UI to make the exchange legible.

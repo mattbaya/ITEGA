@@ -94,8 +94,22 @@ class Newshare_Pricing {
 
 		$wholesale = $this->get_page_class( $post_id );
 
-		// Round one: state our asking price.
-		$offer = $this->send_quote( $agent_url, $post_id, $claims, $wholesale, '' );
+		// ---------------------------------------------------------------
+		// Round one: post the price.
+		//
+		// A publisher that never wants to haggle sets "Posted prices are
+		// final" and the exchange is over in one trip: the agent may accept
+		// or decline, nothing else.
+		// ---------------------------------------------------------------
+		$always_final = (bool) get_option( 'newshare_posted_price_is_final', false );
+		$offer        = $this->send_quote(
+			$agent_url,
+			$post_id,
+			$claims,
+			$wholesale,
+			'',
+			$always_final ? 'final' : 'open'
+		);
 		if ( null === $offer ) {
 			return $this->unavailable(
 				__( 'The reader\'s home base could not be reached.', 'newshare-network' ),
@@ -103,27 +117,32 @@ class Newshare_Pricing {
 			);
 		}
 
-		// Round two: the agent proposed a lower price. Accept it if it clears
-		// our floor, otherwise treat the negotiation as failed. A publisher
-		// that would rather hold its price simply sets the floor at its ask.
-		if ( 'counter' === ( $offer['decision'] ?? '' ) ) {
-			$counter = (float) ( $offer['counterPrice'] ?? 0 );
+		// ---------------------------------------------------------------
+		// Round two: the agent asked to negotiate. We now decide whether to
+		// meet it or hold our price -- the choice the demo script gives the
+		// publisher. We meet the agent when its preferred figure clears our
+		// floor; otherwise we re-post the same price as final, and the agent
+		// gets one last turn to take it or leave it.
+		// ---------------------------------------------------------------
+		if ( 'negotiate' === ( $offer['decision'] ?? '' ) ) {
+			$desired = (float) ( $offer['desiredPrice'] ?? 0 );
 			$floor   = (float) get_option( 'newshare_minimum_page_class', 0 );
 
-			if ( $counter < $floor ) {
-				return array(
-					'decision'      => 'decline',
-					'reason'        => __( 'Offer below this publisher\'s minimum price.', 'newshare-network' ),
-					'home_base_url' => $home_base_url,
-				);
+			if ( $desired >= $floor ) {
+				$next_price = $desired;   // meet them
+				$next_terms = 'open';
+			} else {
+				$next_price = $wholesale; // hold firm
+				$next_terms = 'final';
 			}
 
 			$offer = $this->send_quote(
 				$agent_url,
 				$post_id,
 				$claims,
-				$counter,
-				(string) ( $offer['negotiationId'] ?? '' )
+				$next_price,
+				(string) ( $offer['negotiationId'] ?? '' ),
+				$next_terms
 			);
 			if ( null === $offer ) {
 				return $this->unavailable(
@@ -156,8 +175,9 @@ class Newshare_Pricing {
 	 * @param string $agent_url       Base URL of the agent service.
 	 * @param int    $post_id         Post being priced.
 	 * @param array  $claims          The reader's network claims.
-	 * @param float  $wholesale       Price we are asking.
+	 * @param float  $wholesale       Price we are posting.
 	 * @param string $negotiation_id  Set when continuing an exchange.
+	 * @param string $terms           'open' (negotiable) or 'final' (take it or leave it).
 	 * @return array|null Decoded response, or null if the agent was unreachable.
 	 */
 	private function send_quote(
@@ -165,7 +185,8 @@ class Newshare_Pricing {
 		int $post_id,
 		array $claims,
 		float $wholesale,
-		string $negotiation_id
+		string $negotiation_id,
+		string $terms = 'open'
 	): ?array {
 		$response = wp_remote_post(
 			trailingslashit( $agent_url ) . 'agent/quote',
@@ -182,6 +203,7 @@ class Newshare_Pricing {
 						'wholesalePrice' => $wholesale,
 						'sessionId'      => $claims['newshare_session_id'] ?? '',
 						'negotiationId'  => $negotiation_id,
+						'terms'          => $terms,
 					)
 				),
 			)

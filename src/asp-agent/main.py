@@ -32,7 +32,7 @@ import httpx
 from fastapi import FastAPI
 
 from config import settings
-from models import AgentPolicy, QuoteRequest, QuoteResponse
+from models import AgentPolicy, QuoteRequest, QuoteResponse  # noqa: F401
 
 logging.basicConfig(
     level=logging.INFO,
@@ -85,24 +85,39 @@ async def get_policy() -> AgentPolicy:
 @app.post("/agent/quote", response_model=QuoteResponse)
 async def quote(req: QuoteRequest) -> QuoteResponse:
     """
-    Decide whether to buy this resource for the reader (script steps 28-30).
+    Answer a publisher's posted price (script steps 28-30).
 
     Three outcomes, all of which the demo script requires be demonstrable:
 
-      accept   -- at or below the auto-accept threshold, or the publisher has
-                  come back at or under a price we previously countered with.
-      counter  -- between the thresholds: propose a lower wholesale price.
-      decline  -- above the ceiling: we will not authorise payment, and the
-                  publisher shows the reader the step-29 refusal message.
+      accept     -- the price is within what this home base will pay outright.
+      negotiate  -- the price is affordable but higher than we would like; ask
+                    to open a negotiation and name a preferred figure.
+      decline    -- above the ceiling, or the publisher has held firm at a
+                    price we will not pay. The publisher shows the reader the
+                    step-29 refusal message.
+
+    A publisher can post a price as ``final``, in which case there is nothing to
+    negotiate and this reduces to accept-or-decline. A publisher that posted
+    openly and was asked to negotiate may re-post the same price as final; the
+    agent then gets exactly one more turn.
     """
     policy = _policy()
     ask = Decimal(str(req.wholesalePrice))
+    ceiling = Decimal(str(policy.declineAbove))
+    comfortable = Decimal(str(policy.autoAcceptBelow))
     negotiation_id = req.negotiationId or f"neg-{secrets.token_hex(6)}"
+    # We get exactly one turn to ask for a better price. Once an exchange is
+    # under way -- whether the publisher met us or held firm -- our only moves
+    # are to pay or walk away. Without this, a publisher that agreed to our own
+    # requested figure would be asked to negotiate against it again, and the
+    # exchange would never terminate.
+    settled_terms = req.terms == "final" or bool(req.negotiationId)
 
-    if ask > Decimal(str(policy.declineAbove)):
+    # Above the ceiling there is nothing to discuss, whatever the terms.
+    if ask > ceiling:
         logger.info(
             "quote %s: DECLINE %s at %s (above ceiling %s)",
-            negotiation_id, req.resourceId, ask, policy.declineAbove,
+            negotiation_id, req.resourceId, ask, ceiling,
         )
         return QuoteResponse(
             decision="decline",
@@ -113,51 +128,64 @@ async def quote(req: QuoteRequest) -> QuoteResponse:
             ),
         )
 
-    if ask <= Decimal(str(policy.autoAcceptBelow)):
-        retail = ask * Decimal(str(policy.markupRatio))
-        logger.info(
-            "quote %s: ACCEPT %s at %s (retail %s)",
-            negotiation_id, req.resourceId, ask, retail,
-        )
-        await _log_agent_report(req, wholesale=ask, markup=policy.markupRatio)
-        return QuoteResponse(
-            decision="accept",
-            negotiationId=negotiation_id,
-            agreedPrice=_money(ask),
-            retailPrice=_money(retail),
-            reason=f"Authorised by {settings.home_base_name}.",
+    # At or below what we will pay without argument.
+    if ask <= comfortable:
+        return await _authorise(req, ask, policy, negotiation_id,
+                                f"Authorised by {settings.home_base_name}.")
+
+    # Affordable, but more than we would like. If the price is final, or we
+    # have already had our turn to ask, the choice is to pay or walk away. It
+    # is under our ceiling, so we pay: refusing content the reader asked for,
+    # at a price we can afford, would serve nobody.
+    if settled_terms:
+        return await _authorise(
+            req, ask, policy, negotiation_id,
+            f"Authorised by {settings.home_base_name} at the agreed price.",
         )
 
-    # Between the thresholds. If this is a continuing negotiation the publisher
-    # has already seen our counter, so treat the return trip as agreement
-    # rather than countering forever.
-    if req.negotiationId:
-        retail = ask * Decimal(str(policy.markupRatio))
-        logger.info(
-            "quote %s: ACCEPT on second pass %s at %s", negotiation_id, req.resourceId, ask
-        )
-        await _log_agent_report(req, wholesale=ask, markup=policy.markupRatio)
-        return QuoteResponse(
-            decision="accept",
-            negotiationId=negotiation_id,
-            agreedPrice=_money(ask),
-            retailPrice=_money(retail),
-            reason=f"Authorised by {settings.home_base_name} at the agreed price.",
-        )
-
-    counter = ask * Decimal(str(policy.counterFraction))
+    # The price is open. Ask to negotiate and name what we would prefer.
+    desired = ask * Decimal(str(policy.counterFraction))
     logger.info(
-        "quote %s: COUNTER %s at %s (asked %s)",
-        negotiation_id, req.resourceId, counter, ask,
+        "quote %s: NEGOTIATE %s — asked %s, would prefer %s",
+        negotiation_id, req.resourceId, ask, desired,
     )
     return QuoteResponse(
-        decision="counter",
+        decision="negotiate",
         negotiationId=negotiation_id,
-        counterPrice=_money(counter),
+        desiredPrice=_money(desired),
         reason=(
-            f"{settings.home_base_name} offers ${_money(counter):.4f} "
+            f"{settings.home_base_name} would prefer ${_money(desired):.4f} "
             f"for this resource."
         ),
+    )
+
+
+async def _authorise(
+    req: QuoteRequest,
+    wholesale: Decimal,
+    policy: AgentPolicy,
+    negotiation_id: str,
+    reason: str,
+) -> QuoteResponse:
+    """
+    Authorise a purchase and file this agent's own record of it.
+
+    ``retailPrice`` goes back to the publisher purely so it can show the reader
+    what they have committed to pay. The ``markupRatio`` that produced it never
+    leaves this service.
+    """
+    retail = wholesale * Decimal(str(policy.markupRatio))
+    logger.info(
+        "quote %s: ACCEPT %s at %s (retail %s)",
+        negotiation_id, req.resourceId, wholesale, retail,
+    )
+    await _log_agent_report(req, wholesale=wholesale, markup=policy.markupRatio)
+    return QuoteResponse(
+        decision="accept",
+        negotiationId=negotiation_id,
+        agreedPrice=_money(wholesale),
+        retailPrice=_money(retail),
+        reason=reason,
     )
 
 
