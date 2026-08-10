@@ -104,10 +104,16 @@ Realm client secrets, pairwise salts, demo passwords, the AI agent API keys in
 `src/als-auth/data/ai-agents.json`, and `PUBLISHERS_CONFIG`. All are marked
 REPLACE-ME and all are currently in a public repository.
 
-### 4. Open decision: git history — task #20
-The source PDFs are redacted, but history still holds the originals with Don Marti's
-and Rick Lerner's addresses. Removing them needs a history rewrite and force push,
-which breaks clones and forks. Needs a deliberate call.
+### 4. Confirm the redaction with Bill, and decide on git history — task #20
+Don Marti's and Rick Lerner's addresses have been redacted from the tracked PDFs;
+Bill's own details were left alone. **This was done without a recorded answer from
+Bill.** His Aug 8-9 reply covered six other questions and did not address the email
+issue, and it was never filed to the archive, so there is nothing to check against.
+Removing two third parties' personal addresses from a public repo is a defensible
+default, but the decision should be put to him explicitly rather than assumed.
+
+Separately: history still holds the unredacted originals. Removing those needs a
+rewrite and force push, which breaks clones and forks. A deliberate call.
 
 ### 5. Rehearse
 Bill presents this. The demo is presenter-paced by design, but he has not seen it.
