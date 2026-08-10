@@ -764,13 +764,16 @@ ITEGA/
 ├── CLAUDE.md                          ← Instructions for Claude Code
 ├── README.md                          ← This file
 ├── docs/
+│   ├── STATUS.md                       ← Living handoff: state, plan, decisions settled
 │   ├── demo-script-gap-analysis.md     ← Aug 25 demo script vs. the code; open questions
+│   ├── server-specs.md                 ← What each host runs, sizing, hosting costs
+│   ├── vps-provisioning-plan.md        ← Build steps for the two servers
 │   ├── peer-review-synthesis.md        ← Drummond Reed + Don Marti feedback
 │   └── source-pdfs/                   ← Original documents from Bill Densmore
 │       ├── claude-itega-newshare-tech-spec-02-22-26b-1110pest.pdf  (20pp, tech spec)
 │       ├── claude-itega-funder-brief-02-23-26b-1201aest.pdf        (9pp, funder brief)
 │       ├── claude-itega-chat-02-22-26b.-ORIG.pdf                   (20+pp, chat transcript)
-│       └── Claude AI chat, funder pitch and tech for ITEGA_Newshare_Missouri.pdf
+│       └── Claude AI chat, funder pitch and tech for ITEGA_Newshare_Missouri.pdf  (Bill's covering email)
 ├── reference/                          ← Not in version control. Working demo scripts,
 │                                          correspondence, and background reading.
 ├── plans/                             ← Detailed server/component implementation plans
