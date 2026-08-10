@@ -1,0 +1,125 @@
+{
+  "_comment": "The second home base, so the chooser has a genuine choice in it. Distinct realm means a distinct issuer, JWKS and user set -- everything the ALS treats as identifying a home base -- while sharing one Keycloak host. Its Retail Agent applies a different markup (1.4 vs 1.1) so the demo can show two readers paying different retail prices for the same article. Secrets are placeholders.",
+  "realm": "newshare",
+  "enabled": true,
+  "displayName": "Newshare Demo Home Base",
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": true,
+  "resetPasswordAllowed": true,
+  "loginTheme": "keycloak",
+  "_comment_sessions": "SSO session idle governs how long a reader stays recognised here. Kept comfortably longer than the ALS session token (30 min) so a live demo does not hit a re-login mid-walkthrough.",
+  "ssoSessionIdleTimeout": 3600,
+  "ssoSessionMaxLifespan": 36000,
+  "accessTokenLifespan": 300,
+  "clients": [
+    {
+      "clientId": "pub-a",
+      "name": "Publisher A",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "REPLACE-ME-DEMO-PUB-A",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": [
+        "https://als.newshare.example/auth/callback"
+      ],
+      "webOrigins": [
+        "https://als.newshare.example"
+      ],
+      "attributes": {
+        "pubMbrId": "ITEGA-PA-0001",
+        "pkce.code.challenge.method": "S256"
+      },
+      "protocolMappers": [
+        {
+          "name": "pairwise subject",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-sha256-pairwise-sub-mapper",
+          "consentRequired": false,
+          "config": {
+            "sectorIdentifierUri": "",
+            "pairwiseSubAlgorithmSalt": "REPLACE-ME-DEMO-SALT-A"
+          }
+        },
+        {
+          "name": "newshare network claims",
+          "protocol": "openid-connect",
+          "protocolMapper": "newshare-network-userid-mapper",
+          "consentRequired": false,
+          "config": {
+            "homeBaseId": "HB002",
+            "id.token.claim": "true",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "pub-b",
+      "name": "Publisher B",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "REPLACE-ME-DEMO-PUB-B",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": [
+        "https://als.newshare.example/auth/callback"
+      ],
+      "webOrigins": [
+        "https://als.newshare.example"
+      ],
+      "attributes": {
+        "pubMbrId": "ITEGA-PB-0001",
+        "pkce.code.challenge.method": "S256"
+      },
+      "protocolMappers": [
+        {
+          "name": "pairwise subject",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-sha256-pairwise-sub-mapper",
+          "consentRequired": false,
+          "config": {
+            "sectorIdentifierUri": "",
+            "pairwiseSubAlgorithmSalt": "REPLACE-ME-DEMO-SALT-B"
+          }
+        },
+        {
+          "name": "newshare network claims",
+          "protocol": "openid-connect",
+          "protocolMapper": "newshare-network-userid-mapper",
+          "consentRequired": false,
+          "config": {
+            "homeBaseId": "HB002",
+            "id.token.claim": "true",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "_comment_users": "Demo readers. networkGroupId is the subscription-tier bitmask the mapper reads: 4096 = Paid Subscriber, 2 = Registered. Two tiers so the demo can show one reader whose subscription covers an article and another who has to buy it.",
+  "users": [
+    {
+      "username": "maria@example.org",
+      "email": "maria@example.org",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Maria",
+      "lastName": "Reader",
+      "attributes": {
+        "networkGroupId": [
+          "2"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "REPLACE-ME-DEMO-PASSWORD",
+          "temporary": false
+        }
+      ]
+    }
+  ]
+}

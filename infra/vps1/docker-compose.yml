@@ -37,7 +37,11 @@ services:
   keycloak:
     image: quay.io/keycloak/keycloak:26.1
     container_name: newshare-keycloak
-    command: start
+    # --import-realm reads ./realms on startup, so both home bases are
+    # reproducible from version control rather than hand-clicked in the admin
+    # console. Import is skipped for a realm that already exists, so this is
+    # safe to leave on across restarts.
+    command: start --import-realm
     restart: unless-stopped
     environment:
       JAVA_OPTS_APPEND: "-Xms256m -Xmx768m"
@@ -56,6 +60,11 @@ services:
       - "127.0.0.1:8080:8080"
     volumes:
       - ./providers:/opt/keycloak/providers
+      # Both home-base realms. Each declares pairwise subject identifiers and
+      # the newshare claim mapper; without pairwise, every publisher would see
+      # the same identifier for a reader and cross-site correlation -- the
+      # thing this architecture exists to prevent -- becomes trivial.
+      - ./realms:/opt/keycloak/data/import:ro
     depends_on:
       postgres:
         condition: service_healthy
