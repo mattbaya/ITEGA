@@ -5,6 +5,36 @@
 For the steps to build and configure these hosts, see
 [`vps-provisioning-plan.md`](vps-provisioning-plan.md).
 
+## Cheapest viable hosting
+
+The sizing below is what the software needs. Where you rent it changes the bill by
+roughly 4x for identical specs.
+
+| Option | VPS 1 (4 GB) | VPS 2 (2 GB) | Monthly | Notes |
+|---|---|---|---|---|
+| **Hetzner Cloud** | CAX21 / CPX21 | CAX11 / CPX11 | **~$10–13** | US regions available (Ashburn VA, Hillsboro OR). Cheapest credible option. Verify current pricing. |
+| DigitalOcean | s-2vcpu-4gb $24 | s-1vcpu-2gb $12 | ~$36 | Plan of record. Simplest tooling (`doctl`), most familiar. |
+| Vultr / Linode | equivalent | equivalent | ~$30 | Between the two. |
+
+**Recommendation: Hetzner in a US region.** Same specs, roughly a quarter of the
+DigitalOcean bill, and the pilot budget line ($300–500/mo) is nowhere near either — so
+the saving is not the point. The point is that a cheap monthly cost is easier to keep
+running after Aug 25, when nobody is watching it.
+
+### What about existing hardware?
+
+`dev.svaha.com` was checked (Aug 2026): AlmaLinux 10, 2 vCPU, 7.5 GB RAM with ~3.4 GB
+available, Docker 29.5 already installed. RAM is adequate for the ALS stack.
+
+**But its disk is 91% full — 15 GB free of 157 GB**, and ports 80/443 are already
+serving something. Container images plus database volumes for this stack run to several
+gigabytes, and a disk-full event during a live demo is unrecoverable in the moment. It
+could host the ALS side if the disk were cleared first and Nginx were integrated as a
+vhost rather than standing alone, but it is not a good foundation for a date you cannot
+move. Rent the two hosts.
+
+---
+
 ## The principle behind the split
 
 ITEGA governs but does not operate. That is the argument of the whole project, so the

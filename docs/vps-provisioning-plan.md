@@ -12,6 +12,25 @@ than the ITEGA one. Read that first; this document is the build steps.
 **Short version:** VPS 1 (home base) 4 GB / $24, VPS 2 (ALS) 2 GB / $12, publishers on
 existing WordPress hosting. ~$37/mo including the domain.
 
+## What Matt needs to gather before starting
+
+Four things, none of which I can obtain:
+
+1. **A hosting account** with the two droplets created (see `server-specs.md` for the
+   cheapest options). Spending money on your account is yours to do.
+2. **A domain, and DNS control over it.** ITEGA already holds `itega.org`,
+   `newshare.com`, `newssso.org` and others — using real subdomains
+   (`auth.itega.org`, `als.itega.org`) makes the demo markedly more convincing than
+   `newshare.example`, but needs Bill or whoever holds the DNS. Falling back to a
+   domain you control is fine; decide early, because certificates depend on it.
+3. **Three WordPress sites** you can install a plugin on, for Publishers A, B and the
+   third site the transparent-SSO section needs.
+4. **SSH access for me**, if you want a session to deploy and read logs directly
+   (Step 3 below). Optional — you can run every command here yourself.
+
+Do not send me registrar logins, hosting-account credentials, or passwords. A deploy
+key and a hostname is the whole of what is useful.
+
 ## DNS
 
 | Name | Points at | Serves |
@@ -157,22 +176,20 @@ Then the three-publisher SSO walkthrough in `demo-script-gap-analysis.md`.
 
 ---
 
-## Work still needed before any of this will run
+## Deployment status
 
-Found while writing this — the deployment config has not caught up with the code:
+The stale blockers listed here previously — services missing from compose, the leftover
+static discovery directory, absent Nginx routes, no second realm — are all resolved.
+`docker compose up -d` on each host now brings up the full stack.
 
-1. **`network-discovery` and `asp-agent` are not in any compose file.** Both have
-   Dockerfiles and neither is wired up, so `docker compose up` brings up a stack
-   missing two of the six services.
-2. **`infra/vps2/network-discovery/` is stale.** It holds a static JSON file from when
-   Plan 06 was going to be nginx-served. It is superseded by the real service and
-   should go, or it will be served in preference to it and quietly answer with a
-   registry that has one home base and no agent URLs.
-3. **Nginx has no routes** for the discovery service or the agents, and currently
-   serves `network.<domain>` from that stale directory.
-4. **VPS 1 has no compose entry for the agents**, and no second realm.
-5. **`PUBLISHERS_CONFIG`** needs real client IDs and secrets once the Keycloak clients
-   exist.
+What genuinely remains, and cannot be done before the hosts exist:
 
-Items 1–4 are self-contained and don't depend on anything from Bill. Say the word and
-I'll do them, so that the runbook above is true when you follow it rather than after.
+1. **Replace every placeholder.** Realm client secrets, pairwise salts, demo passwords,
+   the AI agent API keys in `src/als-auth/data/ai-agents.json`, and `PUBLISHERS_CONFIG`.
+   All are marked `REPLACE-ME` and all are currently readable in a public repository.
+2. **Register the publisher OIDC clients** and put their real IDs and secrets into
+   `PUBLISHERS_CONFIG` on VPS 2.
+3. **Point the registry at real hostnames.** `src/network-discovery/data/registry.json`
+   still carries `.example` addresses.
+4. **Walk every path end to end.** Nothing here has run against a live Keycloak,
+   WordPress or Postgres. Assume the first full walkthrough finds something.
