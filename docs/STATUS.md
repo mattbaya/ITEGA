@@ -3,7 +3,7 @@
 *Living handoff document. Anyone — or any session — picking this up cold should be
 able to read this file and continue without reconstructing context.*
 
-**Last updated:** 2026-08-10
+**Last updated:** 2026-08-10 (all planned build work complete)
 **Deadline:** Aug 25, 2026 — RJI/ITEGA roundtable, 2 p.m. EDT
 
 ---
@@ -58,7 +58,8 @@ to make.
 | `src/als-logging/` | Working. Per-filer event records. |
 | `src/als-settlement/` | Working. Wholesale settlement, corrected. |
 | `src/wordpress-plugin/` | Negotiation and AI-agent 402 flow wired in; not yet run against live WordPress. |
-| `infra/vps1`, `infra/vps2` | All six services defined; nginx routes in place. |
+| `src/dashboard/` | Step-through demo at `/demo`, driving the live services. Public route. |
+| `infra/vps1`, `infra/vps2` | All services defined; nginx routes and both realms in place. |
 
 **Verified directly:** service logic, negotiation outcomes, settlement arithmetic,
 session-cache behaviour, PPID isolation across publishers.
@@ -77,47 +78,39 @@ locally. Treat the full end-to-end path as untested until it has actually been w
 
 ---
 
-## Plan forward, in priority order
+## Plan forward
 
-### 1. Step-through demo UI — task #18
-The thing Bill actually presents, and the largest remaining piece. See below.
+Every build task from Bill's Aug 7 script and his Aug 8 replies is done. What
+remains is deployment and rehearsal, not development.
 
-**On x402, for whenever it comes up:** build our own approach now. x402 is **payments only** — it does not do
-identity, so it would not have solved the authentication half anyway. Keep the seam
-open and be able to state ITEGA "intends to support x402 when it becomes an operating
-standard." That claim is already true structurally: authentication, price agreement,
-and settlement are three separate steps here, so x402 would later replace two of them
-without touching how readers are authenticated.
+### 1. Stand up the two hosts
+`docs/vps-provisioning-plan.md` has the runbook; `docs/server-specs.md` has the
+sizing. Creating droplets spends money and is Matt's to run. A session can deploy and
+read logs there only once Matt has set up SSH access — do not create users, install
+keys, or accept registrar or account credentials.
 
-#### What the demo UI must show
-His specified sequence: reader starts at their home
-base → follows a URL to content at another publisher → is authenticated → welcomed as
-an ITEGA user with their home base named → the publisher handshakes with the home base
-on price → transaction logged, content served. Background exchanges narrated in
-pop-ups, closing on what is logged where and how settlement works including markup.
+Real work waiting on this: every end-to-end path. Service logic and money arithmetic
+are verified directly, but nothing has run against a live Keycloak, WordPress, or
+Postgres. Assume the first full walkthrough finds something.
 
-### 2. Second Keycloak realm — task #12
-The chooser needs more than one option to be convincing. Two realms on one Keycloak
-gives two genuinely distinct issuers, JWKS, and user sets at no extra hosting cost.
+### 2. Walk the demo end to end
+- The three-publisher SSO check written up under "Verifying transparent SSO" below.
+- The reader path through a real WordPress site: gate, negotiation, purchase notice.
+- The AI agent path: 402, acceptance, grant, crawl, expiry.
+- A settlement run against real logged events, checking wholesale is what settles.
 
-### 3. Redact third-party emails — task #13
-Bill approved redacting Rick Lerner's and Don Marti's addresses from the tracked PDFs;
-leave Bill's own as-is at his request. **Note:** git history retains the originals, so
-decide whether that matters before treating this as closed.
+### 3. Replace every placeholder
+Realm client secrets, pairwise salts, demo passwords, the AI agent API keys in
+`src/als-auth/data/ai-agents.json`, and `PUBLISHERS_CONFIG`. All are marked
+REPLACE-ME and all are currently in a public repository.
 
-### 4. Correspondence archive — task #19
-Bill asked that correspondence be kept locally and be deliverable on request under the
-name **"ITEGA-CORRESPONDENCE-ARCHIVE"**. Organise `reference/` accordingly with an
-index. Stays gitignored.
+### 4. Open decision: git history — task #20
+The source PDFs are redacted, but history still holds the originals with Don Marti's
+and Rick Lerner's addresses. Removing them needs a history rewrite and force push,
+which breaks clones and forks. Needs a deliberate call.
 
-### 5. Deployment
-Nothing is deployed. No VPSes exist yet. `docs/vps-provisioning-plan.md` has the
-runbook; creating droplets spends money and is Matt's to run. For a session to deploy
-or read logs on those hosts it needs SSH access Matt has explicitly set up — do not
-create users or install keys unprompted, and do not accept registrar or account
-credentials.
-
----
+### 5. Rehearse
+Bill presents this. The demo is presenter-paced by design, but he has not seen it.
 
 ## Open with Bill
 
