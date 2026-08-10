@@ -54,8 +54,15 @@ services:
       # authorize request fails, so it is not optional.
       DISCOVERY_SERVICE_URL: http://network-discovery:8002
       PUBLISHERS_CONFIG: ${PUBLISHERS_CONFIG:-[]}
+      # Certified AI agents and the terms each agreed to. Mounted read-only
+      # from the repo so ITEGA's membership decisions stay in version control.
+      AI_AGENTS_REGISTRY_PATH: /app/data/ai-agents.json
+      AI_GRANT_TTL: ${AI_GRANT_TTL:-3600}
+      AI_AGENT_SIGNUP_URL: ${AI_AGENT_SIGNUP_URL:-https://itega.org/join}
       ALS_BASE_URL: ${ALS_BASE_URL:-https://als.newshare.example}
       LOGGING_API_KEY: ${LOGGING_API_KEY}
+    volumes:
+      - ../../src/als-auth/data/ai-agents.json:/app/data/ai-agents.json:ro
     ports:
       - "127.0.0.1:8000:8000"
     secrets:

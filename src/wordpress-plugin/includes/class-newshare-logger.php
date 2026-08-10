@@ -167,4 +167,63 @@ class Newshare_Logger {
 			)
 		);
 	}
+
+	/**
+	 * Log a resource served to an ITEGA member AI agent.
+	 *
+	 * Separate from log_content_access() because a machine caller has no
+	 * reader session to draw claims from. There is no pairwise identifier and
+	 * no home base: the agent acts for a business, not a person, so it is
+	 * recorded by its ITEGA member id and nothing is pseudonymised.
+	 *
+	 * There is also no markup. A markup is a Retail Agent's margin for serving
+	 * a reader it has a relationship with; an answer engine buys for itself, so
+	 * wholesale is the whole price.
+	 *
+	 * Filed on every fulfilled request, including those served under an open
+	 * grant, so settlement bills per resource rather than per handshake.
+	 *
+	 * @param int    $post_id       The resource served.
+	 * @param string $agent_mbr_id  The agent's ITEGA member id.
+	 * @param float  $price         Wholesale price agreed.
+	 */
+	public function log_ai_agent_access( int $post_id, string $agent_mbr_id, float $price ): void {
+		$logging_endpoint = get_option( 'newshare_als_logging_endpoint', '' );
+		$api_key          = get_option( 'newshare_als_api_key', '' );
+		if ( empty( $logging_endpoint ) || empty( $api_key ) ) {
+			return;
+		}
+
+		$event = array(
+			// The agent's member id stands where a reader's PPID would. It is
+			// deliberately NOT pseudonymous: publishers and ITEGA are both
+			// entitled to know which company is buying their content.
+			'networkUserId' => $agent_mbr_id,
+			'homeBaseId'    => 'ITEGA-AI',
+			'pubMbrId'      => get_option( 'newshare_pub_mbr_id', '' ),
+			'resourceId'    => get_permalink( $post_id ),
+			'pageClass'     => $price,
+			'serviceClass'  => 0,
+			'markupRatio'   => 1.0,
+			'eventType'     => 'content_access',
+			'sessionId'     => '',
+			'reporter'      => 'cms',
+		);
+
+		/** This filter is documented in class-newshare-logger.php */
+		$event = apply_filters( 'newshare_log_event', $event, $post_id );
+
+		wp_remote_post(
+			trailingslashit( $logging_endpoint ) . 'event',
+			array(
+				'body'     => wp_json_encode( $event ),
+				'headers'  => array(
+					'Content-Type' => 'application/json',
+					'X-API-Key'    => $api_key,
+				),
+				'timeout'  => 2,
+				'blocking' => false,
+			)
+		);
+	}
 }

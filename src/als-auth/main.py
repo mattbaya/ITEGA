@@ -47,6 +47,16 @@ import httpx
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
+from ai_agent_models import (
+    AgentVerifyRequest,
+    AgentVerifyResponse,
+    BusinessRules,
+    GrantCheckRequest,
+    GrantCheckResponse,
+    GrantRequest,
+    GrantResponse,
+)
+from ai_agents import AIAgentRegistry
 from config import Settings, settings
 from discovery import DiscoveryClient
 from session_cache import AuthenticatorSessionCache
@@ -92,6 +102,11 @@ _public_key_pem: str = ""
 # Readers already authenticated at the Authenticator. Consulted before any
 # home-base discovery happens, per the step preceding script step 10.
 _session_cache: AuthenticatorSessionCache | None = None
+
+# Certified AI agents and their crawl grants. Separate from reader sessions:
+# an agent acts for a business, identifies itself on every request, and is
+# never redirected or asked to log in.
+_ai_agents: AIAgentRegistry | None = None
 
 # Name of the first-party cookie holding an opaque handle into that cache.
 # It carries no identifiers and is scoped to the Authenticator's own domain.
@@ -146,13 +161,20 @@ def _session_store_put(key: str, value: dict[str, Any]) -> None:
 
 @app.on_event("startup")
 async def _startup() -> None:
-    global _discovery, _publishers, _private_key_pem, _public_key_pem, _session_cache
+    global _discovery, _publishers, _private_key_pem, _public_key_pem
+    global _session_cache, _ai_agents
 
     logger.info("Starting ALS Auth Service")
 
     # Readers stay recognised here for the life of a session token, so a
     # second publisher does not send them back through login.
     _session_cache = AuthenticatorSessionCache(ttl=settings.session_token_ttl)
+
+    # The certified-AI-agent table publishers consult before serving crawlers.
+    _ai_agents = AIAgentRegistry(
+        registry_path=settings.ai_agents_registry_path,
+        default_grant_ttl=settings.ai_grant_ttl,
+    )
 
     # Load RSA key pair
     try:
@@ -852,6 +874,115 @@ async def list_home_bases() -> HomeBasesResponse:
 
 
 # ── GET /.well-known/openid-configuration ─────────────────────────────
+
+# ── AI agent handshake ───────────────────────────────────────────────
+#
+# The machine-to-machine path. An AI answer engine does not use a browser and
+# cannot be redirected, so none of the OIDC flow above applies to it: it
+# identifies itself on every request, agrees a price, and crawls under a grant
+# until that grant times out.
+#
+# These endpoints are called by the publisher's ITEGA client code, never by the
+# agent itself. The agent talks only to the publisher.
+
+
+@app.post("/ai-agent/verify", response_model=AgentVerifyResponse)
+async def verify_ai_agent(body: AgentVerifyRequest) -> AgentVerifyResponse:
+    """
+    Is this crawler an ITEGA member in good standing? (script steps 3-5)
+
+    Returns the business rules the agent has agreed to, so the publisher can
+    check its asking price against them before quoting. A non-member gets a
+    refusal carrying somewhere to go — the script is specific that the rejection
+    should direct the caller to membership rather than simply closing the door.
+    """
+    if _ai_agents is None:
+        raise HTTPException(status_code=503, detail="Agent registry not initialised")
+
+    agent = _ai_agents.verify(body.agentMbrId, body.apiKey)
+    if agent is None:
+        return AgentVerifyResponse(
+            member=False,
+            signupUrl=settings.ai_agent_signup_url,
+            reason=(
+                "Not a current ITEGA member. Content is available to member "
+                "agents under agreed terms; membership is open."
+            ),
+        )
+
+    rules = agent.get("business_rules", {})
+    return AgentVerifyResponse(
+        member=True,
+        agentMbrId=agent["agentMbrId"],
+        name=agent.get("name", ""),
+        businessRules=BusinessRules(**rules),
+    )
+
+
+@app.post("/ai-agent/grant", response_model=GrantResponse)
+async def issue_ai_grant(body: GrantRequest) -> GrantResponse:
+    """
+    Record that an agent accepted a publisher's price (script steps 7-9).
+
+    The grant lets the agent keep crawling this publisher without repeating the
+    handshake, which matters at crawl volume. It does not suspend accounting:
+    every fulfilled request is still logged and billed on its own.
+    """
+    if _ai_agents is None:
+        raise HTTPException(status_code=503, detail="Agent registry not initialised")
+
+    agent = _ai_agents.verify(body.agentMbrId, body.apiKey)
+    if agent is None:
+        raise HTTPException(status_code=403, detail="Not a current ITEGA member")
+
+    rules = agent.get("business_rules", {})
+
+    # Refuse to grant above what this agent agreed to as a member. The publisher
+    # sets its own price, but ITEGA will not record an agreement that breaches
+    # the terms of membership.
+    ceiling = float(rules.get("maxPricePerResource", 0.0))
+    if ceiling and body.agreedPrice > ceiling:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Agreed price {body.agreedPrice} exceeds this agent's "
+                f"contracted maximum of {ceiling}"
+            ),
+        )
+
+    token, expires_at = _ai_agents.issue_grant(
+        agent_mbr_id=body.agentMbrId,
+        pub_mbr_id=body.pubMbrId,
+        agreed_price=body.agreedPrice,
+        ttl=int(rules.get("grantTtlSeconds") or settings.ai_grant_ttl),
+    )
+    return GrantResponse(
+        grant=token, expiresAt=expires_at, agreedPrice=body.agreedPrice
+    )
+
+
+@app.post("/ai-agent/grant/check", response_model=GrantCheckResponse)
+async def check_ai_grant(body: GrantCheckRequest) -> GrantCheckResponse:
+    """
+    Is this grant still good for this publisher? (steps 10, 13)
+
+    An invalid answer sends the agent back through the full membership check,
+    which is what the timeout is for.
+    """
+    if _ai_agents is None:
+        raise HTTPException(status_code=503, detail="Agent registry not initialised")
+
+    grant = _ai_agents.check_grant(body.grant, body.pubMbrId)
+    if grant is None:
+        return GrantCheckResponse(valid=False)
+
+    return GrantCheckResponse(
+        valid=True,
+        agentMbrId=grant["agent_mbr_id"],
+        agreedPrice=grant["agreed_price"],
+        expiresAt=grant["expires_at"],
+    )
+
 
 @app.get("/.well-known/openid-configuration", response_model=OIDCDiscovery)
 async def openid_configuration() -> OIDCDiscovery:

@@ -86,6 +86,7 @@ require_once NEWSHARE_PLUGIN_DIR . 'includes/class-newshare-pricing.php';
 require_once NEWSHARE_PLUGIN_DIR . 'includes/class-newshare-access.php';
 require_once NEWSHARE_PLUGIN_DIR . 'includes/class-newshare-rsl.php';
 require_once NEWSHARE_PLUGIN_DIR . 'includes/class-newshare-logger.php';
+require_once NEWSHARE_PLUGIN_DIR . 'includes/class-newshare-ai-agent.php';
 require_once NEWSHARE_PLUGIN_DIR . 'includes/class-newshare-admin.php';
 
 // =========================================================================
@@ -128,6 +129,9 @@ final class Newshare_Network {
 	/** @var Newshare_Pricing Price negotiation with the reader's home base. */
 	private Newshare_Pricing $pricing;
 
+	/** @var Newshare_AI_Agent Machine-to-machine handshake for AI answer engines. */
+	private Newshare_AI_Agent $ai_agent;
+
 	/**
 	 * Get the singleton instance.
 	 *
@@ -155,6 +159,7 @@ final class Newshare_Network {
 		$this->access  = new Newshare_Access( $this->session, $this->pricing );
 		$this->rsl     = new Newshare_RSL();
 		$this->logger  = new Newshare_Logger( $this->session );
+		$this->ai_agent = new Newshare_AI_Agent( $this->logger );
 		$this->admin   = new Newshare_Admin();
 
 		$this->register_hooks();
@@ -253,6 +258,19 @@ final class Newshare_Network {
 
 		$post_id = get_the_ID();
 		if ( ! $post_id ) {
+			return;
+		}
+
+		// -----------------------------------------------------------------
+		// Machine callers are handled first and separately. An AI answer
+		// engine cannot follow a redirect or complete a login, so it must
+		// never reach the reader access gate -- it would be handed an HTML
+		// page describing a login it cannot perform. The handshake either
+		// answers the request itself (402, 403) or clears the request to be
+		// served, having already filed its own log report.
+		// -----------------------------------------------------------------
+		if ( $this->ai_agent->is_agent_request() ) {
+			$this->ai_agent->handle( $post_id );
 			return;
 		}
 

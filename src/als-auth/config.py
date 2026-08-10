@@ -105,6 +105,23 @@ class Settings(BaseSettings):
     # 300 s (5 min) balances freshness with reducing load on Keycloak.
     jwks_cache_ttl: int = 300
 
+    # ── AI agent membership ───────────────────────────────────────────
+    # Path to the registry of ITEGA-certified AI agents and the business
+    # rules each has agreed to.  Publishers consult this (via the ALS)
+    # before serving a crawler.
+    ai_agents_registry_path: str = "data/ai-agents.json"
+
+    # Default lifetime of a crawl grant, in seconds.  An agent may keep
+    # crawling one publisher without renegotiating until this expires;
+    # each fulfilled request is still logged and billed individually.
+    # Overridden per agent by its own agreed business rules.
+    ai_grant_ttl: int = 3600
+
+    # Where a non-member crawler is directed to establish membership.  The
+    # script is specific that a refusal should point somewhere useful rather
+    # than simply denying the request.
+    ai_agent_signup_url: str = "https://itega.org/join"
+
     # ── Session token TTL ─────────────────────────────────────────────
     # Lifetime of ALS-issued session JWTs, in seconds.
     # 1800 s = 30 minutes — short enough to limit replay risk.

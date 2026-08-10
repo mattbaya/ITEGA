@@ -1,0 +1,31 @@
+{
+  "_comment": "ITEGA-certified AI agents and the business rules each has agreed to. Consulted by publishers' ITEGA client code before serving a crawler. api_key values here are demonstration credentials only and must be replaced before any public deployment.",
+  "ai_agents": [
+    {
+      "agentMbrId": "ITEGA-AI-0001",
+      "name": "Demo Answer Engine",
+      "operator": "Demonstration AI Company",
+      "membership_status": "active",
+      "api_key": "demo-agent-key-replace-me",
+      "business_rules": {
+        "maxPricePerResource": 0.25,
+        "grantTtlSeconds": 3600,
+        "settlementTerms": "ach-monthly",
+        "purpose": "rag-retrieval"
+      }
+    },
+    {
+      "agentMbrId": "ITEGA-AI-0002",
+      "name": "Demo Crawler (suspended)",
+      "operator": "Lapsed Membership Co.",
+      "membership_status": "suspended",
+      "api_key": "suspended-agent-key",
+      "business_rules": {
+        "maxPricePerResource": 0.10,
+        "grantTtlSeconds": 900,
+        "settlementTerms": "ach-monthly",
+        "purpose": "crawl"
+      }
+    }
+  ]
+}

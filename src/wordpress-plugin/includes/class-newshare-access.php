@@ -279,6 +279,20 @@ class Newshare_Access {
 			return $content;
 		}
 
+		/**
+		 * Allows a caller that has already paid to bypass the reader gate.
+		 *
+		 * Set by the AI agent handshake, which settles payment machine-to-machine
+		 * before this filter runs. Without it a paid crawler would be handed the
+		 * login prompt instead of the article it just bought, because the gate
+		 * decides on a subscription tier a machine caller does not have.
+		 *
+		 * @param bool $bypass Whether to serve the content ungated.
+		 */
+		if ( apply_filters( 'newshare_bypass_access_gate', false ) ) {
+			return $content;
+		}
+
 		// If the user's subscription tier grants access, the content is covered
 		// by their existing relationship -- nothing to negotiate, serve it.
 		if ( $this->check_access( $post_id ) ) {
