@@ -31,3 +31,6 @@ target/
 # demo scripts. Kept local only -- this repository is public, and the
 # correspondence in particular is not ours to publish.
 reference/
+
+# Vite build metadata
+*.tsbuildinfo

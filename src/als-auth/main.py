@@ -44,6 +44,7 @@ from collections import OrderedDict
 from typing import Any
 
 import httpx
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
@@ -86,6 +87,23 @@ app = FastAPI(
     title="ALS Auth Service",
     version="0.1.0",
     description="Newshare Network ALS — Authentication & Token Issuance",
+)
+
+# ── CORS ─────────────────────────────────────────────────────────────
+#
+# The demonstration dashboard calls this service directly from a browser, and
+# in production it is served from a different host, so those requests are
+# cross-origin. Origins are listed explicitly rather than wildcarded: these
+# endpoints answer questions about network membership and pricing, and there
+# is no reason for arbitrary sites to be able to ask them from a visitor's
+# browser.
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_allow_origins,
+    allow_credentials=False,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
 )
 
 # ── State holders (populated on startup) ──────────────────────────────

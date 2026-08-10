@@ -12,6 +12,7 @@
  *
  * Routes:
  *   /            -> redirects to /dashboard
+ *   /demo        -> Step-through demonstration of the network (Aug 25 roundtable)
  *   /dashboard   -> Dashboard overview
  *   /publishers  -> Publisher PPID list
  *   /transactions -> Content access history
@@ -24,6 +25,7 @@ import { useState, useEffect } from 'react';
 import Header from './components/Header';
 import LoginPrompt from './components/LoginPrompt';
 import Dashboard from './pages/Dashboard';
+import Demo from './pages/Demo';
 import Publishers from './pages/Publishers';
 import Transactions from './pages/Transactions';
 import Privacy from './pages/Privacy';
@@ -59,8 +61,26 @@ export default function App() {
     );
   }
 
+  // The walkthrough explains how the network works and shows nobody's personal
+  // data, so it sits outside the sign-in gate: it has to be presentable to a
+  // room, and linkable to people who have no account and are being persuaded
+  // to want one.
   if (!session) {
-    return <LoginPrompt />;
+    return (
+      <Routes>
+        <Route
+          path="/demo"
+          element={
+            <div className="min-h-screen bg-gray-50">
+              <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                <Demo />
+              </main>
+            </div>
+          }
+        />
+        <Route path="*" element={<LoginPrompt />} />
+      </Routes>
+    );
   }
 
   return (
@@ -69,6 +89,7 @@ export default function App() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Routes>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/demo" element={<Demo />} />
           <Route path="/dashboard" element={<Dashboard session={session} />} />
           <Route path="/publishers" element={<Publishers session={session} />} />
           <Route path="/transactions" element={<Transactions />} />

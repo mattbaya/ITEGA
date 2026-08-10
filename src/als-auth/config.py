@@ -127,6 +127,18 @@ class Settings(BaseSettings):
     # 1800 s = 30 minutes — short enough to limit replay risk.
     session_token_ttl: int = 1800
 
+    # ── CORS ──────────────────────────────────────────────────────────
+    # Browser origins permitted to call this service directly. The
+    # demonstration dashboard is served from a different host than the
+    # services it exercises, so those calls are cross-origin. Listed
+    # explicitly rather than wildcarded -- these endpoints answer questions
+    # about membership and pricing, and arbitrary sites have no business
+    # asking them from a visitor's browser.
+    cors_allow_origins: list[str] = [
+        "http://localhost:5173",
+        "https://dashboard.newshare.example",
+    ]
+
     model_config = {"env_prefix": "", "case_sensitive": False}
 
     # ------------------------------------------------------------------

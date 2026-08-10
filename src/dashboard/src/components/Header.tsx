@@ -18,6 +18,7 @@ interface HeaderProps {
 }
 
 const navItems = [
+  { to: '/demo', label: 'How it works' },
   { to: '/dashboard', label: 'Dashboard' },
   { to: '/publishers', label: 'Publishers' },
   { to: '/transactions', label: 'Transactions' },
