@@ -147,34 +147,35 @@ Realm client secrets, pairwise salts, demo passwords, the AI agent API keys in
 `src/als-auth/data/ai-agents.json`, and `PUBLISHERS_CONFIG`. All are marked
 REPLACE-ME and all are currently in a public repository.
 
-### 4. Confirm the redaction with Bill, and decide on git history — task #20
-Don Marti's and Rick Lerner's addresses have been redacted from the tracked PDFs;
-Bill's own details were left alone. **This was done without a recorded answer from
-Bill.** His Aug 8-9 reply covered six other questions and did not address the email
-issue, and it was never filed to the archive, so there is nothing to check against.
-Removing two third parties' personal addresses from a public repo is a defensible
-default, but the decision should be put to him explicitly rather than assumed.
+### 4. Finish the redaction — ask GitHub to garbage-collect (task #20)
 
-Separately: history still holds the unredacted originals — `git show` on the previous
-commit returns both addresses. Removing them needs a rewrite and force push.
+**Done:** history rewritten on Aug 10 with `git filter-repo`, replacing the two dirty
+PDF blobs with redacted equivalents at every commit that referenced them, and
+force-pushed. Verified from a fresh clone of GitHub: 35 commits preserved, 119 files
+identical, 10 PDF blobs in full history, **none leaking**. The documents are otherwise
+untouched — both names still read normally, only the addresses are gone.
 
-**What a rewrite actually buys, and costs.** There are no forks (checked Aug 10), so
-nothing downstream breaks in that sense. But:
+**Not done, and this is the part that matters:** GitHub still serves the *original*
+blob through the old commit SHA. Checked directly after the push —
+`GET /repos/mattbaya/ITEGA/contents/...?ref=63db9ef7` still returns blob
+`9c232f37be0f`, the unredacted one. Force-pushing does not delete unreachable objects
+from GitHub; only GitHub can.
 
-- **Existing clones keep the old objects regardless.** Roughly 53 unique cloners pulled
-  this repo in the preceding fortnight — mostly automated mirrors, as any public repo
-  attracts. A rewrite cannot reach any of them.
-- **A careless `git pull` after a force push can put the old history back.** Anyone
-  with a stale clone who merges rather than re-cloning reintroduces exactly the commits
-  the rewrite removed.
-- **GitHub keeps unreachable commits addressable by SHA** after a force push. They stop
-  appearing in the branch, but remain fetchable by direct URL until GitHub Support is
-  asked to garbage-collect them. A rewrite alone does not purge their copy.
+**To finish it,** open a GitHub Support request (https://support.github.com/) asking
+them to garbage-collect unreachable objects on `mattbaya/ITEGA` following a history
+rewrite. Mention that the rewrite removed personal data and cite the stale commits
+`63db9ef7` and `cb47cc43`. They do this routinely; it is usually a day or two.
 
-So the realistic framing for Bill is that redaction stops *continuing* to publish the
-addresses; it cannot un-publish them. A rewrite is cheap here and tidies the public
-face of the repo, but is not a remedy, and should not be sold to Don or Rick as one.
-If it matters to them, the honest step is telling them it happened.
+**And still open:** whether Bill agrees with the redaction at all. His Aug 8-9 reply
+answered six other questions and never touched it, so nothing supports treating it as
+his decision. Ask him directly.
+
+**What a rewrite could never fix.** Roughly 53 unique cloners pulled this repo in the
+fortnight before the rewrite — mostly automated mirrors, as any public repo attracts.
+None of them are reachable. Anyone with a stale clone who merges rather than re-clones
+can also reintroduce the old commits. Redaction stopped the repository from continuing
+to publish the addresses; it did not un-publish them, and should not be described to
+Don or Rick as though it had.
 
 ### 5. Rehearse
 Bill presents this. The demo is presenter-paced by design, but he has not seen it.
