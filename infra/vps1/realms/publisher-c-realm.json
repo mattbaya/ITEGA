@@ -7,12 +7,10 @@
   "registrationEmailAsUsername": true,
   "resetPasswordAllowed": true,
   "loginTheme": "keycloak",
-
   "_comment_sessions": "SSO session idle governs how long a reader stays recognised here. Kept comfortably longer than the ALS session token (30 min) so a live demo does not hit a re-login mid-walkthrough.",
   "ssoSessionIdleTimeout": 3600,
   "ssoSessionMaxLifespan": 36000,
   "accessTokenLifespan": 300,
-
   "clients": [
     {
       "clientId": "pub-a",
@@ -23,8 +21,12 @@
       "secret": "REPLACE-ME-PUB-A",
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": false,
-      "redirectUris": ["https://als.newshare.example/auth/callback"],
-      "webOrigins": ["https://als.newshare.example"],
+      "redirectUris": [
+        "https://als.itega.org/auth/callback"
+      ],
+      "webOrigins": [
+        "https://als.itega.org"
+      ],
       "attributes": {
         "pubMbrId": "ITEGA-PA-0001",
         "pkce.code.challenge.method": "S256"
@@ -62,8 +64,12 @@
       "secret": "REPLACE-ME-PUB-B",
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": false,
-      "redirectUris": ["https://als.newshare.example/auth/callback"],
-      "webOrigins": ["https://als.newshare.example"],
+      "redirectUris": [
+        "https://als.itega.org/auth/callback"
+      ],
+      "webOrigins": [
+        "https://als.itega.org"
+      ],
       "attributes": {
         "pubMbrId": "ITEGA-PB-0001",
         "pkce.code.challenge.method": "S256"
@@ -93,7 +99,6 @@
       ]
     }
   ],
-
   "_comment_users": "Demo readers. networkGroupId is the subscription-tier bitmask the mapper reads: 4096 = Paid Subscriber, 2 = Registered. Two tiers so the demo can show one reader whose subscription covers an article and another who has to buy it.",
   "users": [
     {
@@ -103,9 +108,17 @@
       "enabled": true,
       "firstName": "Susan",
       "lastName": "Reader",
-      "attributes": { "networkGroupId": ["4096"] },
+      "attributes": {
+        "networkGroupId": [
+          "4096"
+        ]
+      },
       "credentials": [
-        { "type": "password", "value": "REPLACE-ME-DEMO-PASSWORD", "temporary": false }
+        {
+          "type": "password",
+          "value": "REPLACE-ME-DEMO-PASSWORD",
+          "temporary": false
+        }
       ]
     },
     {
@@ -115,9 +128,17 @@
       "enabled": true,
       "firstName": "Tom",
       "lastName": "Reader",
-      "attributes": { "networkGroupId": ["2"] },
+      "attributes": {
+        "networkGroupId": [
+          "2"
+        ]
+      },
       "credentials": [
-        { "type": "password", "value": "REPLACE-ME-DEMO-PASSWORD", "temporary": false }
+        {
+          "type": "password",
+          "value": "REPLACE-ME-DEMO-PASSWORD",
+          "temporary": false
+        }
       ]
     }
   ]

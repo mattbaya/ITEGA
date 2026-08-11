@@ -136,7 +136,7 @@ class Settings(BaseSettings):
     # asking them from a visitor's browser.
     cors_allow_origins: list[str] = [
         "http://localhost:5173",
-        "https://dashboard.newshare.example",
+        "https://dashboard.itega.org",
     ]
 
     model_config = {"env_prefix": "", "case_sensitive": False}

@@ -1,0 +1,16 @@
+[Unit]
+# AlmaLinux's certbot package ships no renewal timer or cron job of its own, so
+# without this unit certificates obtained by `certbot-3 --apache` simply expire
+# after 90 days. Nothing warns you; the site just stops working one morning.
+Description=Renew Let's Encrypt certificates
+Documentation=https://certbot.eff.org/
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# The binary is certbot-3 on Alma, not certbot.
+ExecStart=/usr/bin/certbot-3 renew --quiet --no-random-sleep-on-renew
+# Apache keeps the old certificate loaded until told otherwise, so a renewal
+# that does not reload leaves the expired one being served.
+ExecStartPost=/usr/bin/systemctl reload-or-restart httpd

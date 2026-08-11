@@ -1,0 +1,16 @@
+[Unit]
+Description=Renew Let's Encrypt certificates twice daily
+Documentation=https://certbot.eff.org/
+
+[Timer]
+# Twice a day is the interval Let's Encrypt asks for. Certbot only acts when a
+# certificate is within 30 days of expiry, so this is cheap; the frequency is
+# about having many chances to succeed before it matters, not about urgency.
+OnCalendar=*-*-* 03,15:00:00
+# Spread the load rather than joining every other certbot in the world at
+# exactly the top of the hour.
+RandomizedDelaySec=3600
+Persistent=true
+
+[Install]
+WantedBy=timers.target
