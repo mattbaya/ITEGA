@@ -43,6 +43,9 @@ ITEGA/
 ├── CLAUDE.md                   ← You are here
 ├── README.md                   ← Verbose project overview with examples
 ├── docs/
+│   ├── STATUS.md               ← START HERE. Living handoff: state, plan, decisions
+│   ├── vps-setup-record.md     ← How the servers were built, and what went wrong
+│   ├── monitoring.md           ← Beszel hub and agents
 │   ├── demo-script-gap-analysis.md ← Aug 25 demo script vs. the code; open questions
 │   ├── peer-review-synthesis.md ← Synthesis of Drummond Reed + Don Marti feedback
 │   ├── response-to-bill.md     ← Summary for Bill Densmore

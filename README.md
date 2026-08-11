@@ -769,6 +769,7 @@ ITEGA/
 │   ├── server-specs.md                 ← What each host runs, sizing, hosting costs
 │   ├── vps-provisioning-plan.md        ← Build steps for the two servers
 │   ├── vps-setup-record.md             ← What was actually done, and what went wrong
+│   ├── monitoring.md                   ← Beszel hub and agents; what remains
 │   ├── peer-review-synthesis.md        ← Drummond Reed + Don Marti feedback
 │   └── source-pdfs/                   ← Original documents from Bill Densmore
 │       ├── claude-itega-newshare-tech-spec-02-22-26b-1110pest.pdf  (20pp, tech spec)

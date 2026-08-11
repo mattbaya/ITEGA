@@ -3,7 +3,7 @@
 *Living handoff document. Anyone — or any session — picking this up cold should be
 able to read this file and continue without reconstructing context.*
 
-**Last updated:** 2026-08-10 (all planned build work complete)
+**Last updated:** 2026-08-11 — both servers live, demo running in production
 **Deadline:** Aug 25, 2026 — RJI/ITEGA roundtable, 2 p.m. EDT
 
 ---
@@ -58,14 +58,17 @@ to make.
 | `src/als-logging/` | Working. Per-filer event records. |
 | `src/als-settlement/` | Working. Wholesale settlement, corrected. |
 | `src/wordpress-plugin/` | Negotiation and AI-agent 402 flow wired in; not yet run against live WordPress. |
-| `src/dashboard/` | Step-through demo at `/demo`, driving the live services. Public route. |
-| `infra/vps1`, `infra/vps2` | All services defined; nginx routes and both realms in place. |
+| `src/dashboard/` | **Live** at `dashboard.itega.org/demo`, driving production services. |
+| `infra/vps1`, `infra/vps2` | **Deployed and running.** Apache vhosts, TLS, both realms imported. |
 
-**Verified directly:** service logic, negotiation outcomes, settlement arithmetic,
-session-cache behaviour, PPID isolation across publishers.
+**Verified in production** (Aug 11): home-base resolution across hosts, all three
+negotiation outcomes, the AI agent handshake, the dashboard walkthrough driving live
+services, and two home bases returning different retail prices for one wholesale price.
 
-**Not verified:** anything requiring a live Keycloak, WordPress, or Postgres. None run
-locally. Treat the full end-to-end path as untested until it has actually been walked.
+**Still unverified:** anything involving WordPress. The plugin has never run against a
+live site, so the reader's journey through an actual publisher — gate, negotiation,
+purchase notice — and the AI agent's 402 exchange against a real page remain untested.
+That is the largest remaining risk.
 
 ### Bugs found and fixed (worth knowing about)
 
@@ -83,64 +86,42 @@ locally. Treat the full end-to-end path as untested until it has actually been w
 Every build task from Bill's Aug 7 script and his Aug 8 replies is done. What
 remains is deployment and rehearsal, not development.
 
-### 0. RESUME HERE — Hetzner is ready, nothing provisioned yet
+### 0. Deployed and working
 
-State as of Aug 10:
+Both hosts are live. See `docs/vps-setup-record.md` for how they were built and
+`docs/monitoring.md` for the monitoring state.
 
-- `hcloud` CLI installed, context **`Newshare`** created and authenticated. Run
-  `hcloud server list` to confirm; the token lives in Matt's `~/.config/hcloud/cli.toml`
-  and is never in the repo or a transcript.
-- SSH key **`newshare-deploy-pub`** (ID 116854754) registered in the project.
-- Region decided: **Falkenstein (fsn1)**. EU pricing is a third of Hetzner's US
-  regions for identical hardware — `cpx11` is $5.99 in fsn1 against $20.49 in Ashburn.
-  ~110–130 ms to Missouri, imperceptible for a click-through demo. Revisit if the pilot
-  ever holds real reader accounts, where US residency may matter.
-- **Nothing has been created. Zero spend so far.**
+| Service | Status |
+|---|---|
+| Keycloak, two home-base realms | Live, imported from version control |
+| Both Retail Agents | Live, markups 1.1 and 1.4 |
+| Authenticator, Logger, Network Discovery | Live |
+| Dashboard and the `/demo` walkthrough | Live, driving the production services |
+| TLS on all six hostnames | Live, auto-renewing |
 
-**Server types — `cpx21` is discontinued, do not try to order it.** The `cx` line is
-both cheaper and larger:
+**Verified in production:** the network resolves home bases across hosts, all
+three negotiation outcomes work, the AI agent handshake works, and — the check
+worth repeating — the same $0.05 article bills one reader $0.055 and another
+$0.07 because their home bases apply different markups. That single result
+exercises the registry, both agents, the proxy layer and the pricing model.
 
-| Host | Type | Specs | $/mo |
-|---|---|---|---|
-| `newshare-vps1` (home base) | **cx33** | 4 vCPU / 8 GB / 80 GB | 8.99 |
-| `newshare-vps2` (ALS) | **cx23** | 2 vCPU / 4 GB / 40 GB | 6.49 |
-| | | **total** | **15.48** |
+### 1. Three publisher WordPress sites
+The largest remaining piece. Publishers A and B are content sites; a third is
+needed for the transparent-SSO leg. Matt has offered hosts and several unused
+domains, plus a possible real participant. Domain diversity matters more than
+server diversity: three sites that visibly belong to different organisations do
+more for the demo than three subdomains of one.
 
-Plus $0.60/mo per primary IPv4. 8 GB on VPS 1 gives Keycloak real headroom rather than
-the 4 GB minimum originally planned.
+`PUBLISHERS_CONFIG` on VPS 2 and the Keycloak client redirect URIs both carry
+placeholder publisher URLs until those domains are chosen.
 
-To create both:
+They also need to *look* like publications. A reader arriving at "Hello world!"
+undercuts the demo more than any hosting choice could — worth raising with Bill
+early, since content is the kind of thing that slips to the last week.
 
-```bash
-hcloud server create --name newshare-vps1 --type cx33 --image ubuntu-24.04 --location fsn1 --ssh-key newshare-deploy-pub
-```
-
-```bash
-hcloud server create --name newshare-vps2 --type cx23 --image ubuntu-24.04 --location fsn1 --ssh-key newshare-deploy-pub
-```
-
-**Blocked on one decision: the domain.** Certificates depend on it, so settle it before
-provisioning. Either ITEGA subdomains (`auth.itega.org` — needs whoever holds ITEGA's
-DNS, most convincing to publishers) or an `svaha.com` subdomain (Matt runs PowerDNS on
-`bolt.svaha.com`, which already answers for 548 zones, so records can be created
-immediately). Hostnames live in config rather than code, so starting on svaha and
-moving later is an edit plus a cert re-issue, not a rebuild.
-
-### 1. Stand up the two hosts
-`docs/vps-provisioning-plan.md` has the runbook; `docs/server-specs.md` has the
-sizing. Creating droplets spends money and is Matt's to run. A session can deploy and
-read logs there only once Matt has set up SSH access — do not create users, install
-keys, or accept registrar or account credentials.
-
-Real work waiting on this: every end-to-end path. Service logic and money arithmetic
-are verified directly, but nothing has run against a live Keycloak, WordPress, or
-Postgres. Assume the first full walkthrough finds something.
-
-### 2. Walk the demo end to end
-- The three-publisher SSO check written up under "Verifying transparent SSO" below.
-- The reader path through a real WordPress site: gate, negotiation, purchase notice.
-- The AI agent path: 402, acceptance, grant, crawl, expiry.
-- A settlement run against real logged events, checking wholesale is what settles.
+### 2. Finish monitoring
+`monitor.itega.org` needs a cPanel proxy to the hub; see `docs/monitoring.md`.
+Agents are installed and running on both hosts already.
 
 ### 3. Replace every placeholder
 Realm client secrets, pairwise salts, demo passwords, the AI agent API keys in
