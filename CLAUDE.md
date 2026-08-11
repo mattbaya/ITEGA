@@ -73,12 +73,26 @@ ITEGA/
 └── research/
 ```
 
-## Prototype Architecture
+## Prototype Architecture — LIVE as of Aug 11, 2026
 
-The prototype runs on **two DigitalOcean 4GB droplets** (~$49/mo total):
+Running on **two Hetzner cloud servers in Falkenstein** (~$15.48/mo total),
+AlmaLinux 10, CSF firewall, Apache reverse proxy, Docker Compose:
 
-- **VPS 1** (`auth.newshare.example`): Keycloak 26.x + PostgreSQL 16 — Home Base IdSP
-- **VPS 2** (`als.newshare.example`): FastAPI services + TimescaleDB + React dashboard + Nginx
+- **VPS 1** (`auth.itega.org`): Keycloak 26.x (two realms) + PostgreSQL 16 + two Retail Agents
+- **VPS 2** (`als.itega.org`): FastAPI services + TimescaleDB + React dashboard
+
+Live hostnames: `auth`, `agent-c`, `agent-demo` (VPS 1); `als`, `network`,
+`dashboard` (VPS 2) — all under `itega.org`, all on Let's Encrypt with automated
+renewal.
+
+**See `docs/vps-setup-record.md`** for exactly how these were built, including
+the failures worth not repeating (Alma's missing kernel modules, CSF's dead
+download host, the CSF/Docker iptables conflict, Keycloak rejecting JSON
+comments).
+
+**The Retail Agent runs on the home base host, never the ITEGA host.** It holds
+the markup ratio and decides purchases; ITEGA may see neither. This is an
+architectural rule, not a deployment convenience.
 
 WordPress plugin installs on Matt's existing 4+ WordPress sites (no additional servers).
 Settlement is **simulated only** — reports generated, no real money moves.
