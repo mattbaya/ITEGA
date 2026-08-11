@@ -1,5 +1,4 @@
 {
-  "_comment": "The second home base, so the chooser has a genuine choice in it. Distinct realm means a distinct issuer, JWKS and user set -- everything the ALS treats as identifying a home base -- while sharing one Keycloak host. Its Retail Agent applies a different markup (1.4 vs 1.1) so the demo can show two readers paying different retail prices for the same article. Secrets are placeholders.",
   "realm": "newshare",
   "enabled": true,
   "displayName": "Newshare Demo Home Base",
@@ -7,7 +6,6 @@
   "registrationEmailAsUsername": true,
   "resetPasswordAllowed": true,
   "loginTheme": "keycloak",
-  "_comment_sessions": "SSO session idle governs how long a reader stays recognised here. Kept comfortably longer than the ALS session token (30 min) so a live demo does not hit a re-login mid-walkthrough.",
   "ssoSessionIdleTimeout": 3600,
   "ssoSessionMaxLifespan": 36000,
   "accessTokenLifespan": 300,
@@ -99,7 +97,6 @@
       ]
     }
   ],
-  "_comment_users": "Demo readers. networkGroupId is the subscription-tier bitmask the mapper reads: 4096 = Paid Subscriber, 2 = Registered. Two tiers so the demo can show one reader whose subscription covers an article and another who has to buy it.",
   "users": [
     {
       "username": "maria@example.org",

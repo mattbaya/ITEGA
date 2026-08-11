@@ -1,5 +1,4 @@
 {
-  "_comment": "Publisher C's home base. Imported at Keycloak startup so the realm is reproducible rather than hand-configured. Two things here are load-bearing: every client sets subjectType=pairwise, which is what makes a reader a different opaque person at each publisher; and the newshare-network-userid-mapper carries homeBaseId HB001 into the token. Secrets are placeholders and MUST be replaced before deployment.",
   "realm": "publisher-c",
   "enabled": true,
   "displayName": "Publisher C Home Base",
@@ -7,7 +6,6 @@
   "registrationEmailAsUsername": true,
   "resetPasswordAllowed": true,
   "loginTheme": "keycloak",
-  "_comment_sessions": "SSO session idle governs how long a reader stays recognised here. Kept comfortably longer than the ALS session token (30 min) so a live demo does not hit a re-login mid-walkthrough.",
   "ssoSessionIdleTimeout": 3600,
   "ssoSessionMaxLifespan": 36000,
   "accessTokenLifespan": 300,
@@ -99,7 +97,6 @@
       ]
     }
   ],
-  "_comment_users": "Demo readers. networkGroupId is the subscription-tier bitmask the mapper reads: 4096 = Paid Subscriber, 2 = Registered. Two tiers so the demo can show one reader whose subscription covers an article and another who has to buy it.",
   "users": [
     {
       "username": "susan@example.org",
