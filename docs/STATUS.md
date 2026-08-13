@@ -119,9 +119,13 @@ They also need to *look* like publications. A reader arriving at "Hello world!"
 undercuts the demo more than any hosting choice could — worth raising with Bill
 early, since content is the kind of thing that slips to the last week.
 
-### 2. Finish monitoring
-`monitor.itega.org` needs a cPanel proxy to the hub; see `docs/monitoring.md`.
-Agents are installed and running on both hosts already.
+### 2. Monitoring — DONE
+Four hosts reporting to `monitor.itega.org`: both Hetzner servers plus the two
+existing estate machines. Agents dial out over 443, so no inbound port is open
+on any of them. See `docs/monitoring.md`.
+
+Two follow-ups: the hub login was shared in a transcript and should be rotated,
+and `restic` is installed but not yet scheduled.
 
 ### 3. Replace every placeholder
 Realm client secrets, pairwise salts, demo passwords, the AI agent API keys in

@@ -6,95 +6,82 @@ No credentials, addresses or keys appear here; this repository is public.
 
 ---
 
-## Where things run
+## What is running
 
-| Piece | Host | State |
+| Host | Role | State |
 |---|---|---|
-| Hub (web UI, stores history) | The cPanel shared host behind `monitor.itega.org` | **Running**, bound to loopback on a high port |
-| Agent | VPS 1 (home base) | **Running** as a systemd service |
-| Agent | VPS 2 (ALS) | **Running** as a systemd service |
+| Monitoring host (cPanel shared account) | Hub, behind `monitor.itega.org` | Running, reporting |
+| VPS 1 | Home base — Keycloak, Retail Agents | Agent up, reporting |
+| VPS 2 | ITEGA — Authenticator, Logger, Directory | Agent up, reporting |
+| Development host | Existing estate | Agent up, reporting |
+| cPanel/DNS host | Existing estate — 548 DNS zones | Agent up, reporting |
 
-## What is finished
+All four report CPU, memory, disk, network and container stats.
 
-**Agents** are installed at `/usr/local/bin/beszel-agent`, run as a dedicated
-unprivileged `beszel` account under systemd, restart on failure, and start at
-boot. They are in the agent's default mode: an SSH listener on port 45876 that
-the hub connects *to*. The hub's public key is pinned in the unit file, so only
-that one hub can talk to them.
+## How the agents connect — and why it matters
 
-CSF permits 45876 **only from the hub's address** — it is closed to everyone
-else, which was verified from a third machine. The port is not on the internet.
+The agents **dial out to the hub over 443**. They do not listen, and **no inbound
+port is open on any monitored host** for monitoring.
 
-**The hub** is installed under the monitoring account's home directory and
-listens on loopback. There is no root, no Docker and no systemd on that host
-— it is a jailed cPanel account — so the hub runs as a user process kept alive
-by cron: `@reboot` plus a five-minute check that restarts it if it has died.
-That is the only supervision available without systemd, and it is adequate.
+That was not the original arrangement. Beszel's default has the hub connect *to*
+an agent listening on port 45876, which needs an inbound hole on every monitored
+machine. That was set up first and it did not work: with the firewall rule
+confirmed present in `iptables` and the agent confirmed listening, connections
+from the hub never completed, while the same host reached port 443 on the same
+servers without trouble.
 
-## The hub is now public
+**The cause was the hub's own host, not the agents.** Installing agents on two
+further servers — different providers, different firewalls — reproduced the
+failure exactly. That ruled out the agents and their firewalls and pointed at the
+one thing all attempts shared: the hub runs on a jailed cPanel account whose
+outbound traffic is evidently restricted to standard ports.
 
-`monitor.itega.org` serves the hub over TLS. It is reverse-proxied from the
-cPanel account's document root by `.htaccess` rules, because there is no root on
-that host to configure a vhost directly. Three details in those rules matter:
+Dial-out mode fixes it properly rather than working around it. Everything leaves
+over 443, which is permitted everywhere, and the production hosts gained no
+inbound exposure at all. The firewall rules added during the first attempt were
+removed, so the firewall now reflects what is actually reachable.
+
+Worth keeping in mind generally: when something fails identically across
+independent networks, the common component is usually the culprit, and adding a
+third data point is cheaper than deeper forensics on the first two.
+
+## The hub
+
+Served at `monitor.itega.org` over TLS, reverse-proxied from the cPanel account's
+document root by `.htaccess`, because there is no root on that host to configure
+a vhost. Three details there matter:
 
 - **WebSocket upgrades are proxied**, not just plain HTTP. Beszel pushes live
-  metrics over a WebSocket; without this the dashboard loads but never updates,
-  which looks like the agents being down.
+  metrics over a WebSocket, and this is also how the agents connect. Without it
+  the dashboard loads but never updates, which looks like the agents being down.
 - **`.well-known/` bypasses the proxy**, verified by serving a real file from
-  disk through it. Without that, certificate renewal fails silently.
-- **HTTP redirects to HTTPS.** The hub sets session cookies and agents
-  authenticate against this host; neither should travel in clear.
+  disk through it. Otherwise certificate renewal fails silently.
+- **HTTP redirects to HTTPS.** Session cookies and agent tokens should never
+  travel in clear.
 
-## What remains, and why it needs you
+There is no root, no Docker and no systemd on that host, so the hub runs as a
+user process supervised by cron: `@reboot` plus a five-minute check that restarts
+it if it has died. That is the only supervision available there and it is
+adequate for this.
 
-**The hub has no admin account.** Creating one means choosing a password, so it
-is yours rather than mine:
+## Operational notes
 
-1. Open `https://monitor.itega.org/` and create the first admin account.
-2. Add each host as a system. The hub issues a **token** per system.
-3. Apply the token on each host:
+**Adding another host.** Install the agent, create the system in the hub UI to
+get a token, then set `HUB_URL`, `TOKEN` and `KEY` in the unit file.
+`infra/beszel-agent-websocket.sh` does the last part. Note that `KEY` is required
+even when dialling out — the agent refuses to start without it.
 
-```bash
-sudo /opt/newshare/infra/beszel-agent-websocket.sh https://monitor.itega.org <token>
-```
+**Credentials.** The hub login was shared in a chat transcript during setup and
+should be rotated.
 
-That script switches the agent from listening to **dialling out** to the hub,
-and removes the now-unnecessary inbound firewall rule. That is the arrangement
-worth having: no listener and no inbound hole on a production host, and it
-sidesteps the connectivity problem below rather than needing it solved.
+## Backups
 
-If you would rather keep the current listening mode, the agents already trust
-the hub's key and are running — only the connectivity issue below stands in the
-way.
+`restic` is installed on both Hetzner hosts, matching the existing estate, but is
+**not yet scheduled**. Worth doing before the pilot carries anything worth losing.
 
-## One unresolved item
-
-With CSF's allow rule confirmed present in `iptables` (`ACCEPT tcp -- <hub-ip>
-… dpt:45876`), a connection from the hub to the agent port still does not
-complete, while the same host reaches port 443 on the same servers without
-trouble. The agent is confirmed listening on all interfaces and healthy.
-
-This did not block anything else, so it was left rather than chased further. Two
-things worth trying, in order:
-
-- **Prefer the agent's WebSocket mode instead.** Recent Beszel versions let the
-  *agent* dial out to the hub (`HUB_URL` plus a registration token from the UI)
-  rather than listening. That removes the inbound port entirely — no CSF rule,
-  no listener on a production host, nothing to get wrong. It needs the hub
-  publicly reachable first, which is the cPanel step above, so it is the natural
-  thing to do once that is done. **This is the better end state regardless of
-  whether the current problem is diagnosed.**
-- If staying with SSH mode, check whether the shared host applies egress
-  filtering to non-standard ports; its outbound path is the untested half.
-
-## Backups, while here
-
-`restic` is installed on both hosts, matching the existing estate. It is not yet
-scheduled — worth doing before the pilot carries anything worth losing, and worth
-copying the existing pattern rather than inventing one.
-
-Note that the equivalent job on the existing development host has been failing
-its retention step since April: a stale lock left `restic forget --prune` bailing
-out every night while the backup itself succeeded. Snapshots have been
-accumulating since. `restic unlock` clears it. Worth checking any repository
-before assuming a green backup log means a healthy repository.
+One thing found while looking at the existing pattern: the equivalent job on the
+development host has been failing its retention step since April. A stale lock
+left `restic forget --prune` bailing out every night while the backup itself
+succeeded, so snapshots have been accumulating for months. `restic unlock` clears
+it. Worth checking any repository directly rather than trusting a green log —
+the backup succeeding and the repository being healthy are different claims.
