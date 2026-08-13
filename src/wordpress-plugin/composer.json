@@ -1,25 +1,25 @@
 {
-	"name": "itega/newshare-network",
-	"description": "Newshare Network WordPress plugin — federated identity and content access for cross-publisher SSO.",
-	"type": "wordpress-plugin",
-	"license": "GPL-2.0-or-later",
-	"authors": [
-		{
-			"name": "ITEGA / Newshare Network",
-			"homepage": "https://github.com/mattbaya/ITEGA"
-		}
-	],
-	"require": {
-		"php": ">=8.1",
-		"firebase/php-jwt": "^6.0"
-	},
-	"autoload": {
-		"classmap": [
-			"includes/"
-		]
-	},
-	"config": {
-		"optimize-autoloader": true,
-		"sort-packages": true
-	}
+    "name": "itega/newshare-network",
+    "description": "Newshare Network WordPress plugin \u2014 federated identity and content access for cross-publisher SSO.",
+    "type": "wordpress-plugin",
+    "license": "GPL-2.0-or-later",
+    "authors": [
+        {
+            "name": "ITEGA / Newshare Network",
+            "homepage": "https://github.com/mattbaya/ITEGA"
+        }
+    ],
+    "require": {
+        "php": ">=8.1",
+        "firebase/php-jwt": "^7.0"
+    },
+    "autoload": {
+        "classmap": [
+            "includes/"
+        ]
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "sort-packages": true
+    }
 }

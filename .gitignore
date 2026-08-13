@@ -34,3 +34,6 @@ reference/
 
 # Vite build metadata
 *.tsbuildinfo
+
+# Plugin dependencies are vendored at package time, not committed
+src/wordpress-plugin/vendor/
