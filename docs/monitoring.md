@@ -31,27 +31,41 @@ listens on loopback. There is no root, no Docker and no systemd on that host
 by cron: `@reboot` plus a five-minute check that restarts it if it has died.
 That is the only supervision available without systemd, and it is adequate.
 
+## The hub is now public
+
+`monitor.itega.org` serves the hub over TLS. It is reverse-proxied from the
+cPanel account's document root by `.htaccess` rules, because there is no root on
+that host to configure a vhost directly. Three details in those rules matter:
+
+- **WebSocket upgrades are proxied**, not just plain HTTP. Beszel pushes live
+  metrics over a WebSocket; without this the dashboard loads but never updates,
+  which looks like the agents being down.
+- **`.well-known/` bypasses the proxy**, verified by serving a real file from
+  disk through it. Without that, certificate renewal fails silently.
+- **HTTP redirects to HTTPS.** The hub sets session cookies and agents
+  authenticate against this host; neither should travel in clear.
+
 ## What remains, and why it needs you
 
-**`monitor.itega.org` is not serving yet.** The hub listens on loopback, and
-exposing it needs a proxy entry in cPanel, which I cannot configure:
+**The hub has no admin account.** Creating one means choosing a password, so it
+is yours rather than mine:
 
-1. In cPanel, add a subdomain or vhost for `monitor.itega.org`.
-2. Proxy it to the hub's loopback port (the port is recorded in
-   `~/beszel/run-hub.sh` on that host).
-3. Issue a certificate through cPanel's AutoSSL.
-
-Until that exists you can still reach the hub over an SSH tunnel:
+1. Open `https://monitor.itega.org/` and create the first admin account.
+2. Add each host as a system. The hub issues a **token** per system.
+3. Apply the token on each host:
 
 ```bash
-ssh -L 8090:127.0.0.1:<hub-port> <monitoring-user>@<monitoring-host>
+sudo /opt/newshare/infra/beszel-agent-websocket.sh https://monitor.itega.org <token>
 ```
 
-Then open `http://127.0.0.1:8090/` and create the first admin account.
+That script switches the agent from listening to **dialling out** to the hub,
+and removes the now-unnecessary inbound firewall rule. That is the arrangement
+worth having: no listener and no inbound hole on a production host, and it
+sidesteps the connectivity problem below rather than needing it solved.
 
-**Then add each system in the hub UI** — host address and port 45876. The agents
-are already listening and already trust the hub's key, so they should appear as
-soon as they are added.
+If you would rather keep the current listening mode, the agents already trust
+the hub's key and are running — only the connectivity issue below stands in the
+way.
 
 ## One unresolved item
 
