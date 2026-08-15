@@ -89,14 +89,26 @@ class Newshare_Access {
 	private Newshare_Pricing $pricing;
 
 	/**
+	 * Demonstration-audience gate.
+	 *
+	 * @var Newshare_Demo_Mode
+	 */
+	private Newshare_Demo_Mode $demo;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param Newshare_Session $session Session manager (injected by the main plugin class).
 	 * @param Newshare_Pricing $pricing Pricing negotiator (injected by the main plugin class).
 	 */
-	public function __construct( Newshare_Session $session, Newshare_Pricing $pricing ) {
+	public function __construct(
+		Newshare_Session $session,
+		Newshare_Pricing $pricing,
+		Newshare_Demo_Mode $demo
+	) {
 		$this->session = $session;
 		$this->pricing = $pricing;
+		$this->demo    = $demo;
 	}
 
 	// =========================================================================
@@ -269,6 +281,14 @@ class Newshare_Access {
 	 * @return string Filtered content, possibly with an access gate replacing the body.
 	 */
 	public function filter_content( string $content ): string {
+		// On a real publisher's site running in demo mode, a visitor who is not
+		// part of the demonstration must never meet this plugin. Checked before
+		// anything else so no pricing call, no meter cookie and no gate can
+		// reach an ordinary reader.
+		if ( $this->demo->should_suppress() ) {
+			return $content;
+		}
+
 		// Only gate single post views, not archives or feeds.
 		if ( ! is_singular( 'post' ) || ! in_the_loop() || ! is_main_query() ) {
 			return $content;

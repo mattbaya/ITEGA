@@ -45,7 +45,23 @@ class Newshare_RSL {
 	 *
 	 * Hooked to: wp_head
 	 */
+	/**
+	 * Demonstration-audience gate, when one is in force.
+	 *
+	 * @var Newshare_Demo_Mode|null
+	 */
+	private ?Newshare_Demo_Mode $demo = null;
+
+	public function __construct( ?Newshare_Demo_Mode $demo = null ) {
+		$this->demo = $demo;
+	}
+
 	public function inject_rsl_metadata(): void {
+		// Suppressed for non-participants: the plugin should leave no trace in
+		// the markup a real publisher serves to its own readers.
+		if ( $this->demo && $this->demo->should_suppress() ) {
+			return;
+		}
 		// Only inject metadata on single post pages -- not archives, pages, or feeds.
 		if ( ! is_singular( 'post' ) ) {
 			return;

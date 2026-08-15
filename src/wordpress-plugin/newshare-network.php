@@ -80,6 +80,7 @@ if ( file_exists( NEWSHARE_PLUGIN_DIR . 'vendor/autoload.php' ) ) {
  * classes that depend on Session (OIDC, Access, Logger), then standalone
  * classes (RSL, Admin).
  */
+require_once NEWSHARE_PLUGIN_DIR . 'includes/class-newshare-demo-mode.php';
 require_once NEWSHARE_PLUGIN_DIR . 'includes/class-newshare-session.php';
 require_once NEWSHARE_PLUGIN_DIR . 'includes/class-newshare-oidc.php';
 require_once NEWSHARE_PLUGIN_DIR . 'includes/class-newshare-pricing.php';
@@ -126,6 +127,16 @@ final class Newshare_Network {
 	/** @var Newshare_Session Session state management. */
 	private Newshare_Session $session;
 
+	/**
+	 * Demonstration-audience gate.
+	 *
+	 * Consulted by every reader-facing component. On a real publisher's site
+	 * this is what keeps the plugin invisible to their actual readership.
+	 *
+	 * @var Newshare_Demo_Mode
+	 */
+	private Newshare_Demo_Mode $demo;
+
 	/** @var Newshare_Pricing Price negotiation with the reader's home base. */
 	private Newshare_Pricing $pricing;
 
@@ -153,12 +164,15 @@ final class Newshare_Network {
 	private function __construct() {
 		// Instantiate component classes. Session is created first because
 		// OIDC, Access, and Logger all depend on it.
+		// Demo mode first: every reader-facing component asks it whether this
+		// visitor should see anything at all.
+		$this->demo    = new Newshare_Demo_Mode();
 		$this->session = new Newshare_Session();
 		$this->oidc    = new Newshare_OIDC( $this->session );
 		$this->pricing = new Newshare_Pricing( $this->session );
-		$this->access  = new Newshare_Access( $this->session, $this->pricing );
-		$this->rsl     = new Newshare_RSL();
-		$this->logger  = new Newshare_Logger( $this->session );
+		$this->access  = new Newshare_Access( $this->session, $this->pricing, $this->demo );
+		$this->rsl     = new Newshare_RSL( $this->demo );
+		$this->logger  = new Newshare_Logger( $this->session, $this->demo );
 		$this->ai_agent = new Newshare_AI_Agent( $this->logger );
 		$this->admin   = new Newshare_Admin();
 
@@ -178,6 +192,7 @@ final class Newshare_Network {
 		add_action( 'rest_api_init', array( $this->oidc, 'register_routes' ) );
 
 		// Handle OIDC login initiation when the newshare_login query parameter is present.
+		add_action( 'init', array( $this->demo, 'handle_optin' ), 1 );
 		add_action( 'init', array( $this, 'maybe_initiate_login' ) );
 
 		// Handle OIDC login finalization (sets auth cookie in a non-REST context).

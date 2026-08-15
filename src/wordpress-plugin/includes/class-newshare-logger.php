@@ -61,7 +61,8 @@ class Newshare_Logger {
 	 *
 	 * @param Newshare_Session $session Session manager (injected by the main plugin class).
 	 */
-	public function __construct( Newshare_Session $session ) {
+	public function __construct( Newshare_Session $session, ?Newshare_Demo_Mode $demo = null ) {
+		$this->demo = $demo;
 		$this->session = $session;
 	}
 
@@ -82,7 +83,19 @@ class Newshare_Logger {
 	 *
 	 * @param int $post_id The post ID being accessed.
 	 */
+	/**
+	 * Demonstration-audience gate, when one is in force.
+	 *
+	 * @var Newshare_Demo_Mode|null
+	 */
+	private ?Newshare_Demo_Mode $demo = null;
+
 	public function log_content_access( int $post_id ): void {
+		// A real publisher's ordinary readers are not part of the pilot, so
+		// nothing about their reading is reported to the ALS.
+		if ( $this->demo && $this->demo->should_suppress() ) {
+			return;
+		}
 		// Only log events for users with an active network session.
 		// Anonymous users and local-only WP users are not logged.
 		if ( ! $this->session->is_network_user() ) {

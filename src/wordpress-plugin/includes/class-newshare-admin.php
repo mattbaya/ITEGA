@@ -249,6 +249,39 @@ class Newshare_Admin {
 			'newshare-network'
 		);
 
+		// ── Demonstration audience ────────────────────────────────────────
+		//
+		// For installs on a real publisher's site. With demo mode on, readers
+		// who do not present the key see nothing this plugin does: no gate, no
+		// pricing call, no logging, no RSL metadata.
+		register_setting( 'newshare-network', 'newshare_demo_mode', array(
+			'type'              => 'boolean',
+			'sanitize_callback' => 'rest_sanitize_boolean',
+			'default'           => false,
+		) );
+
+		add_settings_field(
+			'newshare_demo_mode',
+			__( 'Demo Mode', 'newshare-network' ),
+			array( $this, 'render_demo_mode_toggle' ),
+			'newshare-network',
+			'newshare_access'
+		);
+
+		register_setting( 'newshare-network', 'newshare_demo_key', array(
+			'type'              => 'string',
+			'sanitize_callback' => 'sanitize_text_field',
+			'default'           => '',
+		) );
+
+		add_settings_field(
+			'newshare_demo_key',
+			__( 'Demo Key', 'newshare-network' ),
+			array( $this, 'render_demo_key_field' ),
+			'newshare-network',
+			'newshare_access'
+		);
+
 		// Default required bits -- uses a select field with predefined tier values.
 		register_setting( 'newshare-network', 'newshare_default_required_bits', array(
 			'type'              => 'integer',
@@ -652,5 +685,39 @@ class Newshare_Admin {
 			'newshare-network',
 			$section
 		);
+	}
+
+	/**
+	 * Render the demo-mode toggle.
+	 */
+	public function render_demo_mode_toggle(): void {
+		$on = (bool) get_option( 'newshare_demo_mode', false );
+		?>
+		<label>
+			<input type="checkbox" name="newshare_demo_mode" value="1" <?php checked( $on ); ?> />
+			<?php esc_html_e( 'Only show Newshare behaviour to demonstration participants', 'newshare-network' ); ?>
+		</label>
+		<p class="description">
+			<?php esc_html_e( 'Turn this on when installing on a live news site. Ordinary readers will see no access gate, no login prompt, no pricing and no logging. Only visitors holding the demo key below take part.', 'newshare-network' ); ?>
+		</p>
+		<?php
+	}
+
+	/**
+	 * Render the demo-key field, with the opt-in URL spelled out.
+	 */
+	public function render_demo_key_field(): void {
+		$key = (string) get_option( 'newshare_demo_key', '' );
+		?>
+		<input type="text" name="newshare_demo_key" class="regular-text"
+			value="<?php echo esc_attr( $key ); ?>" autocomplete="off" />
+		<p class="description">
+			<?php esc_html_e( 'Demonstrators opt in by appending this to any URL on the site:', 'newshare-network' ); ?>
+			<br />
+			<code><?php echo esc_html( home_url( '/?newshare_demo=' ) . ( $key !== '' ? $key : 'YOUR-KEY' ) ); ?></code>
+			<br />
+			<?php esc_html_e( 'That sets a cookie so the rest of the walkthrough works normally. Append ?newshare_demo=off to leave. Blank key means nobody takes part.', 'newshare-network' ); ?>
+		</p>
+		<?php
 	}
 }
