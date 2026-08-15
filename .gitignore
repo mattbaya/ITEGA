@@ -37,3 +37,15 @@ reference/
 
 # Plugin dependencies are vendored at package time, not committed
 src/wordpress-plugin/vendor/
+
+# Built decks and their narrated videos. Large, regenerable from
+# scratchpad templates, and the Bill report names a publisher who has not
+# yet agreed publicly -- so they stay local rather than going into a
+# repository Bill's column links to.
+newshare-pitch.html
+newshare-bill-report.html
+*.mp4
+
+# Music beds: commercial recordings, not ours to redistribute.
+*.m4a
+*.mp3
