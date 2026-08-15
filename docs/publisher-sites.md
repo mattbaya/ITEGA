@@ -77,6 +77,46 @@ database.
 
 A backup of the original child stylesheet is kept beside it as `style.css.bak`.
 
+## North Berkshire: newspaper front page
+
+The site was fronted by an events calendar — a community noticeboard, with the
+stock Divi "D" as its logo and every page auto-listed in the nav (News, Sources
+and Events each appeared twice). It did not read as a newspaper, which matters
+because the whole claim being demonstrated is about paying publishers for
+journalism.
+
+Now:
+
+- **`page-newspaper.php`** in the child theme — a broadsheet front: nameplate,
+  dateline, lead story with a drop cap, three columns beneath. Stories are
+  selected by the presence of `newshare_page_class`, which is exactly the set of
+  articles seeded and priced for the demo, so event posts never appear.
+- **`assets/css/newspaper.css`**, enqueued only on that template. Ink on
+  newsprint with one Berkshire green; column gutters are hairline rules.
+- **A masthead logo** — a low ridge line over the wordmark, with
+  `MASSACHUSETTS` letterspaced beneath. Set as both the Divi header logo and the
+  site icon.
+- **A real primary menu.** There was no menu assigned to `primary-menu` at all,
+  which is why Divi was auto-listing every page and producing the duplicates.
+
+Two things worth knowing for next time:
+
+**`wp option patch` cannot write into Divi's settings array** — it returns
+`Cannot create key ... on data type NULL`. Use `wp eval` and
+`get_option`/`update_option` directly.
+
+**The Divi logo lives in `et_divi[divi_logo]`**, not in a theme mod.
+
+## Demo accounts
+
+Both realms use the **email address as the username**
+(`registrationEmailAsUsername` is on), so `--username` lookups against a plain
+handle silently find nothing. Set passwords by user id.
+
+The Keycloak admin account is **not** `admin`; read the real one from
+`KEYCLOAK_ADMIN` in the container environment. `kcadm.sh` fails quietly when the
+login was rejected, so every subsequent command appears to do nothing.
+
 ## WP-CLI on this host
 
 WP-CLI runs under the system `php.ini` and reads neither `.user.ini` nor
