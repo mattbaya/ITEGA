@@ -90,12 +90,30 @@ directly, with `~/bin` ahead on `PATH`. 512 MB was chosen by testing: 128, 192
 and 256 all fail. Nothing pathological is behind the requirement — autoloaded
 options total about 0.1 MB across ~100 rows.
 
+## Plugin installed and verified
+
+Both sites run the plugin, installed from a pre-built package and configured
+entirely on activation — member ID, ALS and directory URLs, API key and pricing
+all applied without anything being typed into a settings form.
+
+**The access gate works.** Verified against the live site with a single reader
+session across four articles:
+
+| Read | Gate shown | Full body served |
+|---|---|---|
+| 1–3 | no | yes |
+| 4 | **yes** | **no** |
+
+Worth recording how that looked at first glance: an anonymous request for a
+gated article returned the whole article, which reads like a broken paywall. It
+is not. `newshare_free_article_count` is 3, so the first three reads are
+deliberately free and the meter closes on the fourth. The lesson is that a
+single anonymous request proves nothing about the gate — the meter has to be
+exhausted before the gate is even asked to act.
 ## Still to do
 
-- **Install the plugin.** Pre-configured packages are built per publisher by
-  `infra/build-publisher-plugin.sh`; activating one leaves nothing to type.
-- **Walk the reader's path end to end** — the access gate, the negotiation, the
-  purchase notice — which is the last genuinely untested part of the system.
+- **The reader's authenticated path** — signing in through a home base, the
+  price negotiation, and the purchase notice — is the remaining untested leg.
 - **`greylockglass.com`** is a real, operating news site whose owner may be
   willing to take part. That would be a considerably stronger demonstration than
   two sites we control, and should only be attempted after the flow is proven on

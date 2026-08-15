@@ -57,7 +57,7 @@ to make.
 | `src/asp-agent/` | Working. Accept / negotiate / decline, markup withheld. |
 | `src/als-logging/` | Working. Per-filer event records. |
 | `src/als-settlement/` | Working. Wholesale settlement, corrected. |
-| `src/wordpress-plugin/` | Negotiation and AI-agent 402 flow wired in; not yet run against live WordPress. |
+| `src/wordpress-plugin/` | **Live on both publisher sites.** Access gate verified; authenticated path still untested. |
 | `src/dashboard/` | **Live** at `dashboard.itega.org/demo`, driving production services. |
 | `infra/vps1`, `infra/vps2` | **Deployed and running.** Apache vhosts, TLS, both realms imported. |
 
@@ -115,10 +115,13 @@ WordPress-specific traps met along the way, in `docs/publisher-sites.md`.
 Two sites is enough: the cross-publisher leg needs a second publisher, not a
 third. Publisher C is the home base, a Keycloak realm, not a website.
 
-**What remains is the last genuinely untested part of the system:** installing
-the plugin and walking a reader through the gate, the negotiation and the
-purchase notice on a real site. Pre-configured packages are built by
-`infra/build-publisher-plugin.sh`.
+**The plugin is installed and active on both sites**, configured entirely on
+activation with nothing typed. The access gate is verified against the live
+site: three free reads, then the gate closes on the fourth and the body is
+withheld.
+
+What remains untested is the **authenticated** path — signing in through a home
+base, the price negotiation, and the purchase notice.
 
 `greylockglass.com` — a real operating news site — may join later. That would be
 a far stronger demonstration than two sites we control, and is worth attempting
