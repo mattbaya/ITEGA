@@ -12,7 +12,7 @@
   "clients": [
     {
       "clientId": "pub-a",
-      "name": "Publisher A",
+      "name": "Bar Harbor Info",
       "enabled": true,
       "protocol": "openid-connect",
       "publicClient": false,
@@ -20,10 +20,12 @@
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": false,
       "redirectUris": [
-        "https://als.itega.org/auth/callback"
+        "https://als.itega.org/auth/callback",
+        "https://barharbor.info/wp-json/newshare/v1/callback"
       ],
       "webOrigins": [
-        "https://als.itega.org"
+        "https://als.itega.org",
+        "https://barharbor.info"
       ],
       "attributes": {
         "pubMbrId": "ITEGA-PA-0001",
@@ -55,7 +57,7 @@
     },
     {
       "clientId": "pub-b",
-      "name": "Publisher B",
+      "name": "North Berkshire",
       "enabled": true,
       "protocol": "openid-connect",
       "publicClient": false,
@@ -63,10 +65,12 @@
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": false,
       "redirectUris": [
-        "https://als.itega.org/auth/callback"
+        "https://als.itega.org/auth/callback",
+        "https://northberkshire.org/wp-json/newshare/v1/callback"
       ],
       "webOrigins": [
-        "https://als.itega.org"
+        "https://als.itega.org",
+        "https://northberkshire.org"
       ],
       "attributes": {
         "pubMbrId": "ITEGA-PB-0001",

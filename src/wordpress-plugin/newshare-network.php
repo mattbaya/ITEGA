@@ -383,19 +383,54 @@ final class Newshare_Network {
  * if the plugin is deactivated and reactivated.
  */
 function newshare_activate(): void {
+	// Network-level defaults. These are the live ITEGA services and are the
+	// same for every publisher, so there is no reason to make each site's
+	// operator retype them -- and a typo here fails in ways that look like a
+	// broken network rather than a wrong setting.
 	$defaults = array(
 		'newshare_pub_mbr_id'            => '',
-		'newshare_als_auth_endpoint'     => 'https://als.newshare.example/auth',
-		'newshare_als_logging_endpoint'  => 'https://als.newshare.example/log',
+		'newshare_als_auth_endpoint'     => 'https://als.itega.org',
+		'newshare_als_logging_endpoint'  => 'https://als.itega.org/log',
+		'newshare_discovery_endpoint'    => 'https://network.itega.org',
+		'newshare_als_public_key_url'    => 'https://als.itega.org/.well-known/jwks.json',
 		'newshare_als_api_key'           => '',
-		'newshare_als_public_key_url'    => '',
 		'newshare_default_page_class'    => '0.05',
-		'newshare_premium_page_class'    => '0.15',
+		'newshare_premium_page_class'    => '0.20',
+		'newshare_minimum_page_class'    => '0.02',
+		'newshare_posted_price_is_final' => '',
 		'newshare_default_required_bits' => '0',
 		'newshare_default_rsl_tag'       => 'CC-BY-NC',
 		'newshare_free_article_count'    => '3',
 	);
 
+	// Per-site values -- the publisher's own member ID and the shared API key
+	// -- come from a provisioning file written when the distributable is built
+	// for a particular publisher, or from constants in wp-config.php. Both are
+	// optional: without either, the plugin simply starts unconfigured and the
+	// settings page is filled in by hand as before.
+	$provision = __DIR__ . '/newshare-config.php';
+	if ( is_readable( $provision ) ) {
+		$supplied = include $provision;
+		if ( is_array( $supplied ) ) {
+			$defaults = array_merge( $defaults, $supplied );
+		}
+	}
+
+	// wp-config.php constants win over everything, so an operator can override
+	// a baked value without repackaging.
+	foreach ( array(
+		'NEWSHARE_PUB_MBR_ID'    => 'newshare_pub_mbr_id',
+		'NEWSHARE_ALS_API_KEY'   => 'newshare_als_api_key',
+		'NEWSHARE_ALS_AUTH_URL'  => 'newshare_als_auth_endpoint',
+		'NEWSHARE_DISCOVERY_URL' => 'newshare_discovery_endpoint',
+	) as $constant => $option ) {
+		if ( defined( $constant ) ) {
+			$defaults[ $option ] = constant( $constant );
+		}
+	}
+
+	// add_option, not update_option: a site that has already been configured
+	// keeps its settings when the plugin is reactivated or upgraded.
 	foreach ( $defaults as $key => $value ) {
 		if ( false === get_option( $key ) ) {
 			add_option( $key, $value );

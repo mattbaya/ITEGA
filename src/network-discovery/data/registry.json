@@ -33,17 +33,17 @@
   "publishers": [
     {
       "id": "PUB001",
-      "name": "Publisher A",
+      "name": "Bar Harbor Info",
       "publishing_member_id": "ITEGA-PA-0001",
-      "domain": "publisher-a.example",
+      "domain": "barharbor.info",
       "certification_status": "active",
       "certification_tier": "content_publisher"
     },
     {
       "id": "PUB002",
-      "name": "Publisher B",
+      "name": "North Berkshire",
       "publishing_member_id": "ITEGA-PB-0001",
-      "domain": "publisher-b.example",
+      "domain": "northberkshire.org",
       "certification_status": "active",
       "certification_tier": "content_publisher"
     },
