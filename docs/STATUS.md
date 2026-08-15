@@ -105,19 +105,24 @@ worth repeating — the same $0.05 article bills one reader $0.055 and another
 $0.07 because their home bases apply different markups. That single result
 exercises the registry, both agents, the proxy layer and the pricing model.
 
-### 1. Three publisher WordPress sites
-The largest remaining piece. Publishers A and B are content sites; a third is
-needed for the transparent-SSO leg. Matt has offered hosts and several unused
-domains, plus a possible real participant. Domain diversity matters more than
-server diversity: three sites that visibly belong to different organisations do
-more for the demo than three subdomains of one.
+### 1. Publisher sites — set up, plugin not yet installed
 
-`PUBLISHERS_CONFIG` on VPS 2 and the Keycloak client redirect URIs both carry
-placeholder publisher URLs until those domains are chosen.
+`barharbor.info` (Publisher A) and `northberkshire.org` (Publisher B) are
+configured and seeded with demo articles priced for the negotiation. Bar Harbor
+has been restyled and moved to its Divi child theme. Full detail, and the
+WordPress-specific traps met along the way, in `docs/publisher-sites.md`.
 
-They also need to *look* like publications. A reader arriving at "Hello world!"
-undercuts the demo more than any hosting choice could — worth raising with Bill
-early, since content is the kind of thing that slips to the last week.
+Two sites is enough: the cross-publisher leg needs a second publisher, not a
+third. Publisher C is the home base, a Keycloak realm, not a website.
+
+**What remains is the last genuinely untested part of the system:** installing
+the plugin and walking a reader through the gate, the negotiation and the
+purchase notice on a real site. Pre-configured packages are built by
+`infra/build-publisher-plugin.sh`.
+
+`greylockglass.com` — a real operating news site — may join later. That would be
+a far stronger demonstration than two sites we control, and is worth attempting
+only once the flow is proven on these.
 
 ### 2. Monitoring — DONE
 Four hosts reporting to `monitor.itega.org`: both Hetzner servers plus the two

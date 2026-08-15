@@ -46,6 +46,7 @@ ITEGA/
 │   ├── STATUS.md               ← START HERE. Living handoff: state, plan, decisions
 │   ├── vps-setup-record.md     ← How the servers were built, and what went wrong
 │   ├── monitoring.md           ← Beszel hub and agents
+│   ├── publisher-sites.md      ← The two WordPress publisher sites
 │   ├── demo-script-gap-analysis.md ← Aug 25 demo script vs. the code; open questions
 │   ├── peer-review-synthesis.md ← Synthesis of Drummond Reed + Don Marti feedback
 │   ├── response-to-bill.md     ← Summary for Bill Densmore
@@ -97,7 +98,10 @@ comments).
 the markup ratio and decides purchases; ITEGA may see neither. This is an
 architectural rule, not a deployment convenience.
 
-WordPress plugin installs on Matt's existing 4+ WordPress sites (no additional servers).
+Publishers A and B are `barharbor.info` and `northberkshire.org` — two
+separately-branded local news sites on different domains, seeded with demo
+articles. Publisher C is **not** a WordPress site: it is the reader's home base,
+a Keycloak realm on VPS 1. See `docs/publisher-sites.md`.
 Settlement is **simulated only** — reports generated, no real money moves.
 
 ## VPS Resource Estimates
