@@ -344,6 +344,14 @@ async def report_publisher(
             -- markup_ratio is deliberately excluded.  page_class alone is
             -- the wholesale price the publisher is owed; the home base's
             -- retail markup is its own margin and is not disclosed here.
+            --
+            -- reporter = 'cms' is required, not an optimisation.  Every
+            -- purchase is filed twice by design -- once by the publisher and
+            -- once by the reader's home base -- so counting both sides shows
+            -- the publisher twice the events and twice the money.  Settlement
+            -- already aggregates one side only; this report has to agree with
+            -- it, or a publisher checking its figures before payout sees a
+            -- total it will never be paid.
             SELECT home_base_id,
                    COUNT(*)::int                 AS total_events,
                    COALESCE(SUM(page_class), 0)  AS total_wholesale
@@ -351,6 +359,7 @@ async def report_publisher(
              WHERE pub_mbr_id = $1
                AND timestamp >= $2
                AND timestamp < $3
+               AND reporter = 'cms'
              GROUP BY home_base_id
              ORDER BY home_base_id
             """,
