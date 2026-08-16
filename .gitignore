@@ -49,3 +49,9 @@ newshare-bill-report.html
 # Music beds: commercial recordings, not ours to redistribute.
 *.m4a
 *.mp3
+
+# Assets used only in the decks. matt.jpg is a personal photograph and the
+# Claude mark is Anthropic's; neither belongs in a public repository that
+# Bill's column links to.
+matt.jpg
+claude-ai-logo-*.png
