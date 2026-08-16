@@ -109,6 +109,36 @@ services:
       - newshare
     mem_limit: 128m
 
+  # ── West End Sentinel Media Cooperative (HB003) ──────────────────
+  #
+  # A third home base, and deliberately not a newspaper. The architecture says
+  # a home base can be a library, a university or a co-op -- anywhere a reader
+  # already belongs -- and with two newspaper home bases that claim was being
+  # asserted rather than shown.
+  #
+  # Its markup sits between the other two, so one wholesale price produces
+  # three different retail prices across the network.
+  asp-agent-wesmc:
+    build:
+      context: ../../src/asp-agent/
+      dockerfile: Dockerfile
+    container_name: asp-agent-wesmc
+    restart: unless-stopped
+    environment:
+      HOME_BASE_ID: HB003
+      HOME_BASE_NAME: ${AGENT_WESMC_NAME:-West End Sentinel Media Cooperative}
+      MARKUP_RATIO: ${AGENT_WESMC_MARKUP_RATIO:-1.25}
+      AUTO_ACCEPT_BELOW: ${AGENT_WESMC_AUTO_ACCEPT_BELOW:-0.10}
+      DECLINE_ABOVE: ${AGENT_WESMC_DECLINE_ABOVE:-0.50}
+      COUNTER_FRACTION: ${AGENT_WESMC_COUNTER_FRACTION:-0.75}
+      LOGGING_SERVICE_URL: ${LOGGING_SERVICE_URL}
+      LOGGING_API_KEY: ${LOGGING_API_KEY}
+    ports:
+      - "127.0.0.1:8005:8003"
+    networks:
+      - newshare
+    mem_limit: 128m
+
   asp-agent-demo:
     build:
       context: ../../src/asp-agent/

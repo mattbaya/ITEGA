@@ -28,6 +28,19 @@
       "agent_url": "https://agent-demo.itega.org",
       "signup_url": "https://auth.itega.org/realms/newshare/protocol/openid-connect/registrations",
       "ip_hints": []
+    },
+    {
+      "id": "HB003",
+      "name": "West End Sentinel Media Cooperative",
+      "publishing_member_id": "ITEGA-WESMC-0003",
+      "oidc_issuer": "https://auth.itega.org/realms/wesmc",
+      "jwks_uri": "https://auth.itega.org/realms/wesmc/protocol/openid-connect/certs",
+      "auth_url": "https://auth.itega.org/realms/wesmc/protocol/openid-connect/auth",
+      "certification_status": "active",
+      "certification_tier": "idsp",
+      "agent_url": "https://auth.itega.org/agent-wesmc",
+      "signup_url": "https://auth.itega.org/realms/wesmc/protocol/openid-connect/registrations",
+      "ip_hints": []
     }
   ],
   "publishers": [

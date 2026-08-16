@@ -1,0 +1,103 @@
+{
+ "realm": "wesmc",
+ "enabled": true,
+ "displayName": "West End Sentinel Media Cooperative",
+ "registrationAllowed": true,
+ "registrationEmailAsUsername": true,
+ "resetPasswordAllowed": true,
+ "loginTheme": "keycloak",
+ "ssoSessionIdleTimeout": 3600,
+ "ssoSessionMaxLifespan": 36000,
+ "accessTokenLifespan": 300,
+ "clients": [
+  {
+   "clientId": "pub-a",
+   "name": "Bar Harbor Info",
+   "enabled": true,
+   "protocol": "openid-connect",
+   "publicClient": false,
+   "secret": "REPLACE-ME-PUB-A",
+   "standardFlowEnabled": true,
+   "directAccessGrantsEnabled": false,
+   "redirectUris": [
+    "https://als.itega.org/auth/callback"
+   ],
+   "webOrigins": [
+    "https://als.itega.org"
+   ],
+   "attributes": {
+    "pubMbrId": "ITEGA-PA-0001",
+    "pkce.code.challenge.method": "S256",
+    "post.logout.redirect.uris": "https://barharbor.info/*##https://northberkshire.org/*##https://wesmc.org/*##https://als.itega.org/*##https://dashboard.itega.org/*"
+   },
+   "protocolMappers": [
+    {
+     "name": "pairwise subject",
+     "protocol": "openid-connect",
+     "protocolMapper": "oidc-sha256-pairwise-sub-mapper",
+     "consentRequired": false,
+     "config": {
+      "sectorIdentifierUri": "",
+      "pairwiseSubAlgorithmSalt": "wV2_d3AtXe5ITsfLrXnDl6nTwHxD6aUD"
+     }
+    },
+    {
+     "name": "newshare network claims",
+     "protocol": "openid-connect",
+     "protocolMapper": "newshare-network-userid-mapper",
+     "consentRequired": false,
+     "config": {
+      "homeBaseId": "HB003",
+      "id.token.claim": "true",
+      "access.token.claim": "true"
+     }
+    }
+   ]
+  },
+  {
+   "clientId": "pub-b",
+   "name": "North Berkshire",
+   "enabled": true,
+   "protocol": "openid-connect",
+   "publicClient": false,
+   "secret": "REPLACE-ME-PUB-B",
+   "standardFlowEnabled": true,
+   "directAccessGrantsEnabled": false,
+   "redirectUris": [
+    "https://als.itega.org/auth/callback"
+   ],
+   "webOrigins": [
+    "https://als.itega.org"
+   ],
+   "attributes": {
+    "pubMbrId": "ITEGA-PB-0001",
+    "pkce.code.challenge.method": "S256",
+    "post.logout.redirect.uris": "https://barharbor.info/*##https://northberkshire.org/*##https://wesmc.org/*##https://als.itega.org/*##https://dashboard.itega.org/*"
+   },
+   "protocolMappers": [
+    {
+     "name": "pairwise subject",
+     "protocol": "openid-connect",
+     "protocolMapper": "oidc-sha256-pairwise-sub-mapper",
+     "consentRequired": false,
+     "config": {
+      "sectorIdentifierUri": "",
+      "pairwiseSubAlgorithmSalt": "oN6c1vCoPTi4tWiRo0ak60K4SiNQqmbK"
+     }
+    },
+    {
+     "name": "newshare network claims",
+     "protocol": "openid-connect",
+     "protocolMapper": "newshare-network-userid-mapper",
+     "consentRequired": false,
+     "config": {
+      "homeBaseId": "HB003",
+      "id.token.claim": "true",
+      "access.token.claim": "true"
+     }
+    }
+   ]
+  }
+ ],
+ "users": []
+}
