@@ -21,6 +21,10 @@
 import { decodeJwt } from 'jose';
 
 /** Base URL for the ALS authentication service. Falls back to a placeholder. */
+// The dashboard is itself a registered OIDC client of the ALS.
+const DASHBOARD_CLIENT_ID =
+  import.meta.env.VITE_DASHBOARD_CLIENT_ID ?? 'dashboard';
+
 const ALS_AUTH_URL =
   import.meta.env.VITE_ALS_AUTH_URL ?? 'https://als.newshare.example/auth';
 
@@ -45,11 +49,19 @@ export interface SessionData {
  */
 export function login(): void {
   const callbackUrl = `${window.location.origin}/dashboard`;
-  // Use Authorization Code Flow (response_type=code) per the OIDC 1.0 spec.
-  // The ALS handles the code-to-token exchange on the server side and returns
-  // the session JWT via the redirect URI's query parameters.
-  const authUrl = `${ALS_AUTH_URL}/authorize?redirect_uri=${encodeURIComponent(callbackUrl)}&response_type=code`;
-  window.location.href = authUrl;
+  // Authorization Code Flow (OIDC 1.0). The ALS exchanges the code with the
+  // reader's home base and hands the session JWT back to the redirect URI.
+  //
+  // Three details this got wrong and that cost a 404: the flow lives under
+  // /auth/ rather than at the host root, the ALS rejects any request from an
+  // unregistered client so client_id is required, and scope is not optional.
+  const params = new URLSearchParams({
+    client_id: DASHBOARD_CLIENT_ID,
+    redirect_uri: callbackUrl,
+    response_type: 'code',
+    scope: 'openid',
+  });
+  window.location.href = `${ALS_AUTH_URL}/auth/authorize?${params.toString()}`;
 }
 
 /**
