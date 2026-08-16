@@ -34,6 +34,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import html
+import base64
 import json
 import logging
 import secrets
@@ -452,12 +453,27 @@ async def _redirect_to_home_base(
         raise HTTPException(status_code=400, detail="Session expired or unknown")
     session["home_base_id"] = home_base["id"]
 
+    # PKCE (RFC 7636). Keycloak clients here are configured to require it, and
+    # without a challenge the home base refuses the request outright with
+    # "Missing parameter: code_challenge_method" -- which bounces the reader
+    # to the callback with no code and ends the journey before it starts.
+    #
+    # It is also correct on the merits: the verifier never leaves this service,
+    # so an intercepted authorization code cannot be redeemed by anyone else.
+    verifier = secrets.token_urlsafe(64)[:128]
+    challenge = base64.urlsafe_b64encode(
+        hashlib.sha256(verifier.encode("ascii")).digest()
+    ).decode("ascii").rstrip("=")
+    session["code_verifier"] = verifier
+
     params = {
         "client_id": client_id,
         "redirect_uri": f"{settings.als_base_url}/auth/callback",
         "response_type": "code",
         "scope": scope,
         "state": _encode_state(session_key),
+        "code_challenge": challenge,
+        "code_challenge_method": "S256",
     }
     auth_url = f"{home_base['auth_url']}?{urllib.parse.urlencode(params)}"
 
@@ -651,6 +667,10 @@ async def callback(
         "client_id": publisher_client_id,
         "client_secret": publisher.client_secret,
     }
+    # Prove we are the same party that began the exchange.
+    verifier = session.get("code_verifier")
+    if verifier:
+        token_payload["code_verifier"] = verifier
 
     token_url = f"{home_base['oidc_issuer']}/protocol/openid-connect/token"
     try:
