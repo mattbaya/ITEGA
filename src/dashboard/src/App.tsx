@@ -38,15 +38,20 @@ export default function App() {
   const [checked, setChecked] = useState(false);
 
   useEffect(() => {
-    // Check for callback params first (returning from OIDC login)
-    const params = new URLSearchParams(window.location.search);
-    if (params.has('session_token')) {
-      const result = handleCallback();
-      if (result) {
-        setSession(result);
-        // Clean the URL
-        window.history.replaceState({}, '', window.location.pathname);
-      }
+    // Returning from sign-in? Ask handleCallback, rather than guessing here
+    // where the token might be.
+    //
+    // This used to test window.location.search for a session_token before
+    // bothering to call it. When the hand-off moved to the URL fragment --
+    // which a static page must use, because it has no server to receive a POST
+    // -- the guard went on inspecting the query string, found nothing, and
+    // never called the handler at all. The token arrived correctly and was
+    // ignored, and the reader was returned to the login screen.
+    //
+    // One place decides where the token lives, and it is handleCallback.
+    const result = handleCallback();
+    if (result) {
+      setSession(result);
     } else if (isAuthenticated()) {
       setSession(getSession());
     }
