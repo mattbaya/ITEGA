@@ -502,7 +502,7 @@ ACH TRANSFERS:
 The prototype runs on two Hetzner cloud servers in Falkenstein (~$15.48/month total). Keycloak is separated from the ALS services partly because its Java JVM idles at 400-500MB, but mainly because the two hosts belong to **different parties** — see the note under Key Decisions below:
 
 ```
-VPS 1: Home Base IdSP ($24/mo)       VPS 2: ALS Services ($24/mo)
+VPS 1: Home Base IdSP ($8.99/mo)     VPS 2: ALS Services ($6.49/mo)
 auth.newshare.example                 als.newshare.example
 ┌────────────────────────┐            ┌───────────────────────────────┐
 │ Keycloak 26.x          │            │ FastAPI: ALS Auth Service     │
@@ -532,7 +532,7 @@ auth.newshare.example                 als.newshare.example
               3–5 participating Missouri newspapers via MPA
 ```
 
-*(The original spec envisioned a single VM at $300-$500/month. The prototype implementation splits into two smaller VPSes at $49/month total, which is cheaper and gives Keycloak its own memory headroom.)*
+*(The original spec envisioned a single VM at $300-$500/month. The prototype splits into two smaller VPSes at **$15.48/month total** — far cheaper, and it gives Keycloak its own memory headroom while keeping the home base and the ITEGA services on separate hosts, which the architecture requires anyway.)*
 
 ### Components
 
@@ -803,49 +803,58 @@ cx33 — 4 vCPU / 8 GB — $8.99/mo      cx23 — 2 vCPU / 4 GB — $6.49/mo
 | RSL content tagging (JSON-LD) | **Real** — WordPress plugin |
 | Settlement arithmetic (debits, credits, ITEGA fee) | **Real** — reports generated from actual logged events |
 | ACH bank transfers | **Simulated** — reports only; no money moves |
-| MFA / passkeys | **Not enabled** — password auth; Keycloak supports TOTP whenever wanted |
+| Two-factor authentication | **Real** — TOTP at both home bases, opt-in; email codes not possible |
 
-**Honest caveat on "real":** every service above has been exercised and its logic
-verified, including the money arithmetic. What has *not* yet happened at the time of
-writing is a full end-to-end run against live Keycloak, WordPress and Postgres
-instances — the servers are not yet standing. Treat the joined-up path as untested
-until it has actually been walked.
+**What "real" means here:** the servers are standing, and the joined-up path has
+been walked. Every row above was exercised against the live deployment — Keycloak,
+WordPress and TimescaleDB — by the four suites listed under
+[What Has Actually Been Verified](#what-has-actually-been-verified), not inferred
+from the code.
+
+This paragraph previously said the opposite, and said so for weeks after it had
+stopped being true. That is the more useful warning to keep: an untested claim and
+a stale one read exactly alike, and the second is more dangerous because it was
+accurate when written. What is *not* real is named in the table above and in
+[What is not true yet](#what-is-not-true-yet) — no money moves, and both
+publishers are demonstration sites.
 
 ### VPS Resource Estimates
 
-These are initial estimates based on component defaults. Revisit once the code is running under real load — actual usage may differ.
+Measured on the running deployment, not estimated.
 
-**VPS 1 — Home Base** (Hetzner `cx33`, 8 GB RAM / 4 vCPU — $8.99/mo):
+**VPS 1 — Home Base** (Hetzner `cx33`, 8 GB RAM / 4 vCPU — **$8.99/mo**):
 
-| Process | Estimated RAM | Notes |
-|---------|---------------|-------|
-| Keycloak JVM (`-Xmx768m`) | 800-900 MB | Java; idles ~500MB, can spike to 1.2GB+ under auth load |
-| PostgreSQL 16 | 200-300 MB | Two databases: `keycloak` + `newshare_profiles` |
-| OS + Nginx | ~300 MB | Ubuntu 24.04 baseline |
-| **Total at idle** | **~1.3-1.5 GB** | Leaves ~2.5 GB headroom on 4GB droplet |
+| Process | Measured | Notes |
+|---------|----------|-------|
+| Keycloak JVM (`-Xmx768m`) | 711 MB | Java, and the only real consumer here |
+| PostgreSQL 16 | 30 MB | Two databases: `keycloak` + `newshare_profiles` |
+| Retail Agent × 2 | 86 MB | One per home base; they run here, not on the ITEGA host |
+| OS + Apache + agent | ~900 MB | AlmaLinux 10 baseline |
+| **Total in use** | **1.7 GB of 7.3 GB** | 5.7 GB available |
 
-Keycloak is the memory bottleneck (it's Java). A 2GB droplet ($12/mo) works with `-Xmx512m` for a handful of demo users but leaves almost no headroom for spikes. 4GB is the safe choice for anything beyond trivial use.
+Keycloak is the only process worth sizing around. It settles far below the
+800–900 MB originally estimated, but Java's floor is what argues against the
+smallest instances rather than its steady state.
 
-**VPS 2 — ALS Services** (Hetzner `cx23`, 4 GB RAM / 2 vCPU — $6.49/mo):
+**VPS 2 — ALS Services** (Hetzner `cx23`, 4 GB RAM / 2 vCPU — **$6.49/mo**):
 
-| Process | Estimated RAM | Notes |
-|---------|---------------|-------|
-| PostgreSQL + TimescaleDB | 200-300 MB | Two databases: `als_logs` + `als_settlement` |
-| FastAPI Auth Service | 50-80 MB | Python; lightweight async workers |
-| FastAPI Logging Service | 50-80 MB | Python; lightweight async workers |
-| Nginx + static files | ~30 MB | Serves dashboard + Network Discovery JSON |
-| OS | ~300 MB | Ubuntu 24.04 baseline |
-| **Total at idle** | **~650-800 MB** | Significantly overprovisioned at 4GB |
+| Process | Measured | Notes |
+|---------|----------|-------|
+| PostgreSQL + TimescaleDB | 64 MB | Two databases: `als_logs` + `als_settlement` |
+| ALS Auth | 56 MB | Python; the Authenticator |
+| ALS Logging | 39 MB | Python |
+| Network Discovery | 36 MB | Python |
+| OS + Apache + static | ~800 MB | AlmaLinux 10, dashboard served as files |
+| **Total in use** | **1.0 GB of 3.5 GB** | 2.5 GB available |
 
-VPS 2 is well within a 2GB droplet ($12/mo). Kept at 4GB for headroom as TimescaleDB grows or if services are added later. Can downsize to save $12/mo.
+**Actual cost: $15.48/month for the pair**, plus the domain. Both hosts are
+comfortable; VPS 2 is the overprovisioned one, but at $6.49 there is little to
+recover by shrinking it.
 
-**Cost options:**
-
-| Configuration | Monthly Cost |
-|---------------|-------------|
-| Both at 4GB (current) | ~$49/mo |
-| VPS 1 at 4GB + VPS 2 at 2GB | ~$37/mo |
-| Both at 2GB (tight for Keycloak) | ~$25/mo |
+An earlier version of this section priced the same two machines at $49/month,
+carried over from a DigitalOcean plan that was never used. Hetzner's EU regions
+are the reason for the difference — its US regions cost roughly 3.4× the same
+hardware, which is worth knowing before comparing anyone's quote to this one.
 
 ---
 

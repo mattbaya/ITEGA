@@ -26,7 +26,7 @@ The ITEGA/Newshare GitHub repo (`github.com/[repo]`) now contains:
   - User Dashboard (React/TypeScript) — session, reading history, and balance display
 
 ### Deployment Infrastructure
-- **Docker Compose configurations** for two VPS instances (~$49/month on DigitalOcean)
+- **Docker Compose configurations** for two VPS instances (~$15.48/month on Hetzner)
 - **Nginx configurations** with Let's Encrypt TLS
 - **Database migration scripts** for PostgreSQL and TimescaleDB
 

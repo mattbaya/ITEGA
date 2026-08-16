@@ -9,8 +9,10 @@ Moved to [`server-specs.md`](server-specs.md) — what each host runs, how it is
 which ports are exposed, and why the Retail Agent belongs on the home-base host rather
 than the ITEGA one. Read that first; this document is the build steps.
 
-**Short version:** VPS 1 (home base) 4 GB / $24, VPS 2 (ALS) 2 GB / $12, publishers on
-existing WordPress hosting. ~$37/mo including the domain.
+**Short version:** VPS 1 (home base) Hetzner `cx33`, 8 GB / $8.99; VPS 2 (ALS)
+`cx23`, 4 GB / $6.49; publishers on existing WordPress hosting. ~$16.48/mo including
+the domain. (Earlier drafts of this line quoted $37/mo against DigitalOcean, which was
+compared and not chosen.)
 
 ## What Matt needs to gather before starting
 

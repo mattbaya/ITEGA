@@ -67,7 +67,7 @@ Name the client and say "needs rotating".
 *Living handoff document. Anyone — or any session — picking this up cold should be
 able to read this file and continue without reconstructing context.*
 
-**Last updated:** 2026-08-11 — both servers live, demo running in production
+**Last updated:** 2026-08-16 — reader's journey verified end to end; sign-out scopes and TOTP added
 **Deadline:** Aug 25, 2026 — RJI/ITEGA roundtable, 2 p.m. EDT
 
 ---
@@ -121,7 +121,7 @@ to make.
 | `src/asp-agent/` | Working. Accept / negotiate / decline, markup withheld. |
 | `src/als-logging/` | Working. Per-filer event records. |
 | `src/als-settlement/` | Working. Wholesale settlement, corrected. |
-| `src/wordpress-plugin/` | **Live on both publisher sites.** Access gate verified; authenticated path still untested. |
+| `src/wordpress-plugin/` | **Live on both publisher sites.** Gate, authenticated path, negotiation, purchase notice and both sign-out scopes all verified against the live sites. |
 | `src/dashboard/` | **Live** at `dashboard.itega.org/demo`, driving production services. |
 | `infra/vps1`, `infra/vps2` | **Deployed and running.** Apache vhosts, TLS, both realms imported. |
 
@@ -129,10 +129,14 @@ to make.
 negotiation outcomes, the AI agent handshake, the dashboard walkthrough driving live
 services, and two home bases returning different retail prices for one wholesale price.
 
-**Still unverified:** anything involving WordPress. The plugin has never run against a
-live site, so the reader's journey through an actual publisher — gate, negotiation,
-purchase notice — and the AI agent's 402 exchange against a real page remain untested.
-That is the largest remaining risk.
+**Verified since** (Aug 16): the whole WordPress leg, which was the largest remaining
+risk and is now the best-tested part of the system. The reader's journey through a real
+publisher — gate, sign-in, negotiation, purchase notice, crossing to the second site —
+and the AI agent's 402 exchange, grant, and continued crawling against real pages. Both
+sign-out scopes and TOTP enrolment are covered by their own suites.
+
+Walking it found seven faults between a reader and a session, plus five more elsewhere.
+None were visible from the hop before.
 
 ### Bugs found and fixed (worth knowing about)
 
@@ -169,7 +173,7 @@ worth repeating — the same $0.05 article bills one reader $0.055 and another
 $0.07 because their home bases apply different markups. That single result
 exercises the registry, both agents, the proxy layer and the pricing model.
 
-### 1. Publisher sites — set up, plugin not yet installed
+### 1. Publisher sites — live, plugin deployed and exercised
 
 `barharbor.info` (Publisher A) and `northberkshire.org` (Publisher B) are
 configured and seeded with demo articles priced for the negotiation. Bar Harbor
@@ -184,8 +188,11 @@ activation with nothing typed. The access gate is verified against the live
 site: three free reads, then the gate closes on the fourth and the body is
 withheld.
 
-What remains untested is the **authenticated** path — signing in through a home
-base, the price negotiation, and the purchase notice.
+The **authenticated** path is verified too — signing in through a home base, the
+price negotiation, the purchase notice, and crossing to the second publisher with a
+different pairwise identifier. Deploy only with
+`infra/deploy-publisher-plugin.sh <site>`; copying single files is what took
+barharbor.info down.
 
 `greylockglass.com` — a real operating news site — may join later. That would be
 a far stronger demonstration than two sites we control, and is worth attempting

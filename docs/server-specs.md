@@ -186,14 +186,26 @@ demo's network path honest rather than hidden behind a CDN.
 
 ## Cost
 
+**What was actually bought**, and is running now:
+
+| | Host | Spec | Monthly |
+|---|---|---|---|
+| VPS 1 — home base | Hetzner `cx33` | 8 GB / 4 vCPU | **$8.99** |
+| VPS 2 — ALS | Hetzner `cx23` | 4 GB / 2 vCPU | **$6.49** |
+| Domain | | | ~$1 |
+| | | | **~$16.48** |
+
+The options below were priced against DigitalOcean before Hetzner was chosen, and are
+kept only to show the comparison that led to the decision. They are not what is running.
+
 | Option | VPS 1 | VPS 2 | Domain | Monthly |
 |---|---|---|---|---|
-| **Recommended** | 4 GB — $24 | 2 GB — $12 | ~$1 | **~$37** |
-| Comfortable | 4 GB — $24 | 4 GB — $24 | ~$1 | **~$49** |
-| Two home bases | 2 × 4 GB — $48 | 2 GB — $12 | ~$1 | **~$61** |
+| DigitalOcean, recommended | 4 GB — $24 | 2 GB — $12 | ~$1 | ~$37 |
+| DigitalOcean, comfortable | 4 GB — $24 | 4 GB — $24 | ~$1 | ~$49 |
+| DigitalOcean, two home bases | 2 × 4 GB — $48 | 2 GB — $12 | ~$1 | ~$61 |
 
 All well inside the $300–500/mo pilot budget. The 18-month infrastructure line in the
-funder brief is $5,400, so even the top option uses about a fifth of it.
+funder brief is $5,400; what is actually running uses about a twentieth of it.
 
 ---
 
@@ -205,7 +217,7 @@ routing is now built, so the demo wants at least two.
 | Approach | Cost | Trade-off |
 |---|---|---|
 | **Two realms, one Keycloak** *(recommended)* | $0 extra | Each realm has its own issuer, JWKS, and users — distinct in every way the ALS code cares about. Shared host. |
-| Two Keycloak hosts | +$24/mo | Literally independent operation. Roughly doubles setup. |
+| Two Keycloak hosts | +$8.99/mo | Literally independent operation. Roughly doubles setup. |
 
 Two realms is the pragmatic call: the "different organisations" claim is a governance
 fact, not a hosting one. Choose two hosts only if Bill intends to assert genuine
