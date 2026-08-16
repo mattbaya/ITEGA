@@ -688,6 +688,20 @@ class Newshare_OIDC {
 		$username = 'newshare_' . substr( $network_user_id, 0, 40 );
 		$email    = $username . '@network.newshare.local';
 
+		// Adopt an existing account before trying to make one.
+		//
+		// The username is derived deterministically from the networkUserId, so
+		// if the link meta is ever lost -- a partial write, a restore, a manual
+		// edit -- the lookup above misses, this tries to create a duplicate,
+		// wp_insert_user() refuses, and the reader gets a 500 on every future
+		// sign-in with no way back. Re-adopting the account and rewriting the
+		// meta makes that self-healing instead of permanent.
+		$existing = get_user_by( 'login', $username );
+		if ( $existing instanceof WP_User ) {
+			update_user_meta( $existing->ID, 'newshare_network_user_id', $network_user_id );
+			return $existing->ID;
+		}
+
 		$user_id = wp_insert_user(
 			array(
 				'user_login'   => $username,

@@ -96,7 +96,14 @@ class Newshare_RSL {
 
 		// Build the Schema.org NewsArticle metadata with Newshare extensions.
 		$metadata = array(
-			'@context'           => 'https://schema.org',
+			// The newshare: terms below need their prefix declared, or a strict
+			// JSON-LD processor drops all three as undefined. A bare
+			// "https://schema.org" context makes the pricing invisible to
+			// exactly the machine readers this metadata exists for.
+			'@context'           => array(
+				'https://schema.org',
+				array( 'newshare' => 'https://itega.org/ns/newshare#' ),
+			),
 			'@type'              => 'NewsArticle',
 			'identifier'         => get_permalink( $post->ID ),
 			'dateCreated'        => get_the_date( 'c', $post ),
