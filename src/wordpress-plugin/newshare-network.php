@@ -220,6 +220,11 @@ final class Newshare_Network {
 		// Filter post content to show access gate when the user lacks permissions.
 		add_filter( 'the_content', array( $this->access, 'filter_content' ) );
 
+		// A purchase is not covered by the ordinary logging path, which only
+		// runs when the reader's tier already granted access. Without this the
+		// publisher never files the transactions it is owed for.
+		add_action( 'newshare_content_purchased', array( $this->logger, 'log_purchase' ), 10, 2 );
+
 		// -- Content Metadata --
 
 		// Inject RSL JSON-LD metadata in <head> on single posts.

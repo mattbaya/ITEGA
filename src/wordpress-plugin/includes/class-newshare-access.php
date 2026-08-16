@@ -254,10 +254,32 @@ class Newshare_Access {
 						'Purchased through your home base. Your account will be billed %s at settlement.',
 						'newshare-network'
 					),
-					'$' . number_format( (float) $quote['retail_price'], 2 )
+					self::format_price( (float) $quote['retail_price'] )
 				)
 			)
 		);
+	}
+
+	/**
+	 * Render a price at the precision it actually carries.
+	 *
+	 * number_format( $x, 2 ) is the right default for money and the wrong one
+	 * here: this network sells journalism in fractions of a cent, so 0.055
+	 * becomes "$0.06" and the reader is told they owe more than they do. Pad to
+	 * two places for ordinary amounts, then let genuinely finer figures keep
+	 * their detail, trimming trailing zeros so $0.05 does not become $0.0500.
+	 *
+	 * @param float $amount Amount in dollars.
+	 * @return string Formatted with a leading dollar sign.
+	 */
+	private static function format_price( float $amount ): string {
+		$s = rtrim( rtrim( number_format( $amount, 4, '.', '' ), '0' ), '.' );
+		if ( strpos( $s, '.' ) === false ) {
+			$s .= '.00';
+		} elseif ( strlen( substr( strrchr( $s, '.' ), 1 ) ) === 1 ) {
+			$s .= '0';
+		}
+		return '$' . $s;
 	}
 
 	// =========================================================================
@@ -325,6 +347,22 @@ class Newshare_Access {
 			$quote = $this->pricing->negotiate( $post_id );
 
 			if ( 'accept' === $quote['decision'] ) {
+				/**
+				 * Fires when a purchase releases an article.
+				 *
+				 * The publisher has to file this itself. Settlement aggregates
+				 * the publisher's own records, and the ordinary logging path only
+				 * runs when check_access() is true -- that is, when the reader's
+				 * tier already covered the article. A purchase is exactly the case
+				 * where it did not, so without this the publisher never reports
+				 * the transactions it is owed for, and settlement pays it nothing
+				 * for them.
+				 *
+				 * @param int   $post_id The article being released.
+				 * @param array $quote   Accepted quote, carrying agreed_price.
+				 */
+				do_action( 'newshare_content_purchased', $post_id, $quote );
+
 				// Payment authorised. Show the reader what they have committed
 				// to pay their home base, then release the article.
 				return $this->render_purchase_notice( $quote ) . $content;

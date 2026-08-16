@@ -90,7 +90,18 @@ class Newshare_Logger {
 	 */
 	private ?Newshare_Demo_Mode $demo = null;
 
-	public function log_content_access( int $post_id ): void {
+	/**
+	 * Record a purchase the publisher just fulfilled.
+	 *
+	 * @param int   $post_id Article released.
+	 * @param array $quote   Accepted quote from the reader's home base.
+	 */
+	public function log_purchase( int $post_id, array $quote ): void {
+		$agreed = isset( $quote['agreed_price'] ) ? (float) $quote['agreed_price'] : null;
+		$this->log_content_access( $post_id, $agreed );
+	}
+
+	public function log_content_access( int $post_id, ?float $price = null ): void {
 		// A real publisher's ordinary readers are not part of the pilot, so
 		// nothing about their reading is reported to the ALS.
 		if ( $this->demo && $this->demo->should_suppress() ) {
@@ -116,9 +127,16 @@ class Newshare_Logger {
 
 		// Determine pageClass: per-post override takes precedence over site default.
 		// pageClass is the wholesale price the publisher charges for this content.
-		$page_class = get_post_meta( $post_id, 'newshare_page_class', true );
-		if ( '' === $page_class || false === $page_class ) {
-			$page_class = get_option( 'newshare_default_page_class', '0.05' );
+		// A negotiated purchase settles at the agreed figure, which may be below
+		// the posted price. Recording the posted one would over-bill the reader's
+		// home base and over-credit the publisher.
+		if ( null !== $price ) {
+			$page_class = $price;
+		} else {
+			$page_class = get_post_meta( $post_id, 'newshare_page_class', true );
+			if ( '' === $page_class || false === $page_class ) {
+				$page_class = get_option( 'newshare_default_page_class', '0.05' );
+			}
 		}
 
 		// Build the event payload following the Extended Common Log Format.
