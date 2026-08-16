@@ -25,6 +25,7 @@ Governed by the [Information Trust Exchange Governing Association (ITEGA)](https
 - [Protocol Stack](#protocol-stack)
 - [Technology Stack](#technology-stack)
 - [Missouri Pilot: Proof of Concept](#missouri-pilot-proof-of-concept)
+- [What Has Actually Been Verified](#what-has-actually-been-verified)
 - [Prototype: Low-Cost Demo](#prototype-low-cost-demo-15month)
 - [Project Structure](#project-structure)
 - [Competitive Landscape](#competitive-landscape)
@@ -628,6 +629,58 @@ Demonstrate the core end-to-end architecture with real publishers and real reade
 Phase 2 (broader rollout + UDEX): ~$2M over 3 years. Not part of this request.
 
 ---
+
+## What Has Actually Been Verified
+
+Every claim below was exercised against the live system, not inferred from the
+code. Two suites, both passing, both runnable before showing anyone anything:
+
+```bash
+infra/smoke-test.sh      # 28 checks — every public endpoint, both realms, both sites
+infra/journey-test.py    # 12 checks — the reader's journey, end to end
+```
+
+**The reader's journey.** She reads three articles at Bar Harbor; the fourth is
+gated. She signs in through her home base and it is served in full. She crosses
+to North Berkshire and is asked for neither a password nor a home base, and its
+gated article is served too. Bar Harbor knows her as `948afc06-…`; North
+Berkshire knows her as `de9c6b31-…`. The same person, and the two papers cannot
+work that out between them.
+
+**Pricing.** All three outcomes in the real reader flow: a 5¢ article accepted
+outright, a 20¢ one countered at 15¢ and released when the publisher meets it, a
+75¢ one declined with the refusal page. `terms=final` never counters. The
+publisher receives 5¢ whichever home base the reader belongs to, while the reader
+is billed 5.5¢ or 7¢ — and the markup ratio is never disclosed to the publisher.
+
+**AI agents.** A non-member is refused and told where to join. A member is quoted
+402 with a price, agrees it, and receives a crawl grant with the content.
+
+**Settlement.** Runs, balances (debits = credits), takes a 1.5% fee, and writes
+CSV and JSON reports. It aggregates the publisher's own records, which is why
+publishers filing their own purchases matters.
+
+### What is not true yet
+
+- **No money moves.** Settlement produces reports; no transfer occurs.
+- **Logging out of one publisher does not log you out of the network.** Ordinary
+  federated behaviour, but on a shared machine the next person could buy
+  articles billed to the previous one. Tracked as an open decision.
+- **Monitoring detects but does not notify.** Sixteen alert rules exist and fire
+  correctly; no delivery channel is configured, so they only show on the
+  dashboard.
+- **Both publishers are demonstration sites** operated for the pilot.
+
+### A note on testing
+
+The sign-in path was broken for weeks and nobody knew, because nobody had walked
+it end to end. Doing so found seven separate faults, any one of which stopped a
+reader dead, and each looked healthy from the hop before it. Twelve defects in
+total, all recorded with cause and verification in the
+[issue tracker](https://github.com/mattbaya/ITEGA/issues).
+
+That a service returns 200 proves very little about whether a person can get
+through it.
 
 ## Prototype: Low-Cost Demo (~$15/month)
 

@@ -216,6 +216,37 @@ what is built, what is missing, and Bill's answers to the open questions.
 
 **Build it really working.** A simulated or narrated demo is the fallback, not the goal.
 
+### Test before you claim
+
+Run both suites before showing the system to anyone, or writing that it works:
+
+```bash
+infra/smoke-test.sh      # 28 checks: every public endpoint, both realms, both sites
+infra/journey-test.py    # 12 checks: the reader's journey, end to end
+```
+
+These exist because the sign-in path was broken for weeks and nobody knew. When
+it was finally walked start to finish it turned up **seven separate faults**, any
+one of which stopped a reader dead — a missing PKCE challenge, a GET-only
+callback the ALS posted to, a parameter named two different things on the two
+sides, a wrong authorize path, a scope no home base defines, an
+`OpenSSLAsymmetricKey` cached into a transient, and a token signed without a
+`kid`. Five more were found elsewhere, including publishers never filing the
+purchases they were owed for.
+
+Every one of them looked healthy from the hop before it. Checking that a service
+returns 200 proves almost nothing about whether a person can get through it, so:
+
+- **Assert on the result, not the redirect.** A 302 towards a login page is not
+  a login.
+- **Walk the whole path** as a reader does, from the article to the session, not
+  from the API inwards.
+- **Log defects as GitHub issues** with cause, fix and verification, then close
+  them with what proved the fix. `gh issue list --state all` is the record.
+
+The ALS base URL is the **host only** — the flow lives under `/auth/`. Two
+separate codebases got this wrong independently.
+
 **This repository is public** — Bill's Editor & Publisher column links to it directly.
 Correspondence and source documents belong in `reference/`, never in a commit.
 
