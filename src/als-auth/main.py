@@ -948,18 +948,74 @@ def _post_token_to_publisher(
     The token travels in a POST body rather than the URL, keeping it out of
     browser history, server access logs, and Referer headers.
 
+    This page used to have no visible content whatsoever -- an empty body, a
+    hidden form, and a line of script. When the form submits instantly nobody
+    notices it, but the POST lands on WordPress, which bootstraps and then calls
+    back here to validate the token before redirecting twice more. On a cold
+    load that is several seconds of blank white page, and a reader reasonably
+    concludes the button did not work and presses it again. Bill did exactly
+    that, and reported that the first click does nothing and the second works.
+
+    So it now says what is happening, and carries a real button for anyone whose
+    script never runs. Nothing about the hand-off changed; it just stopped being
+    invisible while it happens.
+
     All three interpolated values are HTML-escaped before being placed in
-    attributes.  ``publisher_state`` is echoed back from the publisher's
-    original query string, so without escaping a crafted state could close the
-    attribute and inject markup into this page.
+    attributes. ``publisher_state`` is echoed back from the publisher's original
+    query string, so without escaping a crafted state could close the attribute
+    and inject markup into this page.
     """
     return HTMLResponse(content=f"""<!DOCTYPE html>
-<html><body>
-<form id="f" method="POST" action="{html.escape(redirect_uri, quote=True)}">
-  <input type="hidden" name="sessionToken" value="{html.escape(session_token, quote=True)}">
-  <input type="hidden" name="state" value="{html.escape(publisher_state, quote=True)}">
-</form>
-<script>document.getElementById('f').submit();</script>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Signing you in&hellip;</title>
+<style>
+  :root {{ --ink:#15222b; --soft:#55676f; --paper:#f3f5f3; --accent:#2a5c6b; }}
+  @media (prefers-color-scheme: dark) {{
+    :root {{ --ink:#e7ece9; --soft:#a3b3ba; --paper:#141d23; --accent:#7fc0d0; }}
+  }}
+  body {{ margin:0; background:var(--paper); color:var(--ink); min-height:100vh;
+    display:flex; align-items:center; justify-content:center; text-align:center;
+    font:17px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif; }}
+  .box {{ max-width:26rem; padding:2rem 1.5rem; }}
+  h1 {{ font:600 1.5rem/1.25 Georgia,serif; margin:0 0 .4em; }}
+  p {{ color:var(--soft); margin:0; }}
+  .dots {{ margin:1.6rem auto 0; width:64px; display:flex; justify-content:space-between; }}
+  .dots i {{ width:12px; height:12px; border-radius:50%; background:var(--accent);
+    opacity:.25; animation:p 1.2s infinite; }}
+  .dots i:nth-child(2) {{ animation-delay:.2s }}
+  .dots i:nth-child(3) {{ animation-delay:.4s }}
+  @keyframes p {{ 0%,100%{{opacity:.25}} 50%{{opacity:1}} }}
+  @media (prefers-reduced-motion: reduce) {{ .dots i {{ animation:none; opacity:.6 }} }}
+  button {{ margin-top:1.4rem; padding:.7rem 1.3rem; font-size:1rem;
+    background:var(--accent); color:var(--paper); border:0; cursor:pointer; }}
+  .manual {{ display:none }}
+</style>
+</head>
+<body>
+<div class="box">
+  <h1>Signing you in&hellip;</h1>
+  <p>Handing you back to the publisher. This takes a moment the first time.</p>
+  <div class="dots" aria-hidden="true"><i></i><i></i><i></i></div>
+
+  <form id="f" method="POST" action="{html.escape(redirect_uri, quote=True)}">
+    <input type="hidden" name="sessionToken" value="{html.escape(session_token, quote=True)}">
+    <input type="hidden" name="state" value="{html.escape(publisher_state, quote=True)}">
+    <noscript><button type="submit">Continue</button></noscript>
+    <button type="submit" class="manual" id="m">Continue</button>
+  </form>
+</div>
+<script>
+  document.getElementById('f').submit();
+  // If the hand-off is still going after a few seconds, give them something to
+  // press rather than leaving them looking at a page that appears stuck.
+  setTimeout(function () {{
+    document.getElementById('m').style.display = 'inline-block';
+  }}, 4000);
+</script>
 </body></html>
 """)
 
