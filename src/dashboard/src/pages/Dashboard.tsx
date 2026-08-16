@@ -14,7 +14,7 @@
 
 import type { SessionData } from '../api/auth';
 import { useEffect, useState } from 'react';
-import { getHomeBaseName } from '../api/homebase';
+import { useHomeBase } from '../api/useHomeBase';
 import type { ContentEvent } from '../api/events';
 import { getContentEvents, computeTotals } from '../api/events';
 import NetworkGroupBadge from '../components/NetworkGroupBadge';
@@ -28,13 +28,11 @@ export default function Dashboard({ session }: DashboardProps) {
   // logged reading. Nothing is invented: an empty table means they have not
   // bought anything yet, which is a true and useful thing to show them.
   const [events, setEvents] = useState<ContentEvent[]>([]);
-  const [homeBaseName, setHomeBaseName] = useState<string>('');
 
-  useEffect(() => {
-    getContentEvents().then(setEvents);
-    getHomeBaseName(session.homeBaseId).then(setHomeBaseName);
-  }, [session.homeBaseId]);
 
+  useEffect(() => { getContentEvents().then(setEvents); }, []);
+
+  const homeBaseName = useHomeBase(session.homeBaseId);
   const totals = computeTotals(events);
   // How many publishers this reader has actually read at, counted from the
   // record rather than from a list of imaginary ones.
@@ -62,7 +60,7 @@ export default function Dashboard({ session }: DashboardProps) {
           Your Newshare account
         </h1>
         <p className="text-navy-500 mt-1">
-          This page does not know your name. Your home base does, and it never
+          This page does not know your name. {homeBaseName} does, and never
           tells anyone else &mdash; including this dashboard.
         </p>
       </div>
@@ -126,7 +124,7 @@ export default function Dashboard({ session }: DashboardProps) {
             <div className="flex justify-between">
               <dt className="text-sm text-navy-500">Home Base</dt>
               <dd className="text-sm font-medium text-navy-800">
-                {homeBaseName || session.homeBaseId}
+                {homeBaseName}
               </dd>
             </div>
             <div className="flex justify-between">
@@ -187,7 +185,7 @@ export default function Dashboard({ session }: DashboardProps) {
           <div className="mt-4 p-3 bg-navy-50 rounded-md">
             <p className="text-xs text-navy-600">
               Your session was issued by the Account Linking Service (ALS) after
-              authenticating through your home base. The session token is a JWT
+              authenticating through {homeBaseName}. The session token is a JWT
               containing your network identity but no personal information.
             </p>
           </div>

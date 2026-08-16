@@ -11,9 +11,8 @@
  * ONLY party that stores PII -- publishers and the ALS never see it.
  */
 
-import { useEffect, useState } from 'react';
 import type { SessionData } from '../api/auth';
-import { getHomeBaseName } from '../api/homebase';
+import { useHomeBase } from '../api/useHomeBase';
 import NetworkGroupBadge from '../components/NetworkGroupBadge';
 
 interface AccountProps {
@@ -25,9 +24,7 @@ export default function Account({ session }: AccountProps) {
   // not here at all. They live at the reader's home base and never cross into
   // the network -- that is the promise the whole architecture exists to keep,
   // and a settings form on this page would quietly break it.
-  const [homeBaseName, setHomeBaseName] = useState('');
-  useEffect(() => { getHomeBaseName(session.homeBaseId).then(setHomeBaseName); },
-            [session.homeBaseId]);
+  const homeBaseName = useHomeBase(session.homeBaseId);
 
   return (
     <div className="space-y-6">
@@ -48,7 +45,7 @@ export default function Account({ session }: AccountProps) {
             <div className="flex justify-between">
               <dt className="text-sm text-navy-500">Home Base Name</dt>
               <dd className="text-sm font-medium text-navy-800">
-                {homeBaseName || session.homeBaseId}
+                {homeBaseName}
               </dd>
             </div>
             <div className="flex justify-between">
@@ -67,9 +64,10 @@ export default function Account({ session }: AccountProps) {
 
           <div className="mt-4 p-3 bg-navy-50 rounded-md">
             <p className="text-xs text-navy-600">
-              Your home base is responsible for billing, authentication, and
-              managing your subscription. Contact them directly for billing
-              questions or to change your subscription plan.
+              {homeBaseName} is responsible for your billing, your sign-in, and
+              your subscription. Contact them directly with billing questions or
+              to change your plan &mdash; not the publishers you read, who have
+              no account for you and could not help.
             </p>
           </div>
         </div>
@@ -98,16 +96,11 @@ export default function Account({ session }: AccountProps) {
                 {session.pubMbrId}
               </dd>
             </div>
-            <div className="flex justify-between">
-              <dt className="text-sm text-navy-500">Privacy Level</dt>
-              <dd className="text-sm font-medium text-navy-800 capitalize">
-                {'—'}
-              </dd>
-            </div>
+
             <div className="flex justify-between">
               <dt className="text-sm text-navy-500">Ad Preference</dt>
-              <dd className="text-sm text-navy-800 capitalize">
-                Set at your home base
+              <dd className="text-sm text-navy-800">
+                Set at {homeBaseName}
               </dd>
             </div>
           </dl>
