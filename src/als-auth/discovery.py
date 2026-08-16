@@ -43,6 +43,33 @@ class DiscoveryClient:
                 return hb
         return None
 
+    async def publisher_named(self, q: str) -> dict[str, Any] | None:
+        """
+        A certified *publisher* whose name resembles what the visitor typed.
+
+        Asked so the chooser can tell someone they have named a newspaper rather
+        than a home base. Bill typed "Bar Harbor" into this field and was shown
+        two options he had no way to choose between; the fault was the screen's,
+        not his, because nothing on it distinguished the paper he was reading
+        from the organisation that keeps his account.
+        """
+        needle = q.strip().lower()
+        if len(needle) < 3:
+            return None
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                resp = await client.get(f"{self._base_url}/discovery/publishers")
+                resp.raise_for_status()
+                data = resp.json()
+        except (httpx.HTTPError, ValueError):
+            return None
+
+        for pub in data if isinstance(data, list) else data.get("publishers", []):
+            name = str(pub.get("name", "")).lower()
+            if name and (needle in name or name in needle):
+                return pub
+        return None
+
     async def resolve(self, q: str = "", client_ip: str = "") -> dict[str, Any]:
         """
         Resolve a visitor to a home base (demo script steps 20-24).

@@ -47,7 +47,7 @@ from typing import Any
 import httpx
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
 from ai_agent_models import (
     AgentVerifyRequest,
@@ -383,7 +383,9 @@ async def authorize(
                 "authorize: served %s from Authenticator cache",
                 publisher.pub_mbr_id,
             )
-            return _post_token_to_publisher(redirect_uri, cached_token, state)
+            return _hand_off_token(
+                redirect_uri, cached_token, state, publisher.handoff
+            )
 
     # 4. Store session context in the bounded in-memory store.  The chosen
     #    home base is filled in below, or by /auth/select-home-base once the
@@ -490,33 +492,60 @@ def _render_home_base_chooser(
     candidates: list[dict[str, Any]],
     default_signup: dict[str, Any] | None,
     message: str = "",
+    named_publisher: dict[str, Any] | None = None,
 ) -> HTMLResponse:
     """
     Ask the visitor which home base is theirs (demo script steps 20, 24).
 
-    Offers the certified members we can suggest, a free-text field for a name
-    or Publishing Member ID, and — when nothing matched — an invitation to
-    sign up with a default home base rather than a dead end.
+    This screen is the network explaining itself to someone who has never heard
+    of it, at the least convenient possible moment -- mid-article, wanting to
+    read. Its first job is therefore to say what a home base *is*, because the
+    word means nothing on first encounter and the obvious guess is wrong: the
+    natural thing to type is the newspaper you are reading, which is exactly
+    what it is not.
 
-    All interpolated values are HTML-escaped: candidate names come from the
-    ITEGA registry and the message may echo visitor input.
+    An earlier version asked "Where do you have an account?" over a bare list of
+    two names. A reader typed the publisher's name, was shown two unexplained
+    options, and had no way to choose. Everything here follows from that: the
+    analogy up front, each home base described rather than merely named, and a
+    specific answer when someone names a publisher instead.
+
+    All interpolated values are escaped: names come from the ITEGA registry and
+    the message may echo what the visitor typed.
     """
     signed_state = html.escape(_encode_state(session_key))
 
-    options = "".join(
-        f'<li><a href="/auth/select-home-base?state={signed_state}'
-        f'&amp;q={html.escape(urllib.parse.quote(hb["publishing_member_id"]))}">'
-        f'{html.escape(hb["name"])}</a></li>'
+    def link(hb: dict[str, Any]) -> str:
+        q = html.escape(urllib.parse.quote(hb["publishing_member_id"]))
+        return f'/auth/select-home-base?state={signed_state}&amp;q={q}'
+
+    cards = "".join(
+        f'''<a class="hb" href="{link(hb)}">
+             <span class="hb-name">{html.escape(hb["name"])}</span>
+             <span class="hb-id">{html.escape(hb.get("publishing_member_id", ""))}</span>
+           </a>'''
         for hb in candidates
     )
-    note = f"<p class=\"note\">{html.escape(message)}</p>" if message else ""
+
+    # Someone typed a newspaper's name. Say so plainly, and say what to do.
+    if named_publisher:
+        message = (
+            f'''\u201c{named_publisher.get("name", "")}\u201d is a newspaper in the '''
+            "network, not a home base. Your home base is the organisation that "
+            "keeps your account and pays for what you read \u2014 often a different "
+            "paper, a library, or an internet provider."
+        )
+
+    note = f'<p class="note">{html.escape(message)}</p>' if message else ""
 
     signup = ""
     if default_signup:
         signup = (
-            '<p class="signup">Not affiliated with a member yet? '
-            f'<a href="{html.escape(default_signup.get("signup_url", ""))}">'
-            f'Create an account with {html.escape(default_signup["name"])}</a>.</p>'
+            '<div class="newhere"><h2>I don\u2019t have one</h2>'
+            "<p>Then you are new here, which is fine. A home base is free to "
+            "join and takes a moment.</p>"
+            f'<a class="btn" href="{html.escape(default_signup.get("signup_url", ""))}">'
+            f'Create an account with {html.escape(default_signup["name"])}</a></div>'
         )
 
     return HTMLResponse(content=f"""<!DOCTYPE html>
@@ -524,31 +553,97 @@ def _render_home_base_chooser(
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Choose your home base</title>
+  <title>Which home base is yours?</title>
   <style>
-    body {{ font-family: system-ui, sans-serif; max-width: 34rem; margin: 3rem auto;
-           padding: 0 1rem; line-height: 1.5; }}
-    ul {{ padding-left: 1.2rem; }}
-    li {{ margin: .35rem 0; }}
-    .note {{ background: #fff6e5; border-left: 3px solid #e8a33d; padding: .6rem .8rem; }}
-    .signup {{ color: #555; font-size: .95rem; }}
-    input[type=text] {{ width: 100%; padding: .5rem; font-size: 1rem; }}
-    button {{ margin-top: .6rem; padding: .5rem 1rem; font-size: 1rem; }}
+    :root {{
+      --ink:#15222b; --soft:#55676f; --rule:#d3dcd8; --paper:#f3f5f3;
+      --card:#fff; --accent:#2a5c6b; --warm:#8a6a12;
+    }}
+    @media (prefers-color-scheme: dark) {{
+      :root {{ --ink:#e7ece9; --soft:#a3b3ba; --rule:#33454d; --paper:#141d23;
+               --card:#1a262d; --accent:#7fc0d0; --warm:#d3a63c; }}
+    }}
+    * {{ box-sizing:border-box; }}
+    body {{ margin:0; background:var(--paper); color:var(--ink); font:17px/1.6
+      -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+      padding:2.5rem 1.25rem 4rem; }}
+    .wrap {{ max-width:40rem; margin:0 auto; }}
+    h1 {{ font:600 1.9rem/1.2 Georgia,"Times New Roman",serif; margin:0 0 .3em; }}
+    h2 {{ font:600 1.15rem/1.3 Georgia,serif; margin:0 0 .4em; }}
+    .lede {{ color:var(--soft); margin:0 0 1.4rem; }}
+    .analogy {{ background:var(--card); border:1px solid var(--rule);
+      border-left:3px solid var(--accent); padding:1rem 1.15rem; margin:0 0 1.6rem;
+      font-size:.98rem; color:var(--soft); }}
+    .analogy b {{ color:var(--ink); }}
+    .note {{ background:var(--card); border:1px solid var(--rule);
+      border-left:3px solid var(--warm); padding:.85rem 1rem; margin:0 0 1.4rem;
+      font-size:.98rem; }}
+    .hb {{ display:flex; justify-content:space-between; align-items:baseline;
+      gap:1rem; background:var(--card); border:1px solid var(--rule);
+      border-left:3px solid var(--accent); padding:.95rem 1.1rem; margin-bottom:.6rem;
+      text-decoration:none; color:inherit; }}
+    .hb:hover, .hb:focus-visible {{ border-left-width:6px; padding-left:.85rem; }}
+    .hb:focus-visible {{ outline:2px solid var(--accent); outline-offset:2px; }}
+    .hb-name {{ font-weight:600; }}
+    .hb-id {{ font:.82rem ui-monospace,Menlo,monospace; color:var(--soft); }}
+    form {{ margin:1.6rem 0 0; }}
+    label {{ display:block; font-size:.95rem; color:var(--soft); margin-bottom:.35rem; }}
+    input[type=text] {{ width:100%; padding:.65rem .8rem; font-size:1rem;
+      border:1px solid var(--rule); background:var(--card); color:var(--ink); }}
+    input[type=text]:focus-visible {{ outline:2px solid var(--accent); outline-offset:1px; }}
+    .btn {{ display:inline-block; margin-top:.7rem; padding:.6rem 1.1rem;
+      font-size:1rem; background:var(--accent); color:var(--paper);
+      border:0; text-decoration:none; cursor:pointer; }}
+    .newhere {{ margin-top:2.2rem; padding-top:1.4rem; border-top:1px solid var(--rule); }}
+    details {{ margin-top:2rem; font-size:.95rem; color:var(--soft); }}
+    summary {{ cursor:pointer; color:var(--accent); }}
+    details p {{ margin:.7rem 0 0; }}
   </style>
 </head>
 <body>
-  <h1>Where do you have an account?</h1>
-  <p>Sign in through the publisher or service that maintains your account —
-     your <strong>home base</strong>. It is the only party that knows who you are.</p>
+<div class="wrap">
+  <h1>Which home base is yours?</h1>
+  <p class="lede">You are about to read something from a newspaper you do not
+     subscribe to. Rather than asking you to open another account, we can ask
+     an organisation you already belong to to vouch for you and settle up.</p>
+
+  <div class="analogy">
+    <b>Think of it like a bank card.</b> Your bank issued it; the shop accepts it
+    without ever learning your name or your balance. Your <b>home base</b> is the
+    bank. The newspaper you are reading is the shop &mdash; so it is not the
+    answer to this question.
+  </div>
+
   {note}
-  <ul>{options}</ul>
+
+  <h2>Sign in through one of these</h2>
+  {cards}
+
   <form method="GET" action="/auth/select-home-base">
     <input type="hidden" name="state" value="{signed_state}">
-    <label for="q">Or enter its name or Publishing Member ID</label>
-    <input type="text" id="q" name="q" autocomplete="off">
-    <button type="submit">Continue</button>
+    <label for="q">Or type its name, or its Publishing Member ID if you know it</label>
+    <input type="text" id="q" name="q" autocomplete="off"
+           placeholder="e.g. Publisher C Home Base, or ITEGA-PC-0001">
+    <button class="btn" type="submit">Continue</button>
   </form>
+
   {signup}
+
+  <details>
+    <summary>What is a home base, exactly?</summary>
+    <p>It is the one organisation in this network that knows who you are. It
+       holds your account, and when you read something at another member
+       publisher it pays them on your behalf and bills you however you have
+       agreed &mdash; as part of a subscription, or per article.</p>
+    <p>A home base can be a newspaper, but it can equally be a library, a
+       university or an internet provider. What matters is that it is the party
+       you already have a relationship with.</p>
+    <p>The publisher you are reading never learns your name, your email, or
+       which other papers you read. It receives only a meaningless identifier,
+       and a different one at every publisher, so no two of them can compare
+       notes about you.</p>
+  </details>
+</div>
 </body>
 </html>
 """)
@@ -594,18 +689,26 @@ async def select_home_base(
             session["scope"],
         )
 
-    if matches:
-        message = "More than one home base matched — please pick yours."
+    # Before saying "no match", check whether they named a publisher. It is the
+    # most likely wrong answer -- the paper they are reading is the thing in
+    # front of them -- and "we could not find that" is a useless reply to it.
+    named_publisher = await _discovery.publisher_named(q) if q else None
+
+    if named_publisher:
+        message = ""          # the chooser writes a specific one for this case
+    elif matches:
+        message = "More than one home base matched. Please pick yours."
     else:
         message = (
-            f"We could not find a home base matching “{q}”. "
-            "Choose from the list, or create an account below."
+            f"Nothing in the network matches “{q}”. Pick one below, or if you "
+            "do not have a home base yet, create one."
         )
     return _render_home_base_chooser(
         session_key=session_key,
         candidates=matches or await _discovery.home_bases(),
         default_signup=resolved.get("default_signup"),
         message=message,
+        named_publisher=named_publisher,
     )
 
 
@@ -770,12 +873,13 @@ async def callback(
         }
     )
 
-    # 7. Deliver the session token to the publisher via an auto-submitting
-    #    HTML form.  SECURITY: The token is sent in the POST body, NOT in
-    #    the URL query string.  Putting secrets in the URL would expose them
-    #    in browser history, server access logs, and Referer headers.
-    response = _post_token_to_publisher(
-        publisher_redirect_uri, session_token, publisher_state
+    # 7. Deliver the session token by whichever means this client can read.
+    #    SECURITY: never the query string. A POST body keeps the token out of
+    #    the URL entirely; a fragment keeps it out of every server log, since
+    #    browsers do not transmit fragments. A query parameter would land in
+    #    browser history, access logs and Referer headers alike.
+    response = _hand_off_token(
+        publisher_redirect_uri, session_token, publisher_state, publisher.handoff
     )
 
     # 8. Remember this reader so the next publisher does not send them back
@@ -804,6 +908,33 @@ async def callback(
         )
 
     return response
+
+
+def _hand_off_token(
+    redirect_uri: str,
+    session_token: str,
+    publisher_state: str,
+    mode: str = "post",
+) -> Response:
+    """
+    Return the session token to whoever asked for it, by the means they can read.
+
+    ``post`` suits anything with a server at the far end: the token travels in a
+    form body and never appears in a URL.
+
+    ``fragment`` suits a single-page app, which has no server to receive a POST
+    and cannot see the body at all -- the reader simply arrives at a fresh,
+    signed-out page, which is precisely the fault this exists to fix. The token
+    rides in the URL fragment, which browsers do not transmit and servers
+    therefore never log.
+    """
+    if mode == "fragment":
+        params = urllib.parse.urlencode({
+            "session_token": session_token,
+            "state": publisher_state,
+        })
+        return RedirectResponse(url=f"{redirect_uri}#{params}", status_code=302)
+    return _post_token_to_publisher(redirect_uri, session_token, publisher_state)
 
 
 def _post_token_to_publisher(

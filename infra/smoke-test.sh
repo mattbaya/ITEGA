@@ -100,7 +100,7 @@ echo "THE READER'S SIGN-IN JOURNEY"
 AUTH="https://als.itega.org/auth/authorize?client_id=pub-a&redirect_uri=https%3A%2F%2Fbarharbor.info%2Fwp-json%2Fnewshare%2Fv1%2Fcallback&response_type=code&scope=openid&state=smoke"
 CHOOSER=$(curl -s --max-time 20 "$AUTH" 2>/dev/null)
 
-if [[ "$CHOOSER" == *"Where do you have an account"* ]]; then
+if [[ "$CHOOSER" == *"/auth/select-home-base"* ]]; then
   ok "chooser renders"
 else
   bad "chooser renders" "unexpected body"

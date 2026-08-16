@@ -44,6 +44,18 @@ class PublisherEntry:
         self.pub_mbr_id: str = data["pub_mbr_id"]
         # Human-readable display name (optional, defaults to client_id)
         self.name: str = data.get("name", self.client_id)
+        # How the session token is handed back: "post" or "fragment".
+        #
+        # A publisher running WordPress has a server that can read a form POST,
+        # which keeps the token out of the URL entirely. A single-page app has
+        # no server at that address -- the POST body is simply unreadable to it,
+        # and the reader lands on a freshly-loaded, signed-out page.
+        #
+        # For those, the token goes in the URL *fragment*. A fragment is never
+        # sent to a server and never reaches an access log, which is why OAuth
+        # uses it for exactly this case; a query parameter would be written into
+        # the logs of every host in the path.
+        self.handoff: str = data.get("handoff", "post")
 
 
 class Settings(BaseSettings):

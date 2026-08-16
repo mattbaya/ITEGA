@@ -87,14 +87,49 @@ def post(op, url: str, data: dict, referer: str = "") -> tuple[str, str]:
         return e.geturl(), e.read().decode("utf-8", "replace")
 
 
-def priced_articles(host: str, n: int = 4) -> list[str]:
-    """The seeded articles carrying a price, straight from the site."""
+def priced_articles(host: str, n: int = 4, offset: int = 0) -> list[str]:
+    """
+    Articles chosen the way a reader chooses them.
+
+    This used to ask for posts carrying a price -- `--meta_key=newshare_page_class`
+    -- and then check that those posts were gated. It selected its inputs by the
+    property under test, so it could only ever confirm what the seed data had
+    already arranged, and it passed for weeks while 9,774 of the 9,778 articles on
+    the two sites were free to everyone. Bill found that in about four clicks.
+
+    Now it takes published posts in ordinary order and makes no assumption about
+    what is configured on them, which is the only way the meter can actually be
+    said to work.
+    """
     out = subprocess.run(
         ["ssh", "-o", "BatchMode=yes", f"{host}@svaha.com",
          "export PATH=~/bin:$PATH; cd ~/public_html; wp post list --post_type=post "
-         f"--meta_key=newshare_page_class --posts_per_page={n} --field=url"],
+         f"--post_status=publish --posts_per_page={n} --offset={offset} --field=url"],
         capture_output=True, text=True, timeout=90).stdout.split()
     return out
+
+
+def archive_is_metered(host: str, label: str) -> None:
+    """
+    The meter must hold deep in the archive, not just on the newest few.
+
+    A reader arriving from a search result lands on a five-year-old story, and
+    that is the request the site has to charge for. Reads four articles from well
+    inside the archive and asserts the fourth is gated.
+    """
+    urls = priced_articles(host, n=4, offset=60)
+    if len(urls) < 4:
+        bad(f"{label}: archive has four articles", str(len(urls)))
+        return
+    op, _ = session()
+    for u in urls[:3]:
+        get(op, u)
+    _, body = get(op, urls[3])
+    if "newshare-login-btn" in body:
+        ok(f"{label}: the archive is metered too", "gate closed on the fourth")
+    else:
+        bad(f"{label}: the archive is metered too",
+            "an old article was served free — most of the site is not for sale")
 
 
 def form_fields(body: str) -> dict[str, str]:
@@ -117,7 +152,7 @@ def sign_in(op, gated_body: str, user: str, pw: str) -> bool:
         return False
     url, body = get(op, html.unescape(m.group(1)))
 
-    if "Where do you have an account" not in body:
+    if "/auth/select-home-base" not in body:
         bad("gate button reaches the chooser", url[:44])
         return False
     ok("gate button reaches the chooser")
@@ -176,6 +211,10 @@ def main() -> int:
     user, pw = credentials()
     op, jar = session()
 
+    print("\nTHE WHOLE SITE IS FOR SALE, NOT JUST THE SEEDED FEW")
+    archive_is_metered("barharbor", "Bar Harbor")
+    archive_is_metered("northberkshire", "North Berkshire")
+
     print("\nPUBLISHER A — BAR HARBOR")
     a_articles = priced_articles("barharbor")
     if len(a_articles) < 4:
@@ -215,7 +254,7 @@ def main() -> int:
             bad("crossed without a second password", "was asked again")
         else:
             ok("crossed without a second password")
-        if "Where do you have an account" in page:
+        if "/auth/select-home-base" in page:
             bad("crossed without choosing a home base again")
         else:
             ok("crossed without choosing a home base again")

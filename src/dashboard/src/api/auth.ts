@@ -70,9 +70,26 @@ export function login(): void {
  * Returns the decoded session data or null on failure.
  */
 export function handleCallback(): SessionData | null {
-  const params = new URLSearchParams(window.location.search);
-  const token = params.get('session_token');
+  // The token arrives in the URL fragment, not the query string.
+  //
+  // This page has no server behind it, so the exchange cannot hand the token
+  // over in a POST body the way it does to a WordPress publisher -- there is
+  // nothing here that can read one, and the reader simply lands on a freshly
+  // loaded, signed-out page. That was the login loop Bill hit.
+  //
+  // A fragment is the right carrier rather than merely a convenient one: a
+  // browser never transmits it, so unlike a query parameter it cannot end up
+  // in an access log, a Referer header, or a proxy's history.
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  const query = new URLSearchParams(window.location.search);
+  const token = hash.get('session_token') ?? query.get('session_token');
   if (!token) return null;
+
+  // Take it out of the address bar once read, so a shared or bookmarked URL
+  // does not carry a live session with it.
+  if (hash.get('session_token')) {
+    window.history.replaceState(null, '', window.location.pathname);
+  }
 
   try {
     // NOTE: We use decodeJwt() (decode-only, no signature verification) here

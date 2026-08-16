@@ -84,7 +84,7 @@ def password_demanded_on_return(op, articles: list[str]) -> bool | None:
 
     # Either the chooser is presented, or the reader is sent straight to their
     # home base. Follow the chooser when it appears so both paths converge.
-    if "Where do you have an account" in body:
+    if "/auth/select-home-base" in body:
         href = None
         for cand in re.finditer(r'href="(/auth/select-home-base[^"]+)"', body):
             if J.HOME_BASE in cand.group(1):
