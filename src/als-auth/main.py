@@ -783,7 +783,9 @@ async def callback(
     #    to THIS publisher needs no round trip at all.
     if _session_cache is not None:
         handle = _session_cache.remember(
-            request.cookies.get(_SESSION_COOKIE, ""), home_base["id"]
+            request.cookies.get(_SESSION_COOKIE, ""),
+            home_base["id"],
+            id_token=id_token_raw,
         )
         _session_cache.store_token(
             handle, pub_mbr_id, session_token, now + settings.session_token_ttl
@@ -883,6 +885,156 @@ async def validate_token(body: TokenValidationRequest) -> TokenValidationRespons
             "pubMbrId": claims["pubMbrId"],
             "sessionId": claims["sessionId"],
         }),
+    )
+
+
+# ── GET /auth/logout ─────────────────────────────────────────────────
+#
+# Ending a session in a federated network means choosing how far to go, and
+# only the reader can answer that. Signing out of a shared library machine is
+# not the same act as signing out of a laptop at home, so the publisher offers
+# both and this endpoint carries out whichever was asked for.
+#
+#   scope=here        Leave this publisher. The reader stays signed in to the
+#                     network, so the next publisher still recognises them.
+#
+#   scope=everywhere  End the network session and the session at the home base
+#                     with it. The next visit anywhere begins at the chooser.
+#
+# "Here" is not merely the publisher's own business. The Authenticator caches
+# the token it issued for each publisher, so a reader who logs out of
+# WordPress and clicks a gated article is handed that cached token and signed
+# straight back in. Dropping it is what makes the publisher's logout real.
+
+@app.get("/auth/logout")
+async def logout(
+    request: Request,
+    scope: str = "here",
+    pub_mbr_id: str = "",
+    client_id: str = "",
+    redirect_uri: str = "",
+) -> RedirectResponse:
+    """
+    End a reader's session, at this publisher or across the network.
+
+    Returns the reader to ``redirect_uri`` when it belongs to the publisher
+    identified by ``client_id``, and to the ALS itself otherwise.
+    """
+    if scope not in ("here", "everywhere"):
+        raise HTTPException(
+            status_code=400,
+            detail="scope must be 'here' or 'everywhere'",
+        )
+
+    # Where to send the reader afterwards. An unvalidated redirect_uri here
+    # would be an open redirect on an authentication domain -- the most
+    # convincing possible place to host one -- so it is checked against the
+    # publisher's registered origin exactly as /auth/authorize checks its own.
+    return_to = f"{settings.als_base_url}/auth/logged-out"
+    publisher = _publishers.get(client_id)
+    if publisher is not None and redirect_uri:
+        registered = urllib.parse.urlparse(publisher.redirect_uri)
+        requested = urllib.parse.urlparse(redirect_uri)
+        if (
+            registered.scheme == requested.scheme
+            and registered.netloc == requested.netloc
+        ):
+            return_to = redirect_uri
+        else:
+            logger.warning(
+                "logout: redirect_uri rejected — registered=%s, requested=%s",
+                publisher.redirect_uri,
+                redirect_uri,
+            )
+
+    handle = request.cookies.get(_SESSION_COOKIE, "")
+
+    if _session_cache is None or not handle:
+        # Nothing cached to end. Still a successful logout from the reader's
+        # point of view, so send them on rather than showing them an error.
+        return RedirectResponse(url=return_to, status_code=302)
+
+    if scope == "here":
+        dropped = _session_cache.forget_token(handle, pub_mbr_id)
+        logger.info(
+            "logout(here): publisher=%s token_dropped=%s",
+            pub_mbr_id or "(unnamed)",
+            dropped,
+        )
+        return RedirectResponse(url=return_to, status_code=302)
+
+    # ── everywhere ───────────────────────────────────────────────────
+    # Two sessions have to end, and they are held by different parties: the
+    # network session here, and the reader's session at their home base. This
+    # service can only end the first directly; the second is ended by sending
+    # the reader to the home base's end-session endpoint, which is what
+    # OpenID Connect RP-Initiated Logout is for.
+    home_base_id = _session_cache.home_base_for(handle) or ""
+    id_token = _session_cache.id_token_for(handle)
+    _session_cache.forget(handle)
+
+    home_base = await _discovery.get(home_base_id) if _discovery else None
+
+    if home_base is None:
+        logger.info("logout(everywhere): network session ended, home base unknown")
+        response = RedirectResponse(url=return_to, status_code=302)
+        _clear_session_cookie(response)
+        return response
+
+    params: dict[str, str] = {"post_logout_redirect_uri": return_to}
+    if id_token:
+        # Identifies the session to end without asking the reader again.
+        params["id_token_hint"] = id_token
+    elif client_id:
+        # Keycloak accepts client_id in place of a hint, but then shows a
+        # confirmation page rather than logging out silently.
+        params["client_id"] = client_id
+
+    end_session = (
+        f"{home_base['oidc_issuer']}/protocol/openid-connect/logout"
+        f"?{urllib.parse.urlencode(params)}"
+    )
+    logger.info("logout(everywhere): ending session at %s", home_base["id"])
+
+    response = RedirectResponse(url=end_session, status_code=302)
+    _clear_session_cookie(response)
+    return response
+
+
+def _clear_session_cookie(response: RedirectResponse) -> None:
+    """
+    Expire the Authenticator's first-party cookie.
+
+    The attributes must match those it was set with, or the browser keeps the
+    original and the reader stays signed in to the network after being told
+    they are not.
+    """
+    response.delete_cookie(
+        key=_SESSION_COOKIE,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+    )
+
+
+@app.get("/auth/logged-out", response_class=HTMLResponse)
+async def logged_out() -> HTMLResponse:
+    """
+    Confirm the session has ended.
+
+    Only reached when the publisher sent no usable return address, or when the
+    home base returns the reader here after ending its own session.
+    """
+    return HTMLResponse(
+        "<!doctype html><meta charset=utf-8>"
+        "<title>Signed out</title>"
+        "<style>body{font:16px/1.6 system-ui,sans-serif;max-width:32rem;"
+        "margin:18vh auto;padding:0 1.5rem;color:#15222b}"
+        "h1{font:600 1.5rem/1.2 Georgia,serif;margin:0 0 .6rem}"
+        "p{color:#4a5c66;margin:0}</style>"
+        "<h1>You are signed out.</h1>"
+        "<p>Your session with the network has ended. Visiting any member "
+        "publisher will start a new one.</p>"
     )
 
 

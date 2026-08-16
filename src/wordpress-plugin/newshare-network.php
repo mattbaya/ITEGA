@@ -88,6 +88,7 @@ require_once NEWSHARE_PLUGIN_DIR . 'includes/class-newshare-access.php';
 require_once NEWSHARE_PLUGIN_DIR . 'includes/class-newshare-rsl.php';
 require_once NEWSHARE_PLUGIN_DIR . 'includes/class-newshare-logger.php';
 require_once NEWSHARE_PLUGIN_DIR . 'includes/class-newshare-ai-agent.php';
+require_once NEWSHARE_PLUGIN_DIR . 'includes/class-newshare-logout.php';
 require_once NEWSHARE_PLUGIN_DIR . 'includes/class-newshare-admin.php';
 
 // =========================================================================
@@ -143,6 +144,9 @@ final class Newshare_Network {
 	/** @var Newshare_AI_Agent Machine-to-machine handshake for AI answer engines. */
 	private Newshare_AI_Agent $ai_agent;
 
+	/** @var Newshare_Logout  Sign out of this publisher, or of the network. */
+	private Newshare_Logout $logout;
+
 	/**
 	 * Get the singleton instance.
 	 *
@@ -174,6 +178,7 @@ final class Newshare_Network {
 		$this->rsl     = new Newshare_RSL( $this->demo );
 		$this->logger  = new Newshare_Logger( $this->session, $this->demo );
 		$this->ai_agent = new Newshare_AI_Agent( $this->logger );
+		$this->logout  = new Newshare_Logout( $this->session, $this->demo );
 		$this->admin   = new Newshare_Admin();
 
 		$this->register_hooks();
@@ -206,6 +211,13 @@ final class Newshare_Network {
 		// which meant stale network claims could persist in user meta after
 		// the user logged out of WordPress.
 		add_action( 'wp_logout', array( $this->session, 'clear_network_session' ) );
+
+		// Ask a network reader how far the sign-out should reach, and carry
+		// out the answer. Runs before the theme so the choice page can render
+		// on its own; ordinary WordPress users are untouched, since they never
+		// signed in through the network in the first place.
+		add_action( 'init', array( $this->logout, 'handle_request' ), 2 );
+		add_filter( 'logout_url', array( $this->logout, 'filter_logout_url' ), 10, 2 );
 
 		// -- Login UI --
 

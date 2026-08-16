@@ -71,12 +71,19 @@ class AuthenticatorSessionCache:
 
     # ── writes ────────────────────────────────────────────────────────
 
-    def remember(self, handle: str, home_base_id: str) -> str:
+    def remember(self, handle: str, home_base_id: str, id_token: str = "") -> str:
         """
         Record that this browser is authenticated with a home base.
 
         Returns the handle to store in the reader's cookie, generating a fresh
         one when the caller has none.
+
+        The home base's ID token is kept so that a "log out everywhere" can be
+        presented to that home base as an ``id_token_hint``, which is how
+        OpenID Connect RP-Initiated Logout identifies the session being ended.
+        It holds the pairwise identifier and the tier bitmask -- no name, no
+        address, nothing that could identify the reader -- and dies with the
+        entry.
         """
         self._evict_expired()
 
@@ -87,11 +94,22 @@ class AuthenticatorSessionCache:
             evicted, _ = self._entries.popitem(last=False)
             logger.warning("Session cache full — evicted %s", evicted[:12])
 
+        # A reader crossing to a second publisher calls this again with a
+        # handle they already hold. Keep the tokens already issued to them --
+        # rebuilding the entry from scratch would throw away the first
+        # publisher's token and send them back through a round trip they had
+        # already completed.
+        existing = self._entries.get(handle, {})
+
         self._entries[handle] = {
             "home_base_id": home_base_id,
+            # Refreshed on each authentication, as before: a reader who has
+            # just proved themselves again should not be timed out on the
+            # clock of the session that preceded it.
             "created_at": time.time(),
             # pub_mbr_id -> (session_token, expires_at)
-            "tokens": {},
+            "tokens": existing.get("tokens", {}),
+            "id_token": id_token or existing.get("id_token", ""),
         }
         return handle
 
@@ -143,8 +161,44 @@ class AuthenticatorSessionCache:
             return None
         return token
 
+    def id_token_for(self, handle: str) -> str | None:
+        """
+        The home base's ID token for this browser, if the entry is fresh.
+
+        Used only as an ``id_token_hint`` when ending the session at the home
+        base, so that it knows which session to end without being told who the
+        reader is a second time.
+        """
+        entry = self._fresh_entry(handle)
+        return entry.get("id_token") or None if entry else None
+
+    # ── logout ────────────────────────────────────────────────────────
+
+    def forget_token(self, handle: str, pub_mbr_id: str) -> bool:
+        """
+        Drop the token cached for one publisher, leaving the rest intact.
+
+        This is "log out here". Without it the publisher's own logout is
+        cosmetic: the reader clicks a gated article, the Authenticator finds a
+        still-valid token for that publisher and hands it straight back, and
+        they are signed in again without ever seeing a login screen.
+
+        Returns whether a token was actually dropped.
+        """
+        entry = self._entries.get(handle)
+        if entry is None:
+            return False
+        return entry["tokens"].pop(pub_mbr_id, None) is not None
+
     def forget(self, handle: str) -> None:
-        """Drop an entry — used on logout."""
+        """
+        Drop the entry entirely — "log out everywhere".
+
+        Ends the reader's network session: every publisher's cached token goes
+        with it, and the next visit anywhere starts at the chooser. The session
+        at the home base itself is separate, and is ended by redirecting the
+        reader there; see the logout endpoint.
+        """
         self._entries.pop(handle, None)
 
     # ── housekeeping ──────────────────────────────────────────────────

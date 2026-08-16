@@ -21,10 +21,12 @@ The ones worth remembering:
   SMTP disabled. Sixteen rules now exist and the disk rule fired on dev-svaha
   within a minute. Delivery is still unconfigured.
 
-Two test suites now guard this and should be run before showing anyone anything:
+Four test suites now guard this and should be run before showing anyone anything:
 
     infra/smoke-test.sh     28 checks, every public surface
     infra/journey-test.py   12 checks, the reader's journey end to end
+    infra/logout-test.py    19 checks, both sign-out scopes, and that they differ
+    infra/totp-test.py      14 checks, two-factor really challenges, both realms
 
 Verified working: cross-publisher recognition with distinct pairwise identifiers,
 all three negotiation outcomes in the real reader flow, the wholesale/retail
@@ -33,10 +35,28 @@ price, settlement balancing at 0.5500, the 14-step walkthrough against live
 services, RSL metadata, 30-minute tokens, and signature validation refusing a
 tampered networkGroupId.
 
-**Still open:** settlement moves no real money; logging out of one publisher does
-not log you out of the network (#15, needs a decision not a patch); alert
-delivery unconfigured (a Beszel configuration task, not ours); and dev.svaha.com
-is at 93% disk.
+**Sign-out now asks how far to go** (#15). Two options, because they are two
+different acts: leaving this publisher, or leaving the network and the home base
+with it. The second is the one that matters on a shared machine, and it says so.
+The real bug was not that WordPress stopped at WordPress — it was that the ALS
+kept a usable token, so a reader who logged out and clicked a gated article was
+signed straight back in without a login screen. Three sessions end now, held by
+three parties.
+
+**Two-factor is available at both home bases**, opt-in from the account console
+at `auth.itega.org/realms/<realm>/account/`. TOTP, so any authenticator app
+works. Deliberately not forced: making it a default required action would put an
+enrolment screen in front of every demo login, including Bill's. Flipping it to
+mandatory is one attribute per realm when that is wanted. Email one-time codes
+are **not** available — Keycloak has no built-in email OTP, and it would need a
+custom SPI plus an SMTP server the deployment does not have.
+
+**Publisher plugin deploys are now a script** (#11), whole-plugin-only, with a
+local lint, real page checks afterwards and automatic rollback. The two sites had
+already drifted apart — 400K against 436K — from earlier file-by-file copying.
+
+**Still open:** settlement moves no real money; alert delivery unconfigured (a
+Beszel configuration task, not ours); and dev.svaha.com is at 93% disk.
 
 A note on this document: it briefly named a live client secret. Never write a
 credential's value here, even to flag it as weak -- this repository is public,

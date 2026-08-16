@@ -223,7 +223,16 @@ Run both suites before showing the system to anyone, or writing that it works:
 ```bash
 infra/smoke-test.sh      # 28 checks: every public endpoint, both realms, both sites
 infra/journey-test.py    # 12 checks: the reader's journey, end to end
+infra/logout-test.py     # 19 checks: both sign-out scopes actually differ
+infra/totp-test.py       # 14 checks: two-factor really challenges, both realms
 ```
+
+Deploy the publisher plugin only with `infra/deploy-publisher-plugin.sh <site>`
+(or `all`). It lints locally, ships the plugin as a unit, checks real pages
+afterwards and rolls back if the site stops answering. Copying single files with
+`scp` is what took barharbor.info down; there is no longer a supported way to do
+it. `NEWSHARE_DEPLOY_FORCE_FAIL=1` rehearses the rollback against a healthy
+site.
 
 These exist because the sign-in path was broken for weeks and nobody knew. When
 it was finally walked start to finish it turned up **seven separate faults**, any
