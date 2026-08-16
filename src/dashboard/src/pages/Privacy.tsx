@@ -16,7 +16,6 @@
 
 import { useState } from 'react';
 import type { SessionData } from '../api/auth';
-import { getUserProfile } from '../api/profile';
 import { getPPIDList } from '../api/profile';
 
 interface PrivacyProps {
@@ -24,12 +23,11 @@ interface PrivacyProps {
 }
 
 export default function Privacy({ session: _session }: PrivacyProps) {
-  const profile = getUserProfile();
   const publishers = getPPIDList();
 
-  const [privacyLevel, setPrivacyLevel] = useState(profile.privacyLevel);
-  const [adPreference, setAdPreference] = useState(profile.adPreference);
-  const [doNotTrack, setDoNotTrack] = useState(profile.doNotTrack);
+  const [privacyLevel, setPrivacyLevel] = useState<'open' | 'limited' | 'private'>('limited');
+  const [adPreference, setAdPreference] = useState<'full' | 'links' | 'none'>('links');
+  const [doNotTrack, setDoNotTrack] = useState(false);
   const [unlinked, setUnlinked] = useState<Set<string>>(new Set());
 
   const handleUnlink = (pubMbrId: string) => {

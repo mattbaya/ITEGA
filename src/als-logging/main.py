@@ -50,6 +50,8 @@ from datetime import datetime, timezone
 from typing import Any
 
 import asyncpg
+import httpx
+from jose import JWTError, jwt
 from fastapi import Depends, FastAPI, Header, HTTPException, Path, Query
 from fastapi.responses import JSONResponse
 
@@ -257,6 +259,120 @@ async def log_event(
 # This is permitted because the home base already knows the user's real
 # identity (it is the identity provider) and needs per-event detail for
 # billing reconciliation and user-facing dashboards.
+
+# ── GET /log/report/me ───────────────────────────────────────────────
+#
+# A reader's own record, authenticated by the reader's own session token.
+#
+# The home-base report beside this one needs an API key, because a home base is
+# asking about all of its readers. This asks about exactly one, and the only
+# party entitled to it is the reader -- who is already holding a signed token
+# naming themselves. So the token is the credential, and the identifier is taken
+# from inside it rather than from the query string. A reader cannot ask for
+# somebody else's history, because there is nowhere to put the request.
+#
+# This exists because the dashboard was showing invented transactions. Given no
+# way to fetch the real ones from a browser, it displayed a fiction instead.
+
+_JWKS_CACHE: dict[str, Any] = {"keys": None, "fetched": 0.0}
+
+
+async def _als_jwks() -> dict[str, Any]:
+    """The exchange's public keys, cached briefly."""
+    import time as _t
+    if _JWKS_CACHE["keys"] and _t.time() - _JWKS_CACHE["fetched"] < 300:
+        return _JWKS_CACHE["keys"]
+    async with httpx.AsyncClient(timeout=8.0) as client:
+        resp = await client.get(f"{settings.als_base_url.rstrip('/')}/.well-known/jwks.json")
+        resp.raise_for_status()
+        _JWKS_CACHE["keys"] = resp.json()
+        _JWKS_CACHE["fetched"] = _t.time()
+    return _JWKS_CACHE["keys"]
+
+
+async def _reader_from_token(authorization: str) -> dict[str, Any]:
+    """
+    Verify a session token and return its claims.
+
+    Signature checked against the exchange's published keys -- an unverified
+    decode here would let anyone read any reader's history by editing a claim.
+    """
+    if not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="Bearer session token required")
+    token = authorization[7:].strip()
+    try:
+        return jwt.decode(
+            token,
+            await _als_jwks(),
+            algorithms=["RS256"],
+            options={"verify_aud": False},
+        )
+    except (JWTError, httpx.HTTPError) as exc:
+        logger.warning("rejected a session token: %s", exc)
+        raise HTTPException(status_code=401, detail="Invalid or expired session token")
+
+
+@app.get("/log/report/me")
+async def report_me(
+    authorization: str = Header("", alias="Authorization"),
+    pool: asyncpg.Pool = Depends(_get_pool),
+) -> JSONResponse:
+    """Everything this reader has read, and what it cost them."""
+    claims = await _reader_from_token(authorization)
+    network_user_id = claims.get("networkUserId", "")
+    if not network_user_id:
+        raise HTTPException(status_code=400, detail="Token carries no networkUserId")
+
+    async with pool.acquire() as conn:
+        # One purchase is filed twice: by the publisher, and by the reader's
+        # own agent. Show the agent's copy where it exists.
+        #
+        # Not an arbitrary preference. The publisher files markup_ratio = 1.0
+        # because it genuinely does not know the reader's markup and is not
+        # entitled to -- so its record understates what the reader owes. The
+        # agent applied the markup and is the only party that can say what the
+        # reader is actually billed.
+        rows = await conn.fetch(
+            """
+            SELECT DISTINCT ON (session_id, resource_id)
+                   timestamp, pub_mbr_id, resource_id, page_class,
+                   markup_ratio, event_type, reporter
+              FROM access_events
+             WHERE network_user_id = $1
+               AND event_type = 'content_access'
+               AND page_class > 0
+             ORDER BY session_id, resource_id,
+                      CASE reporter WHEN 'asp' THEN 0 ELSE 1 END,
+                      timestamp DESC
+            """,
+            network_user_id,
+        )
+        rows = sorted(rows, key=lambda r: r["timestamp"], reverse=True)[:200]
+
+    # The reader is shown the retail figure, because that is what they owe. The
+    # wholesale price is theirs to see too: it is their own agent's margin, and
+    # the rule that hides it protects the publisher from learning it, not the
+    # reader.
+    events = [
+        {
+            "timestamp": r["timestamp"].isoformat(),
+            "pubMbrId": r["pub_mbr_id"],
+            "resourceId": r["resource_id"],
+            "wholesale": float(r["page_class"]),
+            "markupRatio": float(r["markup_ratio"]),
+            "retail": round(float(r["page_class"]) * float(r["markup_ratio"]), 4),
+            "eventType": r["event_type"],
+            "reporter": r["reporter"],
+        }
+        for r in rows
+    ]
+    return JSONResponse({
+        "networkUserId": network_user_id,
+        "homeBaseId": claims.get("homeBaseId", ""),
+        "events": events,
+        "totalRetail": round(sum(e["retail"] for e in events), 4),
+    })
+
 
 @app.get("/log/report/home-base/{home_base_id}", response_model=HomeBaseReport)
 async def report_home_base(

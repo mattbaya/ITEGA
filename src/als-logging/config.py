@@ -35,6 +35,11 @@ class Settings(BaseSettings):
     # MUST be a strong random value in production.
     api_key: str = "change-me-in-production"
 
+    # Where to fetch the exchange's public keys, so a reader asking for their
+    # own record can be authenticated by the session token they already hold
+    # rather than by a shared secret a browser must never be given.
+    als_base_url: str = "https://als.itega.org"
+
     # ── Connection pool ───────────────────────────────────────────────
     # Minimum number of idle connections maintained by asyncpg.
     db_min_connections: int = 2

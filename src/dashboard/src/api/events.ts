@@ -42,121 +42,50 @@ export interface ContentEvent {
   eventType: 'content_access' | 'ad_view' | 'subscription_credit' | 'reward' | 'authentication' | 'logout';
 }
 
-/**
- * Fetch content access events for the current user.
- * In production this calls the ALS Logging Service through a home base proxy.
- * Returns hardcoded demo data for the prototype.
- */
-export function getContentEvents(): ContentEvent[] {
-  return [
-    {
-      eventId: 'ev-001',
-      timestamp: '2026-02-24T18:32:00Z',
-      publisherName: 'Metro Daily News',
-      articleTitle: 'City Council Approves New Transit Plan',
-      articleUrl: 'https://metrodailynews.com/city-council-transit-2026',
-      pageClass: 0.03,
-      markupRatio: 1.35,
-      eventType: 'content_access',
-    },
-    {
-      eventId: 'ev-002',
-      timestamp: '2026-02-24T17:10:00Z',
-      publisherName: 'Metro Daily News',
-      articleTitle: 'Weather: Storm System Approaching This Weekend',
-      articleUrl: 'https://metrodailynews.com/weather-storm-feb-2026',
-      pageClass: 0.01,
-      markupRatio: 1.35,
-      eventType: 'ad_view',
-    },
-    {
-      eventId: 'ev-003',
-      timestamp: '2026-02-24T14:15:00Z',
-      publisherName: 'Pacific Herald',
-      articleTitle: 'Tech Giants Report Q4 Earnings Above Expectations',
-      articleUrl: 'https://pacificherald.com/tech-q4-earnings',
-      pageClass: 0.05,
-      markupRatio: 1.35,
-      eventType: 'content_access',
-    },
-    {
-      eventId: 'ev-004',
-      timestamp: '2026-02-23T09:42:00Z',
-      publisherName: 'The National Review',
-      articleTitle: 'Analysis: Federal Reserve Signals on Interest Rates',
-      articleUrl: 'https://nationalreview.example/fed-rates-analysis',
-      pageClass: 0.08,
-      markupRatio: 1.35,
-      eventType: 'content_access',
-    },
-    {
-      eventId: 'ev-005',
-      timestamp: '2026-02-22T20:05:00Z',
-      publisherName: 'TechWire Journal',
-      articleTitle: 'Open Source AI Models Reshape Enterprise Software',
-      articleUrl: 'https://techwirejournal.com/open-source-ai-enterprise',
-      pageClass: 0.04,
-      markupRatio: 1.35,
-      eventType: 'subscription_credit',
-    },
-    {
-      eventId: 'ev-006',
-      timestamp: '2026-02-22T15:30:00Z',
-      publisherName: 'Metro Daily News',
-      articleTitle: 'Local Schools Receive State Innovation Grants',
-      articleUrl: 'https://metrodailynews.com/schools-innovation-grants',
-      pageClass: 0.03,
-      markupRatio: 1.35,
-      eventType: 'content_access',
-    },
-    {
-      eventId: 'ev-007',
-      timestamp: '2026-02-21T08:20:00Z',
-      publisherName: 'Pacific Herald',
-      articleTitle: 'West Coast Housing Market Shows Signs of Cooling',
-      articleUrl: 'https://pacificherald.com/housing-market-cooling',
-      pageClass: 0.05,
-      markupRatio: 1.35,
-      eventType: 'content_access',
-    },
-    {
-      eventId: 'ev-008',
-      timestamp: '2026-02-20T11:28:00Z',
-      publisherName: 'Coastal Times',
-      articleTitle: 'Marine Sanctuary Expansion Approved Unanimously',
-      articleUrl: 'https://coastaltimes.com/marine-sanctuary-expansion',
-      pageClass: 0.02,
-      markupRatio: 1.35,
-      eventType: 'subscription_credit',
-    },
-    {
-      eventId: 'ev-009',
-      timestamp: '2026-02-19T16:45:00Z',
-      publisherName: 'The National Review',
-      articleTitle: 'Opinion: The Future of Digital Privacy Legislation',
-      articleUrl: 'https://nationalreview.example/digital-privacy-future',
-      pageClass: 0.08,
-      markupRatio: 1.35,
-      eventType: 'content_access',
-    },
-    {
-      eventId: 'ev-010',
-      timestamp: '2026-02-19T10:12:00Z',
-      publisherName: 'Metro Daily News',
-      articleTitle: 'Restaurant Week Returns With 40 New Participants',
-      articleUrl: 'https://metrodailynews.com/restaurant-week-2026',
-      pageClass: 0.01,
-      markupRatio: 1.35,
-      eventType: 'ad_view',
-    },
-  ];
-}
+const LOGGING_URL =
+  import.meta.env.VITE_LOGGING_URL ?? 'https://als.itega.org';
 
 /**
- * Compute the total wholesale and retail costs for a list of events.
- * Wholesale = sum of pageClass values (set by publishers).
- * Retail = sum of (pageClass * markupRatio) (what the user pays through their home base).
+ * This reader's own record, from the logging service.
+ *
+ * Authenticated by the reader's own session token rather than an API key: a
+ * key belonging to the network cannot be handed to a browser, and this asks
+ * about exactly one reader, who is already holding a signed token naming
+ * themselves. The service takes the identifier from inside the token, so there
+ * is no way to ask it about anybody else.
+ *
+ * This used to return seven invented purchases at newspapers that do not
+ * exist. A reader looking at their own spending is precisely the wrong place
+ * to show them fiction.
  */
+export async function getContentEvents(): Promise<ContentEvent[]> {
+  const raw = localStorage.getItem('newshare_session_raw');
+  if (!raw) return [];
+
+  try {
+    const resp = await fetch(`${LOGGING_URL}/log/report/me`, {
+      headers: { Authorization: `Bearer ${raw}` },
+    });
+    if (!resp.ok) return [];
+    const data = await resp.json();
+    return (data.events ?? []).map((e: Record<string, unknown>, i: number) => ({
+      eventId: `ev-${i}`,
+      timestamp: String(e.timestamp ?? ''),
+      publisherName: String(e.pubMbrId ?? ''),
+      articleTitle: String(e.resourceId ?? ''),
+      articleUrl: String(e.resourceId ?? ''),
+      pageClass: Number(e.wholesale ?? 0),
+      markupRatio: Number(e.markupRatio ?? 1),
+      eventType: (e.eventType ?? 'content_access') as ContentEvent['eventType'],
+    }));
+  } catch {
+    // An unreachable logging service means we do not know what they read. It
+    // does not mean they read nothing, and it certainly does not mean we may
+    // invent something. Show an empty table and let the page say why.
+    return [];
+  }
+}
+
 export function computeTotals(events: ContentEvent[]): {
   wholesaleTotal: number;
   retailTotal: number;

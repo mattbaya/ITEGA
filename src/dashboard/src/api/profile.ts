@@ -1,5 +1,5 @@
 /**
- * profile.ts -- Demo User Profile Data for the Newshare User Dashboard
+ * profile.ts -- the signed-in reader, as far as this page is permitted to know
  *
  * Provides hardcoded demo user profile and PPID (Pairwise Pseudonymous
  * Identifier) data that simulates what the home base API would return in
@@ -17,18 +17,15 @@
  * in this dashboard because the dashboard is served by the home base itself.
  */
 
-/** User profile as returned by the home base API. */
+import { getSession } from './auth';
+
+/** What the session token actually says about the reader. Nothing more. */
 export interface UserProfile {
   networkUserId: string;
-  displayName: string;
-  email: string;
-  homeBaseName: string;
   homeBaseId: string;
-  memberSince: string;
-  markupRatio: number;
-  privacyLevel: 'open' | 'limited' | 'private';
-  adPreference: 'full' | 'links' | 'none';
-  doNotTrack: boolean;
+  networkGroupId: number;
+  sessionId: string;
+  exp: number;
 }
 
 /** Per-publisher pseudonymous ID record. */
@@ -42,69 +39,42 @@ export interface PPIDRecord {
 }
 
 /**
- * Return demo user profile data.
- * In production this calls the home base REST API.
+ * The signed-in reader, built from their own session token.
+ *
+ * There is no name here, and that is not an omission. The token carries a
+ * pairwise identifier, a tier and a home base, and no personal information at
+ * all -- the architecture's central promise is that a reader's name never
+ * leaves their home base, and this page is on the far side of that line.
+ *
+ * This function used to return "Alex Morgan of Tribune Media Group" with a
+ * membership date and a markup ratio, none of which had any connection to
+ * whoever was actually signed in. Real session values sat beside invented ones
+ * with nothing marking which was which, on a system whose whole argument is
+ * that it is running rather than simulated.
  */
-export function getUserProfile(): UserProfile {
+export function getUserProfile(): UserProfile | null {
+  const session = getSession();
+  if (!session) return null;
   return {
-    networkUserId: 'nuid-7f3a-28b1-e9c4',
-    displayName: 'Alex Morgan',
-    email: 'alex.morgan@example.com',
-    homeBaseName: 'Tribune Media Group',
-    homeBaseId: 'hb-tribune-media',
-    memberSince: '2024-03-15',
-    markupRatio: 1.35,
-    privacyLevel: 'limited',
-    adPreference: 'links',
-    doNotTrack: false,
+    networkUserId: session.networkUserId,
+    homeBaseId: session.homeBaseId,
+    networkGroupId: session.networkGroupId,
+    sessionId: session.sessionId,
+    exp: session.exp,
   };
 }
 
 /**
- * Return the list of PPIDs issued to this user across publishers.
- * Each publisher sees a different pseudonymous identifier.
+ * The reader's identifiers at each publisher.
+ *
+ * Deliberately empty. A pairwise identifier is minted by the home base for one
+ * publisher, and is never handed to anybody else -- so this page can only ever
+ * know the one issued for itself. The invented list of five that used to sit
+ * here demonstrated the idea by contradicting it.
+ *
+ * Showing a reader their own identifiers is a legitimate feature; it belongs at
+ * the home base, which is the only party that holds them all.
  */
 export function getPPIDList(): PPIDRecord[] {
-  return [
-    {
-      publisherName: 'Metro Daily News',
-      publisherDomain: 'metrodailynews.com',
-      pubMbrId: 'pm-metro-00891',
-      ppid: 'ppid-8a3f-d921-4c0e-bb17',
-      articlesAccessed: 47,
-      lastVisit: '2026-02-24T18:32:00Z',
-    },
-    {
-      publisherName: 'Pacific Herald',
-      publisherDomain: 'pacificherald.com',
-      pubMbrId: 'pm-pacific-00234',
-      ppid: 'ppid-1b7c-e043-9f8a-22d5',
-      articlesAccessed: 23,
-      lastVisit: '2026-02-24T14:15:00Z',
-    },
-    {
-      publisherName: 'The National Review',
-      publisherDomain: 'nationalreview.example',
-      pubMbrId: 'pm-natrv-00567',
-      ppid: 'ppid-5e9d-a782-3b16-cc40',
-      articlesAccessed: 12,
-      lastVisit: '2026-02-23T09:42:00Z',
-    },
-    {
-      publisherName: 'TechWire Journal',
-      publisherDomain: 'techwirejournal.com',
-      pubMbrId: 'pm-twj-01102',
-      ppid: 'ppid-c4f1-6823-ae57-1199',
-      articlesAccessed: 8,
-      lastVisit: '2026-02-22T20:05:00Z',
-    },
-    {
-      publisherName: 'Coastal Times',
-      publisherDomain: 'coastaltimes.com',
-      pubMbrId: 'pm-coast-00078',
-      ppid: 'ppid-92a0-bb14-7de3-5f68',
-      articlesAccessed: 3,
-      lastVisit: '2026-02-20T11:28:00Z',
-    },
-  ];
+  return [];
 }

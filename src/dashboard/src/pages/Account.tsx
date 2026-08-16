@@ -11,9 +11,9 @@
  * ONLY party that stores PII -- publishers and the ALS never see it.
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { SessionData } from '../api/auth';
-import { getUserProfile } from '../api/profile';
+import { getHomeBaseName } from '../api/homebase';
 import NetworkGroupBadge from '../components/NetworkGroupBadge';
 
 interface AccountProps {
@@ -21,14 +21,13 @@ interface AccountProps {
 }
 
 export default function Account({ session }: AccountProps) {
-  const profile = getUserProfile();
-  const [displayName, setDisplayName] = useState(profile.displayName);
-  const [email, setEmail] = useState(profile.email);
-
-  const memberSinceDate = new Date(profile.memberSince).toLocaleDateString(
-    'en-US',
-    { year: 'numeric', month: 'long', day: 'numeric' },
-  );
+  // Name, email and joining date are not here to be edited, because they are
+  // not here at all. They live at the reader's home base and never cross into
+  // the network -- that is the promise the whole architecture exists to keep,
+  // and a settings form on this page would quietly break it.
+  const [homeBaseName, setHomeBaseName] = useState('');
+  useEffect(() => { getHomeBaseName(session.homeBaseId).then(setHomeBaseName); },
+            [session.homeBaseId]);
 
   return (
     <div className="space-y-6">
@@ -49,23 +48,13 @@ export default function Account({ session }: AccountProps) {
             <div className="flex justify-between">
               <dt className="text-sm text-navy-500">Home Base Name</dt>
               <dd className="text-sm font-medium text-navy-800">
-                {profile.homeBaseName}
+                {homeBaseName || session.homeBaseId}
               </dd>
             </div>
             <div className="flex justify-between">
               <dt className="text-sm text-navy-500">Home Base ID</dt>
               <dd className="text-sm font-mono text-navy-600">
-                {profile.homeBaseId}
-              </dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="text-sm text-navy-500">Member Since</dt>
-              <dd className="text-sm text-navy-800">{memberSinceDate}</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="text-sm text-navy-500">Markup Ratio</dt>
-              <dd className="text-sm font-mono font-medium text-navy-800">
-                {profile.markupRatio}x
+                {session.homeBaseId}
               </dd>
             </div>
             <div className="flex justify-between items-start">
@@ -112,17 +101,13 @@ export default function Account({ session }: AccountProps) {
             <div className="flex justify-between">
               <dt className="text-sm text-navy-500">Privacy Level</dt>
               <dd className="text-sm font-medium text-navy-800 capitalize">
-                {profile.privacyLevel}
+                {'—'}
               </dd>
             </div>
             <div className="flex justify-between">
               <dt className="text-sm text-navy-500">Ad Preference</dt>
               <dd className="text-sm text-navy-800 capitalize">
-                {profile.adPreference === 'full'
-                  ? 'Full Ads'
-                  : profile.adPreference === 'links'
-                    ? 'Links Only'
-                    : 'No Ads'}
+                Set at your home base
               </dd>
             </div>
           </dl>
@@ -132,60 +117,23 @@ export default function Account({ session }: AccountProps) {
       {/* Edit profile */}
       <div className="card">
         <h2 className="text-lg font-semibold text-navy-900 mb-4">
-          Edit Profile
+          Your name and email
         </h2>
-        <p className="text-sm text-navy-500 mb-4">
-          These preferences are stored at your home base and are not shared
-          with publishers.
-        </p>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            alert('Profile update would be sent to home base API in production.');
-          }}
-          className="space-y-4 max-w-lg"
-        >
-          <div>
-            <label
-              htmlFor="displayName"
-              className="block text-sm font-medium text-navy-700 mb-1"
-            >
-              Display Name
-            </label>
-            <input
-              id="displayName"
-              type="text"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm
-                         focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="email"
-              className="block text-sm font-medium text-navy-700 mb-1"
-            >
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm
-                         focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-            />
-            <p className="text-xs text-navy-400 mt-1">
-              Your email is stored at your home base only.
-            </p>
-          </div>
-          <div className="pt-2">
-            <button type="submit" className="btn-primary">
-              Update Profile
-            </button>
-          </div>
-        </form>
+        <div className="p-4 bg-navy-50 rounded-md max-w-lg">
+          <p className="text-sm text-navy-700 font-medium mb-1">
+            They are not shown here, and cannot be edited here.
+          </p>
+          <p className="text-xs text-navy-600">
+            Your home base holds them and never sends them into the network.
+            This dashboard sits on the far side of that boundary: it knows you
+            only by an opaque identifier and a subscription tier. To change your
+            details, sign in at your home base directly.
+          </p>
+          <p className="text-xs text-navy-600 mt-2">
+            That is the point rather than a limitation &mdash; it is the same
+            reason a shop can take your card without learning your bank balance.
+          </p>
+        </div>
       </div>
 
       {/* Danger zone */}

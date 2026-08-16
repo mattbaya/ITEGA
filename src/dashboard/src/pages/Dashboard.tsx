@@ -13,8 +13,9 @@
  */
 
 import type { SessionData } from '../api/auth';
-import { getUserProfile } from '../api/profile';
-import { getPPIDList } from '../api/profile';
+import { useEffect, useState } from 'react';
+import { getHomeBaseName } from '../api/homebase';
+import type { ContentEvent } from '../api/events';
 import { getContentEvents, computeTotals } from '../api/events';
 import NetworkGroupBadge from '../components/NetworkGroupBadge';
 
@@ -23,10 +24,21 @@ interface DashboardProps {
 }
 
 export default function Dashboard({ session }: DashboardProps) {
-  const profile = getUserProfile();
-  const publishers = getPPIDList();
-  const events = getContentEvents();
+  // Everything on this page comes from the reader's own token or their own
+  // logged reading. Nothing is invented: an empty table means they have not
+  // bought anything yet, which is a true and useful thing to show them.
+  const [events, setEvents] = useState<ContentEvent[]>([]);
+  const [homeBaseName, setHomeBaseName] = useState<string>('');
+
+  useEffect(() => {
+    getContentEvents().then(setEvents);
+    getHomeBaseName(session.homeBaseId).then(setHomeBaseName);
+  }, [session.homeBaseId]);
+
   const totals = computeTotals(events);
+  // How many publishers this reader has actually read at, counted from the
+  // record rather than from a list of imaginary ones.
+  const publisherCount = new Set(events.map((e) => e.publisherName)).size;
 
   const expiresAt = new Date(session.exp * 1000);
   const now = new Date();
@@ -47,10 +59,11 @@ export default function Dashboard({ session }: DashboardProps) {
       {/* Welcome header */}
       <div>
         <h1 className="text-2xl font-bold text-navy-900">
-          Welcome back, {profile.displayName}
+          Your Newshare account
         </h1>
         <p className="text-navy-500 mt-1">
-          Here is your Newshare Network activity overview.
+          This page does not know your name. Your home base does, and it never
+          tells anyone else &mdash; including this dashboard.
         </p>
       </div>
 
@@ -59,10 +72,12 @@ export default function Dashboard({ session }: DashboardProps) {
         <div className="card">
           <p className="text-sm font-medium text-navy-500">Publishers Visited</p>
           <p className="text-3xl font-bold text-navy-900 mt-1">
-            {publishers.length}
+            {publisherCount}
           </p>
           <p className="text-xs text-navy-400 mt-1">
-            Each with a unique PPID
+            {publisherCount === 0
+              ? 'Read a gated article to begin'
+              : 'Each knows you by a different ID'}
           </p>
         </div>
         <div className="card">
@@ -111,7 +126,7 @@ export default function Dashboard({ session }: DashboardProps) {
             <div className="flex justify-between">
               <dt className="text-sm text-navy-500">Home Base</dt>
               <dd className="text-sm font-medium text-navy-800">
-                {profile.homeBaseName}
+                {homeBaseName || session.homeBaseId}
               </dd>
             </div>
             <div className="flex justify-between">
@@ -160,15 +175,11 @@ export default function Dashboard({ session }: DashboardProps) {
               </dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-sm text-navy-500">Privacy Level</dt>
-              <dd className="text-sm font-medium text-navy-800 capitalize">
-                {profile.privacyLevel}
-              </dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="text-sm text-navy-500">Markup Ratio</dt>
+              <dt className="text-sm text-navy-500">Your markup</dt>
               <dd className="text-sm font-mono text-navy-800">
-                {profile.markupRatio}x
+                {totals.wholesaleTotal > 0
+                  ? `${(totals.retailTotal / totals.wholesaleTotal).toFixed(2)}x`
+                  : '—'}
               </dd>
             </div>
           </dl>

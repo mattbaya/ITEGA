@@ -10,11 +10,14 @@
  * would be fetched from the ALS Logging Service (TimescaleDB).
  */
 
+import { useEffect, useState } from 'react';
+import type { ContentEvent } from '../api/events';
 import { getContentEvents, computeTotals } from '../api/events';
 import TransactionTable from '../components/TransactionTable';
 
 export default function Transactions() {
-  const events = getContentEvents();
+  const [events, setEvents] = useState<ContentEvent[]>([]);
+  useEffect(() => { getContentEvents().then(setEvents); }, []);
   const totals = computeTotals(events);
 
   return (
