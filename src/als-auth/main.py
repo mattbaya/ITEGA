@@ -62,7 +62,7 @@ from ai_agents import AIAgentRegistry
 from config import Settings, settings
 from discovery import DiscoveryClient
 from session_cache import AuthenticatorSessionCache
-from jwt_utils import JWKSCache, sign_session_token, verify_keycloak_id_token, verify_session_token
+from jwt_utils import ALS_SIGNING_KID, JWKSCache, sign_session_token, verify_keycloak_id_token, verify_session_token
 from jose import JWTError
 from models import (
     ErrorResponse,
@@ -1081,7 +1081,7 @@ async def jwks_endpoint() -> dict[str, Any]:
     jwk = rsa_key.to_dict()
     jwk["use"] = "sig"
     jwk["alg"] = "RS256"
-    jwk["kid"] = "als-signing-key-1"
+    jwk["kid"] = ALS_SIGNING_KID   # same constant the signer stamps
     return {"keys": [jwk]}
 
 

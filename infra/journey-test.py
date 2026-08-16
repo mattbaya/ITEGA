@@ -1,0 +1,258 @@
+#!/usr/bin/env python3
+"""Walk the reader's authenticated journey end to end, for real.
+
+`smoke-test.sh` proves every door is reachable. This proves a reader can get
+through one: read past the meter, sign in at a home base, have the code
+exchanged, come back with a session, read the article, and then be recognised
+at the *second* publisher without signing in again.
+
+Seven separate bugs hid behind the fact that nobody had ever done this. Each
+one alone stops a reader dead, and each looked fine from the hop before it, so
+this walks every step and asserts on the result rather than the redirect.
+
+Credentials come from ~/newshare-bill-credentials.txt and are never printed.
+
+Usage:  infra/journey-test.py
+Exit:   0 if the journey completes, 1 otherwise.
+"""
+from __future__ import annotations
+
+import html
+import http.cookiejar
+import json
+import base64
+import pathlib
+import re
+import subprocess
+import sys
+import urllib.error
+import urllib.parse
+import urllib.request
+
+ALS = "https://als.itega.org"
+PUBLISHERS = {
+    "barharbor":      ("Bar Harbor",     "https://barharbor.info"),
+    "northberkshire": ("North Berkshire", "https://northberkshire.org"),
+}
+HOME_BASE = "ITEGA-PC-0001"
+
+PASS: list[str] = []
+FAIL: list[str] = []
+
+
+def ok(label: str, detail: str = "") -> None:
+    print(f"  \033[32m✓\033[0m {label:<44} {detail}")
+    PASS.append(label)
+
+
+def bad(label: str, detail: str = "") -> None:
+    print(f"  \033[31m✗\033[0m {label:<44} {detail}")
+    FAIL.append(label)
+
+
+def credentials() -> tuple[str, str]:
+    p = pathlib.Path.home() / "newshare-bill-credentials.txt"
+    if not p.exists():
+        sys.exit(f"  no credentials file at {p}")
+    block = p.read_text().split("HOME BASE 1", 1)[1]
+    return (re.search(r"username:\s*(\S+)", block).group(1),
+            re.search(r"password:\s*(\S+)", block).group(1))
+
+
+def session():
+    jar = http.cookiejar.CookieJar()
+    return urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar)), jar
+
+
+def get(op, url: str) -> tuple[str, str]:
+    req = urllib.request.Request(url, headers={"User-Agent": "newshare-journey-test"})
+    try:
+        with op.open(req, timeout=30) as r:
+            return r.geturl(), r.read().decode("utf-8", "replace")
+    except urllib.error.HTTPError as e:
+        return e.geturl(), e.read().decode("utf-8", "replace")
+
+
+def post(op, url: str, data: dict, referer: str = "") -> tuple[str, str]:
+    hdrs = {"Content-Type": "application/x-www-form-urlencoded",
+            "User-Agent": "newshare-journey-test"}
+    if referer:
+        hdrs["Referer"] = referer
+    req = urllib.request.Request(url, data=urllib.parse.urlencode(data).encode(),
+                                 headers=hdrs)
+    try:
+        with op.open(req, timeout=30) as r:
+            return r.geturl(), r.read().decode("utf-8", "replace")
+    except urllib.error.HTTPError as e:
+        return e.geturl(), e.read().decode("utf-8", "replace")
+
+
+def priced_articles(host: str, n: int = 4) -> list[str]:
+    """The seeded articles carrying a price, straight from the site."""
+    out = subprocess.run(
+        ["ssh", "-o", "BatchMode=yes", f"{host}@svaha.com",
+         "export PATH=~/bin:$PATH; cd ~/public_html; wp post list --post_type=post "
+         f"--meta_key=newshare_page_class --posts_per_page={n} --field=url"],
+        capture_output=True, text=True, timeout=90).stdout.split()
+    return out
+
+
+def form_fields(body: str) -> dict[str, str]:
+    return dict(re.findall(r'name="([^"]+)"\s+value="([^"]*)"', body))
+
+
+def exhaust_meter(op, articles: list[str]) -> str:
+    """Read the free allowance, then return the body of the gated article."""
+    for a in articles[:3]:
+        get(op, a)
+    _, body = get(op, articles[3])
+    return body
+
+
+def sign_in(op, gated_body: str, user: str, pw: str) -> bool:
+    """Follow the gate's own login link all the way to a publisher session."""
+    m = re.search(r'href="([^"]*newshare_login=1[^"]*)"', gated_body)
+    if not m:
+        bad("gate offers a login link")
+        return False
+    url, body = get(op, html.unescape(m.group(1)))
+
+    if "Where do you have an account" not in body:
+        bad("gate button reaches the chooser", url[:44])
+        return False
+    ok("gate button reaches the chooser")
+
+    href = None
+    for cand in re.finditer(r'href="(/auth/select-home-base[^"]+)"', body):
+        if HOME_BASE in cand.group(1):
+            href = html.unescape(cand.group(1))
+            break
+    if not href:
+        bad("chooser lists the home base")
+        return False
+
+    url, body = get(op, ALS + href)
+    if "Sign in to your account" not in body:
+        bad("home base shows a sign-in form", url[:50])
+        return False
+    ok("home base shows a sign-in form")
+
+    action = re.search(r'<form[^>]+action="([^"]+)"', body)
+    if not action:
+        bad("sign-in form is usable")
+        return False
+    url2, body2 = post(op, html.unescape(action.group(1)),
+                       {"username": user, "password": pw, "credentialId": ""},
+                       referer=url)
+
+    fields = form_fields(body2)
+    if "sessionToken" not in fields:
+        bad("session token issued", body2[:60])
+        return False
+
+    header = json.loads(base64.urlsafe_b64decode(
+        fields["sessionToken"].split(".")[0] + "=="))
+    claims = json.loads(base64.urlsafe_b64decode(
+        fields["sessionToken"].split(".")[1] + "=="))
+    if header.get("kid"):
+        ok("token carries a key id", header["kid"])
+    else:
+        bad("token carries a key id", "publishers cannot verify it")
+    if claims.get("networkGroupId"):
+        ok("token carries a subscription tier", str(claims["networkGroupId"]))
+    else:
+        bad("token carries a subscription tier", "reader would stay gated")
+
+    handoff = re.search(r'action="([^"]+)"', body2).group(1)
+    _, body3 = post(op, handoff, fields, referer=url2)
+    if any(w in body3.lower() for w in ("no route", "invalid_state", "jwt_validation")):
+        bad("publisher accepted the hand-off", body3[:70])
+        return False
+    ok("publisher accepted the hand-off")
+    return True
+
+
+def main() -> int:
+    user, pw = credentials()
+    op, jar = session()
+
+    print("\nPUBLISHER A — BAR HARBOR")
+    a_articles = priced_articles("barharbor")
+    if len(a_articles) < 4:
+        bad("four priced articles available", str(len(a_articles)))
+        return 1
+    body = exhaust_meter(op, a_articles)
+    if "newshare-login-btn" in body:
+        ok("fourth article is gated")
+    else:
+        bad("fourth article is gated", "meter not enforced")
+        return 1
+
+    if not sign_in(op, body, user, pw):
+        return 1
+
+    cookies = [c.name for c in jar if "barharbor" in c.domain]
+    if any(c.startswith("wordpress_logged_in") for c in cookies):
+        ok("publisher session established")
+    else:
+        bad("publisher session established", str(cookies[:3]))
+
+    _, after = get(op, a_articles[3])
+    if "newshare-login-btn" not in after:
+        ok("gated article now served in full")
+    else:
+        bad("gated article now served in full")
+
+    print("\nPUBLISHER B — NORTH BERKSHIRE")
+    b_articles = priced_articles("northberkshire")
+    body_b = exhaust_meter(op, b_articles)
+    if "newshare-login-btn" not in body_b:
+        ok("recognised immediately, never gated")
+    else:
+        m = re.search(r'href="([^"]*newshare_login=1[^"]*)"', body_b)
+        url, page = get(op, html.unescape(m.group(1)))
+        if "Sign in to your account" in page:
+            bad("crossed without a second password", "was asked again")
+        else:
+            ok("crossed without a second password")
+        if "Where do you have an account" in page:
+            bad("crossed without choosing a home base again")
+        else:
+            ok("crossed without choosing a home base again")
+        fields = form_fields(page)
+        if "sessionToken" in fields:
+            post(op, re.search(r'action="([^"]+)"', page).group(1), fields, referer=url)
+        _, after_b = get(op, b_articles[3])
+        if "newshare-login-btn" not in after_b:
+            ok("second publisher's article served in full")
+        else:
+            bad("second publisher's article served in full")
+
+    # The privacy claim: the same reader, a different opaque id at each site.
+    ids = {}
+    for host in PUBLISHERS:
+        out = subprocess.run(
+            ["ssh", "-o", "BatchMode=yes", f"{host}@svaha.com",
+             "export PATH=~/bin:$PATH; cd ~/public_html; "
+             "for u in $(wp user list --field=ID); do "
+             "v=$(wp user meta get $u newshare_network_user_id 2>/dev/null); "
+             '[ -n "$v" ] && echo "$v"; done'],
+            capture_output=True, text=True, timeout=90).stdout.split()
+        if out:
+            ids[host] = out[-1]
+
+    print("\nTHE PRIVACY CLAIM")
+    if len(ids) == 2 and len(set(ids.values())) == 2:
+        ok("a different opaque id at each publisher")
+        for h, v in ids.items():
+            print(f"      {h:<16} {v}")
+    else:
+        bad("a different opaque id at each publisher", str(ids))
+
+    print()
+    print(f"  {len(PASS)} passed, {len(FAIL)} failed\n")
+    return 1 if FAIL else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

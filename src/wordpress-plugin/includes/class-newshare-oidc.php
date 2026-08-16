@@ -73,16 +73,17 @@ class Newshare_OIDC {
 			'newshare/v1',
 			'/callback',
 			array(
-				'methods'             => 'GET',
+				// POST as well as GET. The ALS hands the session token back by
+				// auto-submitting a form rather than putting it in a query
+				// string, so that a signed identity assertion never lands in a
+				// browser history, a referer header or an access log. A GET-only
+				// route answers that POST with "no route matching the URL and
+				// request method", which is where the sign-in used to die.
+				'methods'             => 'GET, POST',
 				'callback'            => array( $this, 'handle_callback' ),
 				'permission_callback' => '__return_true',
 				'args'                => array(
 					'state' => array(
-						'required'          => true,
-						'type'              => 'string',
-						'sanitize_callback' => 'sanitize_text_field',
-					),
-					'session_token' => array(
 						'required'          => true,
 						'type'              => 'string',
 						'sanitize_callback' => 'sanitize_text_field',
@@ -165,15 +166,28 @@ class Newshare_OIDC {
 		// (e.g., %253A instead of %3A), which broke the OIDC flow because
 		// the ALS could not match the redirect_uri against its allowlist.
 		// -----------------------------------------------------------------
+		// The ALS registers publishers under an OIDC client_id, which is not
+		// the same string as the Publishing Member ID: ITEGA-PA-0001 identifies
+		// the member for settlement, pub-a identifies the OIDC client. Sending
+		// the member ID here gets the request rejected as an unknown client.
+		$client_id = get_option( 'newshare_als_client_id' );
+		if ( empty( $client_id ) ) {
+			$client_id = $pub_mbr_id;
+		}
+
 		$authorize_url = add_query_arg(
 			array(
-				'client_id'     => $pub_mbr_id,
+				'client_id'     => $client_id,
 				'redirect_uri'  => $callback_url,
 				'response_type' => 'code',
-				'scope'         => 'openid newshare',
+				// Just 'openid'. There is no 'newshare' client scope defined at
+				// the home bases, and asking for one gets the whole request
+				// rejected with invalid_scope. The network claims reach the
+				// token through protocol mappers on the client, not a scope.
+				'scope'         => 'openid',
 				'state'         => $state,
 			),
-			trailingslashit( $als_auth_endpoint ) . 'authorize'
+			trailingslashit( $als_auth_endpoint ) . 'auth/authorize'
 		);
 
 		wp_redirect( $authorize_url );
@@ -224,7 +238,13 @@ class Newshare_OIDC {
 		delete_transient( 'newshare_oidc_state_' . $state );
 
 		// Step 2b: Extract the session token from query params.
-		$session_token = $request->get_param( 'session_token' );
+		// The ALS names this claim camelCase on the wire; earlier builds of this
+		// plugin expected snake_case. Accept either so a version skew between
+		// the two halves cannot silently break sign-in.
+		$session_token = $request->get_param( 'sessionToken' );
+		if ( empty( $session_token ) ) {
+			$session_token = $request->get_param( 'session_token' );
+		}
 		if ( empty( $session_token ) ) {
 			return new WP_Error(
 				'missing_token',
@@ -480,9 +500,14 @@ class Newshare_OIDC {
 	 */
 	private function get_als_public_keys(): array|WP_Error {
 		// Check the transient cache first to avoid unnecessary HTTP requests.
-		$cached_keys = get_transient( 'newshare_als_public_key' );
-		if ( false !== $cached_keys ) {
-			return $cached_keys;
+		// The cache holds the raw JWKS document, so re-parse on the way out.
+		$cached_jwks = get_transient( 'newshare_als_public_key' );
+		if ( false !== $cached_jwks && isset( $cached_jwks['keys'] ) ) {
+			try {
+				return JWK::parseKeySet( $cached_jwks, 'RS256' );
+			} catch ( \Exception $e ) {
+				delete_transient( 'newshare_als_public_key' );
+			}
 		}
 
 		// Discover the JWKS URI from the OIDC configuration.
@@ -554,8 +579,15 @@ class Newshare_OIDC {
 			);
 		}
 
-		// Cache the parsed keys for 5 minutes to reduce load on the ALS.
-		set_transient( 'newshare_als_public_key', $keys, 5 * MINUTE_IN_SECONDS );
+		// Cache the raw JWKS document, never the parsed keys.
+		//
+		// JWK::parseKeySet() returns OpenSSLAsymmetricKey objects, and PHP 8
+		// refuses to serialize those: set_transient() throws "Serialization of
+		// 'OpenSSLAsymmetricKey' is not allowed", which is an uncaught fatal
+		// inside the REST callback. The reader's browser gets a blank 500 at
+		// the very last step of signing in, with the cause visible only in the
+		// PHP error log. Caching the JSON and re-parsing costs microseconds.
+		set_transient( 'newshare_als_public_key', $jwks, 5 * MINUTE_IN_SECONDS );
 
 		return $keys;
 	}

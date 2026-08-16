@@ -157,6 +157,10 @@ async def verify_keycloak_id_token(
 # callback; the public key is used by /auth/validate and published via
 # /.well-known/jwks.json so publishers can verify tokens offline.
 
+# Must match the "kid" published in the ALS JWKS.
+ALS_SIGNING_KID = "als-signing-key-1"
+
+
 def sign_session_token(
     claims: dict[str, Any],
     private_key_pem: str,
@@ -169,9 +173,21 @@ def sign_session_token(
       - Newshare custom: networkUserId, homeBaseId, networkGroupId,
         pubMbrId, sessionId
 
+    The header carries a ``kid`` matching the entry published at
+    /.well-known/jwks.json. Without it a relying party holding a key set has no
+    way to choose a key: firebase/php-jwt refuses the token outright with
+    ``"kid" empty, unable to lookup correct key``, which is a 403 at the last
+    step of signing in. It also makes key rotation possible, since old and new
+    keys can be published together and told apart.
+
     Returns the compact JWS string (header.payload.signature).
     """
-    return jwt.encode(claims, private_key_pem, algorithm="RS256")
+    return jwt.encode(
+        claims,
+        private_key_pem,
+        algorithm="RS256",
+        headers={"kid": ALS_SIGNING_KID},
+    )
 
 
 def verify_session_token(
