@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 240" width="980" height="240"
+     role="img" aria-label="West End Sentinel Media Cooperative">
+  <title>West End Sentinel Media Cooperative</title>
+  <!--
+    A lantern, because a sentinel is a watchman and this one stands in Boston.
+    Kept geometric rather than illustrative so it survives being 24 pixels tall
+    in a browser tab, and drawn in two tones so the flame is the only warm thing
+    in the mark and therefore the thing the eye lands on.
+  -->
+  <defs>
+    <style>
+      .ink   { fill: #16263a; }
+      .flame { fill: #c8862a; }
+      .rule  { stroke: #16263a; stroke-width: 3; }
+      .wordmark {
+        font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+        font-weight: 600; fill: #16263a;
+      }
+      .sub {
+        font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+        font-weight: 500; fill: #4a5c66; letter-spacing: .32em;
+      }
+    </style>
+  </defs>
+
+  <!-- ── the lantern ────────────────────────────────────────────── -->
+  <g transform="translate(40 34)">
+    <!-- crown and hanging ring -->
+    <path class="ink" d="M56 0a13 13 0 0 1 13 13v6H43v-6A13 13 0 0 1 56 0z"
+          transform="translate(0 -14)"/>
+    <rect class="ink" x="26" y="4" width="60" height="11" rx="3"/>
+    <!-- tapering body -->
+    <path class="ink" d="M32 15h48l12 96H20z" opacity="0.14"/>
+    <path fill="none" class="rule" stroke-linejoin="round" d="M32 15h48l12 96H20z"/>
+    <!-- glazing bars -->
+    <path fill="none" class="rule" d="M56 15v96M27 63h58"/>
+    <!-- the light itself -->
+    <path class="flame" d="M56 38c9 11 14 19 14 26a14 14 0 0 1-28 0c0-7 5-15 14-26z"/>
+    <!-- base -->
+    <rect class="ink" x="14" y="111" width="84" height="12" rx="3"/>
+    <rect class="ink" x="30" y="123" width="52" height="7" rx="2" opacity="0.55"/>
+  </g>
+
+  <!-- ── the wordmark ───────────────────────────────────────────── -->
+  <text class="wordmark" x="182" y="112" font-size="72">West End Sentinel</text>
+
+  <!-- A rule between name and role, the width of the name above it. -->
+  <path class="rule" stroke-width="2" d="M184 136h656"/>
+
+  <text class="sub" x="186" y="172" font-size="21">MEDIA COOPERATIVE</text>
+  <text class="sub" x="186" y="204" font-size="16" opacity="0.75">BOSTON&#8217;S WEST END</text>
+</svg>
