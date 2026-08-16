@@ -32,16 +32,20 @@ SRC="$REPO/src/wordpress-plugin"
 # site key -> ssh account | public URL.
 # A case statement rather than an associative array: macOS still ships bash 3.2,
 # where `declare -A` does not exist, and this script has to run from a laptop.
-ALL_SITES="barharbor northberkshire"
+ALL_SITES="barharbor northberkshire wesmc"
 site_config () {
     case "$1" in
         barharbor)      echo "barharbor@svaha.com|https://barharbor.info" ;;
         northberkshire) echo "northberkshire@svaha.com|https://northberkshire.org" ;;
+        # West End Sentinel is an addon domain under the northberkshire account,
+        # so it shares the ssh login but not the document root.
+        wesmc)          echo "northberkshire@svaha.com|https://wesmc.org|wesmc.org" ;;
         *)              return 1 ;;
     esac
 }
 
-PLUGIN_DIR='$HOME/public_html/wp-content/plugins/newshare-network'
+# Set per site below, since one account can serve more than one domain.
+PLUGIN_DIR=''
 
 red ()   { printf '\033[31m%s\033[0m\n' "$*"; }
 green () { printf '\033[32m%s\033[0m\n' "$*"; }
@@ -105,7 +109,8 @@ echo "    $(du -h "$TARBALL" | cut -f1)"
 # --------------------------------------------------------------------- deploy
 overall=0
 for site in "${targets[@]}"; do
-    IFS='|' read -r account url <<<"$(site_config "$site")"
+    IFS='|' read -r account url docroot <<<"$(site_config "$site")"
+    docroot="${docroot:-public_html}"
     echo
     bold "==> $site ($url)"
 
@@ -115,7 +120,7 @@ for site in "${targets[@]}"; do
     # and keep the old directory until the checks below have passed.
     ssh -o BatchMode=yes -o ConnectTimeout=20 "$account" "bash -s" <<REMOTE
 set -euo pipefail
-P="$PLUGIN_DIR"
+P="\$HOME/${docroot}/wp-content/plugins/newshare-network"
 rm -rf /tmp/newshare-unpack
 mkdir -p /tmp/newshare-unpack
 # GNU tar warns about the xattr headers macOS bsdtar writes; the extract is fine.
@@ -155,11 +160,11 @@ REMOTE
     # A 200 is not proof on its own: WordPress can render a page while the
     # plugin is silently broken, so look for the fatal in the log too.
     fatal=$(ssh -o BatchMode=yes -o ConnectTimeout=20 "$account" \
-        'tail -c 4000 ~/public_html/wp-content/debug.log 2>/dev/null | grep -c "Fatal error" || true')
+        "tail -c 4000 ~/${docroot}/wp-content/debug.log 2>/dev/null | grep -c 'Fatal error' || true")
     if [[ "${fatal:-0}" -gt 0 ]]; then
         # Only new fatals matter; check one arrived in the last two minutes.
         recent=$(ssh -o BatchMode=yes "$account" \
-            'find ~/public_html/wp-content/debug.log -mmin -2 2>/dev/null | wc -l' || echo 0)
+            "find ~/${docroot}/wp-content/debug.log -mmin -2 2>/dev/null | wc -l" || echo 0)
         [[ "${recent:-0}" -gt 0 ]] && failed="$failed debug.log"
     fi
 
@@ -175,7 +180,7 @@ REMOTE
         red "    FAILED:$failed — rolling back"
         ssh -o BatchMode=yes "$account" "bash -s" <<REMOTE
 set -euo pipefail
-P="$PLUGIN_DIR"
+P="\$HOME/${docroot}/wp-content/plugins/newshare-network"
 if [ -d "\$P.prev" ]; then
     rm -rf "\$P.failed"; mv "\$P" "\$P.failed"; mv "\$P.prev" "\$P"
     echo "    restored the previous plugin; the broken one is at \$P.failed"
@@ -188,7 +193,7 @@ REMOTE
         overall=1
     else
         green "    deployed and answering"
-        ssh -o BatchMode=yes "$account" "rm -rf $PLUGIN_DIR.prev"
+        ssh -o BatchMode=yes "$account" "rm -rf $HOME/${docroot}/wp-content/plugins/newshare-network.prev"
     fi
 done
 

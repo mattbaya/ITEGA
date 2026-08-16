@@ -31,8 +31,17 @@ import urllib.request
 
 ALS = "https://als.itega.org"
 PUBLISHERS = {
-    "barharbor":      ("Bar Harbor",     "https://barharbor.info"),
-    "northberkshire": ("North Berkshire", "https://northberkshire.org"),
+    "barharbor":      ("Bar Harbor",        "https://barharbor.info"),
+    "northberkshire": ("North Berkshire",   "https://northberkshire.org"),
+    "wesmc":          ("West End Sentinel", "https://wesmc.org"),
+}
+
+# ssh account and document root per site. West End Sentinel is an addon domain
+# under the northberkshire account, so it shares the login and not the docroot.
+SITE_HOSTS = {
+    "barharbor":      ("barharbor",      "public_html"),
+    "northberkshire": ("northberkshire", "public_html"),
+    "wesmc":          ("northberkshire", "wesmc.org"),
 }
 HOME_BASE = "ITEGA-PC-0001"
 
@@ -101,12 +110,24 @@ def priced_articles(host: str, n: int = 4, offset: int = 0) -> list[str]:
     what is configured on them, which is the only way the meter can actually be
     said to work.
     """
+    account, docroot = SITE_HOSTS.get(host, (host, "public_html"))
     out = subprocess.run(
-        ["ssh", "-o", "BatchMode=yes", f"{host}@svaha.com",
-         "export PATH=~/bin:$PATH; cd ~/public_html; wp post list --post_type=post "
+        ["ssh", "-o", "BatchMode=yes", f"{account}@svaha.com",
+         f"export PATH=~/bin:$PATH; cd ~/{docroot}; wp post list --post_type=post "
          f"--post_status=publish --posts_per_page={n} --offset={offset} --field=url"],
         capture_output=True, text=True, timeout=90).stdout.split()
     return out
+
+
+def post_count(host: str) -> int:
+    """How many published posts this site has."""
+    account, docroot = SITE_HOSTS.get(host, (host, "public_html"))
+    out = subprocess.run(
+        ["ssh", "-o", "BatchMode=yes", f"{account}@svaha.com",
+         f"export PATH=~/bin:$PATH; cd ~/{docroot}; wp post list --post_type=post "
+         "--post_status=publish --posts_per_page=-1 --format=count"],
+        capture_output=True, text=True, timeout=90).stdout.strip()
+    return int(out) if out.isdigit() else 0
 
 
 def archive_is_metered(host: str, label: str) -> None:
@@ -117,16 +138,21 @@ def archive_is_metered(host: str, label: str) -> None:
     that is the request the site has to charge for. Reads four articles from well
     inside the archive and asserts the fourth is gated.
     """
-    urls = priced_articles(host, n=4, offset=60)
+    # As deep as this site goes. A 12-post co-op has no article sixty back, and
+    # demanding one would fail a site that is behaving perfectly.
+    total = post_count(host)
+    offset = max(0, min(60, total - 4))
+    urls = priced_articles(host, n=4, offset=offset)
     if len(urls) < 4:
-        bad(f"{label}: archive has four articles", str(len(urls)))
+        bad(f"{label}: has four articles to read", f"{total} published")
         return
     op, _ = session()
     for u in urls[:3]:
         get(op, u)
     _, body = get(op, urls[3])
     if "newshare-login-btn" in body:
-        ok(f"{label}: the archive is metered too", "gate closed on the fourth")
+        ok(f"{label}: the archive is metered too",
+           f"gate closed on the fourth, {offset} deep")
     else:
         bad(f"{label}: the archive is metered too",
             "an old article was served free — most of the site is not for sale")
@@ -280,6 +306,7 @@ def main() -> int:
     print("\nTHE WHOLE SITE IS FOR SALE, NOT JUST THE SEEDED FEW")
     archive_is_metered("barharbor", "Bar Harbor")
     archive_is_metered("northberkshire", "North Berkshire")
+    archive_is_metered("wesmc", "West End Sentinel")
 
     print("\nPUBLISHER A — BAR HARBOR")
     a_articles = priced_articles("barharbor")

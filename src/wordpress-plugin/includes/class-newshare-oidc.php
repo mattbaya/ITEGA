@@ -667,6 +667,28 @@ class Newshare_OIDC {
 	 * @param string $network_user_id The opaque PPID from the ALS (unique per publisher).
 	 * @return int|WP_Error WordPress user ID on success, WP_Error on failure.
 	 */
+	/**
+	 * A short, readable name for a reader nobody is allowed to identify.
+	 *
+	 * Every network reader used to be called "Network User", so a site with six
+	 * of them greeted all six identically and the greeting told nobody anything
+	 * -- including which account they were actually using.
+	 *
+	 * The pairwise identifier is the only thing about this reader that exists
+	 * here, so the label is built from it: stable, distinct per reader, and
+	 * still meaningless to anyone who has not been told whose it is. It is
+	 * already different at every publisher, so it cannot be used to follow
+	 * somebody between sites either.
+	 *
+	 * @param string $network_user_id The reader's pairwise identifier.
+	 * @return string
+	 */
+	private static function reader_label( string $network_user_id ): string {
+		$short = strtoupper( substr( preg_replace( '/[^a-zA-Z0-9]/', '', $network_user_id ), 0, 6 ) );
+		/* translators: %s: a short opaque code identifying the reader at this publisher. */
+		return sprintf( __( 'Reader %s', 'newshare-network' ), $short );
+	}
+
 	private function find_or_create_user( string $network_user_id ): int|WP_Error {
 		// Search for an existing user by their network ID (stored in user meta).
 		$users = get_users(
@@ -708,7 +730,7 @@ class Newshare_OIDC {
 				'user_email'   => $email,
 				'user_pass'    => wp_generate_password( 32, true, true ),
 				'role'         => 'subscriber',
-				'display_name' => __( 'Network User', 'newshare-network' ),
+				'display_name' => self::reader_label( $network_user_id ),
 			)
 		);
 
