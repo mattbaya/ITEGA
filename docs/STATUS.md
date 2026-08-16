@@ -1,5 +1,44 @@
 # Project Status and Plan Forward
 
+## 2026-08-16 — the sign-in path was broken, and now is not
+
+The reader's authenticated journey had never been walked end to end. Walking it
+found **seven separate faults** between a reader and a signed-in session, any one
+of which stopped the journey dead, plus five more elsewhere. All twelve are in
+the issue tracker with cause, fix and verification: github.com/mattbaya/ITEGA/issues
+
+The ones worth remembering:
+
+- **No PKCE challenge** (#1). Keycloak requires it; the ALS was not sending one,
+  so every home base refused every sign-in and the reader saw a raw JSON error.
+- **Publishers never filed their own purchases** (#12). Logging ran only when the
+  reader's *tier* granted access, which is the one case a purchase is not. A
+  publisher could sell all day and settlement would credit it nothing.
+- **A returning reader could be locked out permanently** (#17). Lookup is by user
+  meta; if that goes missing the code tries to create a duplicate account, the
+  login collides, and every future attempt 500s. Now self-healing.
+- **Monitoring would never have told anyone anything** (#16). Zero alert rules,
+  SMTP disabled. Sixteen rules now exist and the disk rule fired on dev-svaha
+  within a minute. Delivery is still unconfigured.
+
+Two test suites now guard this and should be run before showing anyone anything:
+
+    infra/smoke-test.sh     28 checks, every public surface
+    infra/journey-test.py   12 checks, the reader's journey end to end
+
+Verified working: cross-publisher recognition with distinct pairwise identifiers,
+all three negotiation outcomes in the real reader flow, the wholesale/retail
+split, the AI agent handshake refused and paid, publisher logging at the agreed
+price, settlement balancing at 0.5500, the 14-step walkthrough against live
+services, RSL metadata, 30-minute tokens, and signature validation refusing a
+tampered networkGroupId.
+
+**Still open:** settlement moves no real money; logging out of one publisher does
+not log you out of the network (#15, needs a decision not a patch); alert
+delivery unconfigured; the dashboard client secret is literally PLACEHOLDER; and
+dev.svaha.com is at 93% disk.
+
+
 *Living handoff document. Anyone — or any session — picking this up cold should be
 able to read this file and continue without reconstructing context.*
 
