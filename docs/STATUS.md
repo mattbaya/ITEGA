@@ -35,8 +35,13 @@ tampered networkGroupId.
 
 **Still open:** settlement moves no real money; logging out of one publisher does
 not log you out of the network (#15, needs a decision not a patch); alert
-delivery unconfigured; the dashboard client secret is literally PLACEHOLDER; and
-dev.svaha.com is at 93% disk.
+delivery unconfigured (a Beszel configuration task, not ours); and dev.svaha.com
+is at 93% disk.
+
+A note on this document: it briefly named a live client secret. Never write a
+credential's value here, even to flag it as weak -- this repository is public,
+and saying which string a secret is set to is worse than the weak secret itself.
+Name the client and say "needs rotating".
 
 
 *Living handoff document. Anyone — or any session — picking this up cold should be
