@@ -1,270 +1,200 @@
-# Aug 25 Demo Script — Gap Analysis and Build Plan
+# Bill's demo script vs. what is built
 
-*Working document. Reconciles Bill Densmore's demo script against the prototype in `src/`.*
+*Reviewed against `ITEGA-RJI-demo-script-08-07-26` (the 08-07 revision, in
+`reference/`, gitignored). Last checked 2026-08-16 against the live deployment.*
 
-Source script: `reference/ITEGA-RJI-demo-script-08-07-26 document.md` (gitignored —
-`reference/` holds source documents and correspondence that do not belong in a public repo).
-The 08-07 revision supersedes 07-30; its main change is a fully written-out
-wholesale-retail pricing section that the earlier draft left truncated mid-sentence.
+Everything marked **met** below was exercised against the running system, not
+read out of the source. Where a claim rests on a test, the suite is named.
 
-## Goal
+---
 
-Bill's ask: confirm the scripted functionality is operationalized in the existing code,
-then drive a UI-rich demo over Zoom on Aug 25. Working functionality is preferred over
-simulation wherever it is achievable — a live flow is far more persuasive to the
-publishers in that room than a mockup.
+## Verdict in one paragraph
 
-## Status by section
+The script has four movements — the reader's journey, transparent login at a
+second publisher, AI answer engines, and wholesale-retail pricing. **All four
+work end to end against live services.** Five gaps remain, of which one is
+cosmetic but highly visible on the day, one is a genuine missing screen that
+carries Bill's most important argument to publishers, and one needs a decision
+from Bill rather than code. None is large.
 
-| Script section | Status |
-|---|---|
-| Definitions 1–13 | Covered — map onto existing roles and JWT claims |
-| Steps 1–8: no-account visitor offered Network Login | Built — `templates/access-gate.php` |
-| Steps 9, 12–17: redirect, session token, tier enforcement | Built — `src/als-auth/main.py` |
-| Path Option 2 (steps 20–24): home base discovery | **Built this round** — see below |
-| Steps 31–42: transparent SSO at a third publisher | Needs end-to-end verification, likely no new code |
-| Step 18 + wholesale-retail section: price negotiation | Built; needs an end-to-end run |
-| Step 43: duplicate aggregated log reports | Partly built — reporting endpoints exist |
-| AI answer-engine section (14 steps) | **Deferred by decision** — see below |
+---
 
-## Two findings that should shape the pricing work
+## Section by section
 
-### X402 — corrected, and settled
+### Definitions (1–13) — met
 
-> **Correction (Aug 9).** The analysis below overstated the fit. Drummond Reed
-> clarified that **x402 is strictly for payments and does not do identity
-> management**. The identity half is a separate, much less mature effort: `x401`
-> is a *proposal* from Proof (Daniel Buchner) to layer verifiable credentials onto
-> x402, published as a blog post in June 2026, and the underlying work is in ToIP's
-> Decentralized Trust Graph Working Group with reference code at OpenVTC (LF
-> Decentralized Trust Labs).
->
-> That matters because the AI-agent section needs **authentication** first — deciding
-> whether a crawler is an ITEGA member at all — and x402 would not have supplied it.
-> The facilitator mapping below still holds for the *payment* leg, and is worth
-> keeping in view, but x402 was never going to carry the part Bill most needs working.
->
-> **Decision (Bill, Aug 8):** build our own approach now, keep the seam open, and be
-> able to state that ITEGA "intends to support x402 when it becomes an operating
-> standard." AI-agent support must work for Aug 25 regardless.
+The vocabulary maps cleanly onto what exists. `Publishing Member ID` is
+`pubMbrId`; CMS is the WordPress plugin; ASP is the Retail Agent; Home Base is a
+Keycloak realm. Publisher C acts as ASP only, as the script requires.
 
-The mapping that remains accurate, for the payment leg:
+### Demonstration flow 1–5, 9 — met
 
-**X402** (incubated by Cloudflare and Coinbase, now at the Linux Foundation) puts
-payment into HTTP directly, and its roles map onto the four-party model closely:
+The meter allows three free reads and closes on the fourth; the gate offers the
+network; the Authenticator holds the requested resource while the reader is away
+and returns them to it. `journey-test.py`.
 
-| X402 | Newshare |
-|---|---|
-| `resource server` | CMS / content publisher |
-| `client` | End User's Agent, or an AI Agent |
-| `facilitator` (verifies and settles) | **the ALS** |
-| `PaymentRequirements` | the publisher's asking price (`pageClass`) |
-| deferred payment scheme | ITEGA's batch settlement |
+### Path Option 1 — first-party cookie (10–14) — met, with one deliberate difference
 
-The flow is an HTTP-native negotiation: the server answers a request with
-`402 Payment Required` and its terms, the client returns a signed payment
-payload, the server verifies — directly or through a facilitator — and then
-serves the content. That is recognisably the exchange the demo script describes
-in prose, expressed as a standard.
+There is a first-party cookie on the ITEGA domain, and a returning reader is
+recognised without a second sign-in.
 
-Cloudflare's proposed **deferred payment scheme** is the closest fit of all: it
-decouples the cryptographic handshake from settlement so that crawlers can be
-billed a single aggregated fee at the end of the day against a card or bank
-account, supporting "pre-negotiated licensing agreements, batch settlements, or
-subscriptions." That is ITEGA's settlement model, already standardised.
+**The difference is worth Bill knowing, because it is an improvement and he may
+want to say so.** The script describes the cookie as *containing* an ITEGA-issued
+User Member ID, which itself contains the reader's member ID at their home base
+and the Publishing Member ID of that home base. Ours contains **an opaque handle
+and nothing else**; the mapping lives server-side at the Authenticator.
 
-**What keeps the migration credible.** The current architecture already separates
-the three things x402 would slot into: authentication (the Authenticator issues a
-session token), price agreement (the publisher and the Retail Agent negotiate
-directly), and settlement (a weekly batch reading the log). Payment is already
-decoupled from identity, so adopting x402 later means replacing the price-agreement
-and settlement legs without touching how readers are authenticated. That makes
-"we intend to support x402" an architectural statement rather than a hopeful one —
-worth being able to say plainly on Aug 25.
+Identifiers in a cookie can be read by anything that can read the cookie, and a
+value that carries the home base's identity inside it tells every party who holds
+it where that reader banks. The handle cannot be decoded, cannot be correlated,
+and expires. The behaviour the script asks for is identical; the disclosure is
+not.
 
-### Rick Lerner questions the premise of price negotiation
+### Path Option 2 — discover the home base (20–23) — met
 
-Rick Lerner — co-inventor of the original system — pushed back on the dynamic
-pricing idea in his May review of Bill's essay:
+The chooser asks for the home base by name or Publishing Member ID, suggests
+candidates from the visitor's IP, and offers a default home base for sign-up when
+nothing matches.
 
-> "I think you need to suggest why any publisher would want to have to negotiate
-> prices, rather than just set them and adjust to maximize demand. I always
-> thought the original idea was that each publisher set their own price."
+### Using the session token (25–30) — met
 
-He also notes they "never came up with a way to present prices in a way that let
-consumers choose which provider they wanted to use," and warns more broadly that
-leaving publishers to invent their own pricing models "is where I think we went
-wrong."
+Token stored temporarily, attached, resubmitted; the publisher checks its asking
+price and opens a dialog with the reader's home base before vending. All three
+outcomes — accept, counter, decline — occur in the real reader flow, and the
+refusal copy is Bill's own wording from step 29, with a link back to the home
+base.
 
-This does not block the work — the script specifies negotiation clearly and it is
-demonstrable. But the person who built the original system is unconvinced
-publishers want it, so it is worth Bill reconciling the two views before the
-roundtable, where Rick's question ("why would a publisher want to negotiate?")
-is likely to be asked from the floor.
+### Transparent login to a second publisher (31–42) — met for two publishers
 
-Separately, Rick argues the AI problem "should be handled separately from
-consumers... publishers are more likely to want to fix that problem without
-uprooting their consumer relationships." That independently supports both
-deferring the AI section from the consumer flow and treating it as its own
-track — which is what X402 would allow.
+Sign in at Bar Harbor, cross to North Berkshire: no password, no second chooser,
+and the gated article is served. The two publishers know the reader by different
+opaque identifiers, which is checked explicitly rather than assumed.
 
-## Completed this round
+See **Gap 3** on the script's "Publisher 3".
 
-**Network Discovery service** (`src/network-discovery/`) — Plan 06 implemented for real.
-Serves the ITEGA registry of certified home bases and publishers, and resolves a visitor
-to a home base in the order the script describes (step 20–24): exact match on Publishing
-Member ID, then name match, then an IP-prefix hint, then falling back to offering a
-default home base for sign-up. Also serves WebFinger (RFC 7033) and a network discovery
-document. The registry lives in `data/registry.json` so ITEGA's certification decisions
-stay reviewable in version control.
+### User reports (43) — met
 
-**Multi-home-base routing** (`src/als-auth/`) — the ALS no longer assumes one Keycloak
-realm. Home bases come from Network Discovery, each with its own JWKS cache, token
-endpoint, and issuer, so Publisher C can act as a genuine Home Base/ASP distinct from the
-content-vending publishers. An unhinted visitor now gets the chooser from Path Option 2:
-pick a certified member, look one up by name or Publishing Member ID, or be offered a
-place to sign up when nothing matches.
+The home base can pull the full clickstream for its own readers; a publisher gets
+aggregated totals only, and never the markup. The reader sees their own purchase
+record in the dashboard. Settlement writes both JSON and per-home-base CSV, which
+is the "format for such data" the step asks to be presented.
 
-**Retail Agent service** (`src/asp-agent/`) — the home base's buying code, as its own
-party. It holds the markup ratio, answers a publisher's asking price with accept,
-counter, or decline, and files its own log report for purchases it authorises. All
-three outcomes tested, including that the markup never appears in a response to the
-publisher.
+### AI answer engines (1–14) — met, including the part nothing tested until today
 
-**Price negotiation in the plugin** — publishers now ask before vending, answer a
-counter-offer against a configurable floor, and show the script's refusal message when
-payment is not authorised.
+Verified live during this review against a real Bar Harbor article:
 
-**Settlement pricing corrected** — see the defect note under pricing below. Wholesale is
-now settled correctly and the markup is no longer disclosed to publishers.
+| Step | Behaviour | Result |
+|---|---|---|
+| 3–4, 14 | Non-member crawler | **403**, with a note directing it to join |
+| 5–6 | Member, no price agreed | **402**, quoting $0.05 |
+| 7 | Member accepts the price | **200**, article served, grant issued |
+| 9–11 | Second resource, presenting the grant | **200**, served without renegotiating |
 
-**A fatal parse error fixed** — `class-newshare-oidc.php` declared a return type PHP
-rejects, so the file did not parse and the plugin could not load on any supported PHP
-version. Found by linting; it would have stopped the demo dead.
+Steps 9–13 — continuing to crawl under a grant until it times out — had no test
+covering them before this review. They work.
 
-*Still needed to exercise the above end to end:* a second Keycloak realm representing
-Publisher C's home base. The code paths are in place and tested against the discovery
-registry; the realms themselves are a deployment step.
+### Wholesale-retail pricing (1–10) — met, and precisely
 
-## Remaining gaps
+Step 8 is the subtle one, and it is implemented exactly as written. Both parties
+file their own log report. The publisher's record carries the wholesale price and
+**no markup ratio at all**. The Retail Agent's record carries the markup ratio
+*and* states the price owed as the wholesale figure — which is what the script
+specifies, and what makes independent audit possible without disclosing the
+margin. The publisher is paid $0.05 whichever home base the reader belongs to,
+while readers at the 1.1 and 1.4 home bases are billed $0.055 and $0.07.
 
-### 1. Dynamic pricing negotiation — built, not yet exercised end to end
-The 08-07 script defines this properly, and it is more than a static price lookup:
+---
 
-- **Three outcomes must all be demonstrated**: the End User accepts the offered price,
-  declines it, or opens a bargaining session with the Content Server.
-- **The Markup Ratio is confidential to the Retail Agent.** The script is explicit that
-  the Rights Owner "does not need to know the Markup Ratio, and may or may not be
-  permitted by governance or law to know it." The retail price is the Retail Agent's
-  business, not the publisher's.
-- **Both parties log independently.** The Content Server and the End User's Agent each
-  send an enhanced log report to the logger, specifically so discrepancies and fraud can
-  be audited. The Agent's report carries the markup ratio applied; the amount the End
-  User's Agent owes at settlement is the *wholesale* price.
+## The five gaps
 
-**Now built.** A Retail Agent service (`src/asp-agent/`) represents the home base's
-buying code and answers accept, counter, or decline; the WordPress plugin negotiates
-before releasing content and shows the specified refusal message when payment is not
-authorised. All three outcomes are tested, and the markup is not disclosed to the
-publisher in any response.
+### Gap 1 — the service hostnames in the script do not exist
 
-Dual reporting is in place: events record which party filed them, settlement
-aggregates the publisher's side, and the agent's record remains as the audit
-cross-check. (Worth noting because it briefly wasn't — with both parties filing and
-nothing distinguishing them, settlement would have billed every negotiated purchase
-twice.)
+The script names `Authenticator.itega.org` and `Logger.itega.org` throughout.
+Neither resolves. Everything runs under `als.itega.org`.
 
-Remaining: **exercising it end to end** against a running WordPress site and home
-base. The service logic and money math are verified directly; the full path is not.
+This is cosmetic and it is also the most visible thing on the list: anyone
+following Bill's script while watching a screen will see a hostname that is not
+the one he just said. Fixing it is a DNS record and a vhost alias per name, and
+it costs nothing.
 
-### 1b. Deferred: home-base-specific pricing policy
-Each home base currently reads one policy from configuration. The demo only needs one
-home base making decisions, but a network with several would want per-home-base policy
-storage. Not needed for Aug 25.
+**Recommendation:** add `authenticator.itega.org` and `logger.itega.org` as
+aliases before the 25th. Keep `als.itega.org` working.
 
-> **Defect found and fixed while reviewing this against the code.** The settlement
-> engine treated `pageClass * markupRatio` as the wholesale value. That is the
-> *retail* price — `pageClass` alone is wholesale. The consequence was not cosmetic:
-> publishers were credited the marked-up amount and home bases debited it, so the
-> home base's margin was paid to the publisher. That margin is the home base's whole
-> incentive to send a reader to another publisher, so the code inverted the business
-> model the demo exists to show. `plans/04` already described the correct flow.
-> Publisher-facing reports also carried markup-derived totals, which the 08-07 pricing
-> rules say the Rights Owner is not entitled to see. Both corrected; verified against
-> the script's own example (100 accesses at $0.10 with a 1.1 markup now settle $10.00
-> to the publisher, not $11.00).
+### Gap 2 — the publisher's own paywall is not offered alongside the network
 
-### 1a. Verifying transparent SSO across three publishers (steps 31–42)
+Steps 6–8 stage three outcomes at Publisher B: an invitation to take out a *local*
+subscription, a second option to log in to the ITEGA network, and — if neither is
+taken — a page saying the resource is not available.
 
-No new code is expected here — every `/auth/authorize` call now routes through the
-reader's home base, and that home base's own session keeps a second publisher's login
-transparent. But this has never been exercised with three publishers in sequence, and
-nothing in the ALS explicitly guarantees it, so treat it as unverified until walked
-through:
+Our gate offers only the network login.
 
-1. Sign in at Publisher B via Network Login; confirm a session token is issued.
-2. Without signing out, visit Publisher A and request paywalled content. Expect no
-   login prompt — the home base should recognise the reader and issue a fresh token.
-3. Repeat at Publisher C. Confirm the PPID differs at each publisher (that is the
-   privacy guarantee) while the reader is never asked to log in again.
-4. Wait out the session token TTL and repeat step 2. Expect a silent re-authentication,
-   not an error.
+This is the smallest change on the list and the one with the most riding on it.
+Steps 6–8 are where Bill demonstrates that **ITEGA does not replace a publisher's
+paywall and does not take their subscriber** — the first objection any publisher
+in the room will have. Right now the demo shows a gate whose only exit is the
+network, which argues the opposite of what he intends.
 
-If step 2 prompts for login, the cause is almost certainly home-base session
-configuration rather than ALS logic — check the SSO session lifetime on the realm
-before changing any code here.
+**Recommendation:** add a configurable "Subscribe to *this* paper" button beside
+the network button, and the refusal page for the reader who takes neither. Half a
+day.
 
-### 2. First-party cookie step (Path Option 1, steps 10–11)
-The script has the Authenticator look for "a first-party cookie in the ITEGA domain,"
-but the architecture forbids auth cookies on publisher domains. Keycloak's own IdP
-session cookie, on its own domain, already produces the behavior the script describes
-and is what makes the transparent-SSO section work. Worth one clarifying question to
-Bill rather than a design change.
+### Gap 3 — the script stages three publishers; we have two, and the script contradicts itself
 
-### 3. Refusal copy (script step 29) — done
-Built as part of the pricing work, in its own template
-(`templates/payment-declined.php`) rather than folded into the tier-upgrade gate,
-since the two situations call for different remedies.
+Steps 31–42 are titled "transparent login to publisher number three", and step 35
+sends the reader to "Publisher 3".
 
-## Deferred by decision: AI answer-engine section
+But step 3 of the same script says Publisher C "performs only as an ASP", and the
+established mapping is that Publisher 3 *is* Publisher C. A party that only keeps
+accounts cannot also serve the article that section requires.
 
-The script's 14-step machine-to-machine sequence (AI agents authenticating, confirming a
-price per request, and streaming content until a timeout) is **not being built this
-round**. It has no counterpart in the current architecture and would be built from
-scratch.
+The demonstrable claim — sign in once, be recognised at another publisher without
+a password — is fully met between Bar Harbor and North Berkshire. What is not met
+is the literal staging of a third content site.
 
-It also sits on one side of a disagreement the project's own peer reviewers already had:
-Drummond Reed's February review argued specifically that AI agents "don't use browsers,
-don't use OpenID" and need DID/VC-based infrastructure, whereas the script extends the
-existing OIDC session-token model to cover them. That is a legitimate choice, but it
-should be Bill's explicit call before engineering time goes into it.
+**This needs Bill, not code.** Either the section means "a second content site",
+which works today, or he genuinely wants three, which is another WordPress
+install and roughly a day. Worth asking before the 25th, because the audience
+will have counted the publishers in the definitions.
 
-Note this is not a peripheral request: the E&P op-ed and the RJI event page both lead
-with AI agents paying for content, so it will likely come up on Aug 25 even if it isn't
-demonstrated.
+### Gap 4 — the sign-up invitation is a sentence, not a screen
 
-## Answered by Bill (Aug 8–9)
+Step 24 asks for "a marketing screen briefly acquainting them with the ITEGA
+network and inviting them to establish an ITEGA-compliant account". The chooser
+currently offers one line: *Not affiliated with a member yet? Create an account
+with …*.
 
-1. **X402** — build our own approach now; keep the seam open; state that ITEGA intends
-   to support x402 when it becomes an operating standard. AI-agent support ships for
-   Aug 25 regardless, because the handshake for authentication, logging and settlement
-   is central to ITEGA's pitch to publishers. See the correction above: x402 is
-   payments-only and would not have covered the authentication half anyway.
-2. **Price negotiation** — a settled business decision, build it. Refined flow: the
-   publisher posts a price, waits a very short interval for the agent to accept or ask
-   to negotiate, then either negotiates or declares the posted price take-it-or-leave-it.
-   Rick's scepticism is exactly why it needs to be demonstrable — that is how you elicit
-   the feedback.
-3. **First-party cookie** — resolved by adding a step *before* step 10: the Authenticator
-   first checks its own cached store of authenticated readers and reuses a still-fresh
-   token, falling back to steps 10–14 only when stale. Wanted as working code. Multi-
-   authenticator coordination at scale is explicitly out of scope for Aug 25.
-4. **Session token lifetime** — Bill proposed 30 minutes; the implementation already uses
-   exactly that (`session_token_ttl` = 1800s). Short enough to limit replay, long enough
-   that a live demo will not re-authenticate mid-sentence.
-5. **Publisher naming** — Publisher C and "Publisher 3" are the same party, as are A/B and
-   1/2. Settling on **letters** throughout, since the script's Definitions section
-   establishes them.
-6. **Aug 25 scope** — the full system operating across three publishers, plus a
-   step-through demo narrating the background exchanges in pop-ups and closing on what is
-   logged where and how settlement works, markup included.
+Functionally correct, rhetorically thin — and this is the screen a reader with no
+home base actually sees, which makes it the network's only pitch to a newcomer.
+
+**Recommendation:** two or three sentences and the four-party picture. An hour.
+
+### Gap 5 — a home base cannot be found by URL
+
+Step 24 says the reader may be asked for their home base's URL, and that a URL
+matching a member ASP should invite sign-up there. We resolve by name and by
+Publishing Member ID; a URL falls through to the default. Small, and easy.
+
+---
+
+## Settled previously, still true
+
+- **X402** — corrected and settled; the AI handshake uses plain HTTP 402 with
+  ITEGA headers, not the x402 payments protocol.
+- **Rick Lerner's objection to price negotiation** — the demo supports both:
+  `terms=final` posts a take-it-or-leave-it price and never counters,
+  `terms=open` negotiates. Both are demonstrated.
+- **Publisher letters beat numbers.** A/B/C everywhere; the script's 1/2/3 are
+  the same parties.
+- **Home-base-specific pricing policy** remains deferred by decision.
+
+---
+
+## What to do before the 25th, in order
+
+| | Gap | Cost | Blocking? |
+|---|---|---|---|
+| 1 | Hostname aliases (Gap 1) | ~1 hour | No, but visible |
+| 2 | Publisher's own subscribe option + refusal page (Gap 2) | ~half a day | **Carries the argument** |
+| 3 | Ask Bill about the third publisher (Gap 3) | one email | Needs his answer |
+| 4 | Sign-up screen (Gap 4) | ~1 hour | No |
+| 5 | Resolve a home base by URL (Gap 5) | ~1 hour | No |

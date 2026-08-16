@@ -76,7 +76,7 @@ able to read this file and continue without reconstructing context.*
 
 | For | Read |
 |---|---|
-| What Bill wants demonstrated | `reference/ITEGA-RJI-demo-script-08-07-26 document.md` *(gitignored — local only)* |
+| What Bill wants demonstrated | `reference/ITEGA-RJI-demo-script-08-07-26.md` *(gitignored — local only)* |
 | Script vs. code, and Bill's answers | `docs/demo-script-gap-analysis.md` |
 | Host sizing and layout | `docs/server-specs.md` |
 | How to build the servers | `docs/vps-provisioning-plan.md` |
