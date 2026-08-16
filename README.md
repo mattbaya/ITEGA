@@ -141,6 +141,18 @@ Then the Globe and the Missourian negotiate, in the moment, before anything is s
 
 If Susan ever wants to stop being recognized at the Globe, she can tell the Missourian (her home base) to **unlink her Globe ID**. The opaque identifier `HB001-a7f3bc92e41d` is immediately revoked. The Globe's records still contain the old ID, but it will never match any future request. Susan has effectively vanished from the Globe's system — without the Globe needing to do anything.
 
+### What if Susan Is on a Library Computer?
+
+Signing out is two different things in a network, so Susan is asked which she
+means. **Sign out of the Globe** ends her session there; the Missourian still
+knows her, so the next member paper needs no password — which is the reason she
+joined. **Sign out of the whole network** ends her session at the Missourian
+too, and the next person at that desk starts from nothing.
+
+The second is the one that matters on a shared machine, and the page says so
+rather than leaving her to work it out. She can also add a second factor from
+her home base's account page, so a stolen password alone is not enough.
+
 ---
 
 ## The Four-Party Model
@@ -633,11 +645,13 @@ Phase 2 (broader rollout + UDEX): ~$2M over 3 years. Not part of this request.
 ## What Has Actually Been Verified
 
 Every claim below was exercised against the live system, not inferred from the
-code. Two suites, both passing, both runnable before showing anyone anything:
+code. Four suites, all passing, all runnable before showing anyone anything:
 
 ```bash
 infra/smoke-test.sh      # 28 checks — every public endpoint, both realms, both sites
 infra/journey-test.py    # 12 checks — the reader's journey, end to end
+infra/logout-test.py     # 19 checks — both sign-out scopes, and that they differ
+infra/totp-test.py       # 14 checks — two-factor really challenges, both realms
 ```
 
 **The reader's journey.** She reads three articles at Bar Harbor; the fourth is
@@ -656,6 +670,20 @@ is billed 5.5¢ or 7¢ — and the markup ratio is never disclosed to the publis
 **AI agents.** A non-member is refused and told where to join. A member is quoted
 402 with a price, agrees it, and receives a crawl grant with the content.
 
+**Signing out.** The reader is asked how far it should reach, because leaving one
+newspaper and leaving the network are different acts. "Sign out of this
+publisher" re-gates the article but carries the reader back without a password,
+so the other papers still recognise them. "Sign out of the whole network" clears
+the exchange's cookie and ends the session at the home base, and a password is
+demanded on the way back. The test asserts on that difference rather than on the
+page saying goodbye.
+
+**Two-factor.** Available at both home bases, opt-in from the account console,
+using TOTP so any authenticator app works. The test enrols a second factor and
+then tries to get past it: a password alone is stopped, a wrong code is refused,
+the right one is accepted. A challenge that appears and then accepts anything is
+worse than none, because it is believed.
+
 **Settlement.** Runs, balances (debits = credits), takes a 1.5% fee, and writes
 CSV and JSON reports. It aggregates the publisher's own records, which is why
 publishers filing their own purchases matters.
@@ -663,9 +691,11 @@ publishers filing their own purchases matters.
 ### What is not true yet
 
 - **No money moves.** Settlement produces reports; no transfer occurs.
-- **Logging out of one publisher does not log you out of the network.** Ordinary
-  federated behaviour, but on a shared machine the next person could buy
-  articles billed to the previous one. Tracked as an open decision.
+- **Two-factor is offered, not required.** Readers turn it on themselves; making
+  it mandatory is one setting per realm, deliberately not flipped so that a demo
+  login does not begin with an enrolment screen. Email one-time codes are not
+  available at all: Keycloak has no built-in support for them, and adding it
+  would mean a custom extension plus a mail server this deployment does not run.
 - **Monitoring detects but does not notify.** Sixteen alert rules exist and fire
   correctly; no delivery channel is configured, so they only show on the
   dashboard.
@@ -681,6 +711,15 @@ total, all recorded with cause and verification in the
 
 That a service returns 200 proves very little about whether a person can get
 through it.
+
+The same reasoning applies to shipping. A partial copy of the plugin — one class
+updated, the bootstrap that calls it not — took a publisher site down entirely,
+because WordPress fatals before it renders anything. Deployment is now a script
+that refuses to send a subset, lints every file before it leaves the laptop,
+fetches real pages afterwards, and restores the previous copy if the site stops
+answering. Its rollback is rehearsed by forcing the check to fail against a
+healthy site, so the recovery path is exercised without any reader seeing a
+fault.
 
 ## Prototype: Low-Cost Demo (~$15/month)
 

@@ -150,11 +150,45 @@ is not. `newshare_free_article_count` is 3, so the first three reads are
 deliberately free and the meter closes on the fourth. The lesson is that a
 single anonymous request proves nothing about the gate — the meter has to be
 exhausted before the gate is even asked to act.
+## Updating the plugin
+
+Use `infra/deploy-publisher-plugin.sh <site>`, or `all` for both. It is the only
+supported route, and it does not accept a file path — only a site name.
+
+```bash
+infra/deploy-publisher-plugin.sh all
+```
+
+That restriction is the point. Copying `class-newshare-access.php` on its own,
+after it had gained a constructor argument the deployed bootstrap knew nothing
+about, took barharbor.info down completely: WordPress fatals during plugin load,
+so every page on the site returned a critical error, including the front page.
+The script lints every PHP file locally first, ships the directory as a unit,
+then fetches real pages and greps the tail of `debug.log` for a fresh fatal. If
+anything fails it restores the previous copy, parks the broken one at
+`newshare-network.failed`, and re-checks that the site is actually back.
+
+`NEWSHARE_DEPLOY_FORCE_FAIL=1` makes the verification report failure while the
+code being deployed is good, so the rollback path can be rehearsed against a
+healthy site without a reader ever seeing a fault.
+
+The publisher's own `newshare-config.php` — member ID and API key, written at
+install time and never in the repository — is carried across the swap.
+
+Running it also revealed the two sites had drifted apart, 400K against 436K,
+from the earlier file-by-file copying. They are identical now.
+
+## The reader's authenticated path — verified
+
+No longer the untested leg. Signing in through a home base, the price
+negotiation, the purchase notice, crossing to the second publisher, and both
+sign-out scopes are all exercised by `infra/journey-test.py` and
+`infra/logout-test.py` against these two live sites.
+
 ## Still to do
 
-- **The reader's authenticated path** — signing in through a home base, the
-  price negotiation, and the purchase notice — is the remaining untested leg.
 - **`greylockglass.com`** is a real, operating news site whose owner may be
   willing to take part. That would be a considerably stronger demonstration than
-  two sites we control, and should only be attempted after the flow is proven on
-  these two.
+  two sites we control. The demo-mode gate that makes it safe — ordinary readers
+  see no gate, no login prompt, no pricing call, and nothing in the page source
+  — is built and verified on a live site.
