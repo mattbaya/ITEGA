@@ -132,6 +132,69 @@ def archive_is_metered(host: str, label: str) -> None:
             "an old article was served free — most of the site is not for sale")
 
 
+def every_home_base_works(host: str) -> None:
+    """
+    Sign in through every certified home base, not just the first.
+
+    The suite used to walk one home base -- Publisher C -- and nothing ever
+    exercised the second. Its Keycloak client held a different secret from the
+    one the exchange presents, so every sign-in through it failed with a 401 and
+    a raw error page, and had done since the day it was created. Bill found it
+    by choosing the other option in the chooser, which is the first thing any
+    reader with an account elsewhere will do.
+
+    A network whose whole claim is "any home base, any publisher" cannot be
+    tested against one home base.
+    """
+    try:
+        with urllib.request.urlopen(
+                "https://network.itega.org/discovery/home-bases", timeout=20) as r:
+            bases = json.loads(r.read().decode())
+    except Exception as exc:                      # noqa: BLE001
+        bad("home base registry reachable", str(exc)[:50])
+        return
+
+    user, pw = credentials()
+    articles = priced_articles(host)
+    if len(articles) < 4:
+        bad("articles available for the home-base sweep")
+        return
+
+    for hb in bases:
+        hb_id = hb.get("publishing_member_id", "")
+        name = hb.get("name") or hb_id
+        op, _ = session()
+        for u in articles[:3]:
+            get(op, u)
+        _, body = get(op, articles[3])
+        m = re.search(r'href="([^"]*newshare_login=1[^"]*)"', body)
+        if not m:
+            bad(f"{name}: reaches the gate")
+            continue
+        _, chooser = get(op, html.unescape(m.group(1)))
+        hrefs = [html.unescape(c.group(1))
+                 for c in re.finditer(r'href="(/auth/select-home-base[^"]+)"', chooser)
+                 if hb_id in c.group(1)]
+        if not hrefs:
+            bad(f"{name}: offered in the chooser", hb_id)
+            continue
+        u1, b1 = get(op, ALS + hrefs[0])
+        act = re.search(r'<form[^>]+action="([^"]+)"', b1)
+        if not act:
+            bad(f"{name}: shows a sign-in form")
+            continue
+        _, b2 = post(op, html.unescape(act.group(1)),
+                     {"username": user, "password": pw, "credentialId": ""}, referer=u1)
+        if "Failed to exchange" in b2:
+            bad(f"{name}: token exchange succeeds",
+                "401 from the home base — client secret mismatch")
+        elif "sessionToken" in b2:
+            ok(f"{name}: a reader can sign in through it")
+        else:
+            bad(f"{name}: token exchange succeeds",
+                re.sub(r"<[^>]+>", "", b2)[:60].strip())
+
+
 def form_fields(body: str) -> dict[str, str]:
     return dict(re.findall(r'name="([^"]+)"\s+value="([^"]*)"', body))
 
@@ -210,6 +273,9 @@ def sign_in(op, gated_body: str, user: str, pw: str) -> bool:
 def main() -> int:
     user, pw = credentials()
     op, jar = session()
+
+    print("\nEVERY HOME BASE, NOT JUST THE FIRST")
+    every_home_base_works("barharbor")
 
     print("\nTHE WHOLE SITE IS FOR SALE, NOT JUST THE SEEDED FEW")
     archive_is_metered("barharbor", "Bar Harbor")
