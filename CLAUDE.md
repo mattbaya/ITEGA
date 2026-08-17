@@ -46,7 +46,7 @@ ITEGA/
 │   ├── STATUS.md               ← START HERE. Living handoff: state, plan, decisions
 │   ├── vps-setup-record.md     ← How the servers were built, and what went wrong
 │   ├── monitoring.md           ← Beszel hub and agents
-│   ├── publisher-sites.md      ← The two WordPress publisher sites
+│   ├── publisher-sites.md      ← The three WordPress publisher sites
 │   ├── demo-script-gap-analysis.md ← Aug 25 demo script vs. the code; open questions
 │   ├── peer-review-synthesis.md ← Synthesis of Drummond Reed + Don Marti feedback
 │   ├── response-to-bill.md     ← Summary for Bill Densmore
@@ -82,12 +82,15 @@ ITEGA/
 Running on **two Hetzner cloud servers in Falkenstein** (~$15.48/mo total),
 AlmaLinux 10, CSF firewall, Apache reverse proxy, Docker Compose:
 
-- **VPS 1** (`auth.itega.org`): Keycloak 26.x (two realms) + PostgreSQL 16 + two Retail Agents
+- **VPS 1** (`auth.itega.org`): Keycloak 26.x (three realms) + PostgreSQL 16 + three Retail Agents
 - **VPS 2** (`als.itega.org`): FastAPI services + TimescaleDB + React dashboard
 
 Live hostnames: `auth`, `agent-c`, `agent-demo` (VPS 1); `als`, `network`,
 `dashboard` (VPS 2) — all under `itega.org`, all on Let's Encrypt with automated
-renewal.
+renewal. The third Retail Agent is served at `auth.itega.org/agent-wesmc`
+rather than its own hostname; the registry is the authority on which agent
+belongs to which home base, so read `agent_url` from
+`network.itega.org/discovery/home-bases` rather than assuming the pattern.
 
 **See `docs/vps-setup-record.md`** for exactly how these were built, including
 the failures worth not repeating (Alma's missing kernel modules, CSF's dead
@@ -110,6 +113,48 @@ produces three retail prices. Every published article on all three sites carries
 an explicit price; do not rely on the site default alone, which is what hid
 issue #18.
 Settlement is **simulated only** — reports generated, no real money moves.
+
+**wesmc.org's articles are about real, verifiable events**, written originally
+and attributed rather than copied — a demonstration arguing that journalism
+should be paid for cannot be built on invented reporting or on republished
+copy. Fourteen of them were once unpublished here on the assumption that a run
+of crime headlines naming real venues had to be fabricated. Every one checked
+out against mainstream coverage. Verify before removing, and prefer drafting to
+deleting.
+
+## The explainer films
+
+`scratchpad/deck1/` builds a 120-slide deck and renders it as narrated video —
+a 12-minute cut for circulation and a 28-minute full version. Both are served,
+with the slides, from the unlisted preview at
+`dashboard.itega.org/preview-f45033ceaf/`.
+
+```bash
+make_video.py frames     # screenshot every slide (parallel, ~90s)
+make_video.py speak      # ElevenLabs narration, cached per slide id
+make_video.py assemble   # the full film
+make_video.py short      # the cut, from the same frames and speech
+make_video.py spec       # rewrite the .bed.json timings without re-encoding
+verify.py <film>.mp4     # check the finished file
+```
+
+Four things about this pipeline are load-bearing, each learned by shipping the
+bug:
+
+- **Use `chrome-headless-shell`, not Google Chrome.** Chrome 151 removed the old
+  headless mode; `--headless --screenshot` launches the full browser and hangs
+  forever, on a one-line page as readily as on a deck.
+- **Slice the per-slide page at `<body>`, not at the nav rail.** The rail is
+  appended *after* the slides, so cutting there puts all 120 slides in every
+  page and every screenshot returns slide one — at a plausible file size.
+- **Slide ids must be unique.** Narration is cached per id, so a duplicate makes
+  one slide speak another's script, fluently and about the wrong picture.
+- **The narration in the speaker notes is the script.** There is no second copy
+  to drift out of step.
+
+`verify.py` rebuilds the music bed and subtracts it from the finished film: if
+the bed is present and aligned it cancels. Measuring total loudness cannot work
+— the narration runs ~18 dB above the bed and swamps it.
 
 ## VPS Resources — measured, not estimated
 
@@ -216,10 +261,10 @@ what is built, what is missing, and Bill's answers to the open questions.
 Run both suites before showing the system to anyone, or writing that it works:
 
 ```bash
-infra/smoke-test.sh      # 28 checks: every public endpoint, both realms, both sites
-infra/journey-test.py    # 12 checks: the reader's journey, end to end
+infra/smoke-test.sh      # 28 checks: every public endpoint, every realm and site
+infra/journey-test.py    # 18 checks: the reader's journey, at every publisher
 infra/logout-test.py     # 19 checks: both sign-out scopes actually differ
-infra/totp-test.py       # 14 checks: two-factor really challenges, both realms
+infra/totp-test.py       # 14 checks: two-factor really challenges, every realm
 
 A test must never select its inputs by the property it is testing. `journey-test`
 once asked for priced articles and then checked they were priced, and passed for
@@ -253,6 +298,16 @@ returns 200 proves almost nothing about whether a person can get through it, so:
   from the API inwards.
 - **Log defects as GitHub issues** with cause, fix and verification, then close
   them with what proved the fix. `gh issue list --state all` is the record.
+  Twenty-six closed, two open (#23, #28).
+
+**The recurring failure in this project is a check that cannot observe what it
+claims to.** Not a wrong threshold — a quantity that could not have revealed the
+fault whatever its value. `journey-test` selecting articles by the property under
+test; a frame check reading file sizes when every frame was the same picture; a
+mix check reading total loudness to find a bed 18 dB down. Each passed happily
+while the thing it named was broken. Before trusting a check, ask what value it
+would print if the feature were entirely absent — and if the answer is "the same
+one", the check is decorative.
 
 The ALS base URL is the **host only** — the flow lives under `/auth/`. Two
 separate codebases got this wrong independently.

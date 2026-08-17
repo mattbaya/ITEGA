@@ -40,6 +40,11 @@ Governed by the [Information Trust Exchange Governing Association (ITEGA)](https
 
 ## What Is This?
 
+> **If you would rather watch than read:** the whole argument is a narrated
+> film, in a twelve-minute cut and a twenty-eight-minute full version, at the
+> unlisted preview alongside the slides. Every screen in it is the running
+> system. Ask Bill or Matt for the link.
+
 The Newshare Network is a proposed system that lets a reader **create one account at a local newspaper and be recognized — without re-registering — at any other participating newspaper** in the network. Transactions are logged by a neutral service, and publishers are paid fairly through periodic bank settlements. No platform intermediary takes a cut. No one builds a surveillance profile of what you read.
 
 It is **not** a startup. It is **not** a platform. It is an open, nonprofit-governed infrastructure layer — like the internet's DNS, or like the banking system's ACH network — that independent publishers can use to share identity, access, and payment without surrendering control to Google, Meta, Apple, or any commercial gatekeeper.
@@ -648,11 +653,13 @@ Every claim below was exercised against the live system, not inferred from the
 code. Four suites, all passing, all runnable before showing anyone anything:
 
 ```bash
-infra/smoke-test.sh      # 28 checks — every public endpoint, both realms, both sites
-infra/journey-test.py    # 12 checks — the reader's journey, end to end
+infra/smoke-test.sh      # 28 checks — every public endpoint, every realm and site
+infra/journey-test.py    # 18 checks — the reader's journey, at every publisher
 infra/logout-test.py     # 19 checks — both sign-out scopes, and that they differ
-infra/totp-test.py       # 14 checks — two-factor really challenges, both realms
+infra/totp-test.py       # 14 checks — two-factor really challenges, every realm
 ```
+
+Last run 2026-08-17 against the live deployment: **79 checks, none failing**.
 
 Every suite sweeps **all three publishers and all three home bases**, read from
 the live registry rather than written into the test. Two separate faults hid
@@ -881,7 +888,7 @@ ITEGA/
 │   ├── vps-provisioning-plan.md        ← Build steps for the two servers
 │   ├── vps-setup-record.md             ← What was actually done, and what went wrong
 │   ├── monitoring.md                   ← Beszel hub and agents; what remains
-│   ├── publisher-sites.md              ← The two WordPress publisher sites
+│   ├── publisher-sites.md              ← The three WordPress publisher sites
 │   ├── peer-review-synthesis.md        ← Drummond Reed + Don Marti feedback
 │   └── source-pdfs/                   ← Original documents from Bill Densmore
 │       ├── claude-itega-newshare-tech-spec-02-22-26b-1110pest.pdf  (20pp, tech spec)

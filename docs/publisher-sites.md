@@ -35,6 +35,17 @@ published posts — and West End Sentinel 122. **Every published post on all thr
 carries an explicit price**, which is the fix for issue #18: relying on the
 site-wide default left 9,770 articles readable by anyone, and no test noticed.
 
+**West End Sentinel's articles are about real events**, researched and written
+originally with claims attributed — not invented, and not copied from anyone.
+Both halves matter: a project arguing that journalism should be paid for cannot
+demonstrate itself on fabricated reporting, and cannot demonstrate itself on
+republished copy either.
+
+Fourteen of them were briefly unpublished on the assumption that a run of crime
+headlines naming real Boston venues had to be fabricated. All fourteen were
+real, with mainstream coverage, and are restored. If content here looks wrong,
+check a source before removing it, and draft rather than delete.
+
 Each article carries two pieces of post meta the plugin reads:
 
 | Meta | Value | Why |
@@ -52,7 +63,7 @@ Each article carries two pieces of post meta the plugin reads:
 - **Both Keycloak realms and the ALS publisher config** carry each site's real
   callback, `https://<domain>/wp-json/newshare/v1/callback`. These must match
   exactly or the code exchange fails with `invalid_client`.
-- **The network registry** names both sites, so the demo's directory listing
+- **The network registry** names all three sites, so the demo's directory listing
   shows real publishers rather than placeholders.
 
 ## Bar Harbor: theme and styling

@@ -1,5 +1,65 @@
 # Project Status and Plan Forward
 
+## 2026-08-17 — two films, and a renderer that lied three ways
+
+The 120-slide explainer is now narrated video: a **12-minute cut** for
+circulation and a **28-minute full version**, both served with the slides from
+the unlisted preview. Both are built from one set of frames and one set of
+speech, so the cut cannot drift from the full version; re-cutting costs only the
+six-minute assembly. `scratchpad/deck1/make_video.py`.
+
+Copland's *Fanfare for the Common Man* loops underneath — applause cut from
+every pass, Emerson Lake and Palmer held back to the final loop. The bed spaces
+its own repeats so a brass entry lands on the turn in the argument, and it
+re-scored itself for the shorter film without being told: seven passes became
+three, and the swell moved from 8m18s to 4m22s to meet the turn's new position.
+
+**Three renderer faults, each of which produced confident, wrong output:**
+
+- **Every frame was slide one.** The per-slide page was sliced at the nav rail,
+  which is appended *after* the slides — so "head" was the entire deck and each
+  screenshot caught the top of it. 120 files, all plausible, all identical.
+- **Chrome cannot screenshot any more.** Chrome 151 removed the old headless
+  mode; `--headless --screenshot` starts the full browser and hangs. A one-line
+  page never returned in three minutes. `chrome-headless-shell` does all 120
+  frames in 91 seconds.
+- **Five slides shared ids.** The Visa-parallel set inserted mid-deck was
+  numbered straight on from its neighbour and collided with the journey slides.
+  Narration is cached per id, so five slides would have spoken another slide's
+  script — fluently, over the wrong pictures.
+
+**The lesson is the same one this project keeps relearning**, and it is now
+written into `CLAUDE.md`: the checks that failed here were not mis-tuned, they
+were measuring quantities that could not have revealed the fault. File sizes
+cannot detect identical frames. Total mix loudness cannot detect a music bed
+18 dB below the narration. Before trusting a check, ask what it would print if
+the feature were entirely missing.
+
+`verify.py` now rebuilds the bed and subtracts it from the finished film — if
+the bed is present and aligned, it cancels — and reads its timings from a
+sidecar the assembly writes, so it cannot verify one cut against another's
+numbers.
+
+Slides 12 and 14 carry photographs rather than emoji: display advertising in a
+1907 newspaper (public domain) and a brick wall going up (CC BY-SA). Gemini
+image generation was attempted first and is unavailable on this key — every
+image model returns 429 on the free tier and the Imagen endpoints are closed to
+new users. It needs billing enabled on the project.
+
+### The fourteen articles, and a correction worth keeping
+
+Fourteen wesmc.org articles were unpublished on the assumption that a run of
+crime headlines naming real Boston venues had to be invented. **Every one was
+real** — the Acton case, the South Station stabbing, the TD Garden death, the
+Stevie Nicks reschedule, all with mainstream coverage. They are restored, and
+the bodies check out too: events summarised, claims attributed, no fabricated
+quotes. wesmc.org is back to 122 published articles, which is what the deck and
+`publisher-sites.md` already said.
+
+The mistake was pattern-matching a headline shape instead of spending ninety
+seconds on a search. Where content looks wrong, verify before removing, and
+prefer drafting to deleting.
+
 ## 2026-08-17 — Bill tested it, and found what our tests could not
 
 Bill Densmore spent an evening clicking, and every one of his reports was real.
