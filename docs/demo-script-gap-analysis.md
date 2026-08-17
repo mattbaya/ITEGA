@@ -1,7 +1,7 @@
 # Bill's demo script vs. what is built
 
 *Reviewed against `ITEGA-RJI-demo-script-08-07-26` (the 08-07 revision, in
-`reference/`, gitignored). Last checked 2026-08-16 against the live deployment.*
+`reference/`, gitignored). Last checked 2026-08-17 against the live deployment.*
 
 Everything marked **met** below was exercised against the running system, not
 read out of the source. Where a claim rests on a test, the suite is named.
@@ -11,11 +11,14 @@ read out of the source. Where a claim rests on a test, the suite is named.
 ## Verdict in one paragraph
 
 The script has four movements — the reader's journey, transparent login at a
-second publisher, AI answer engines, and wholesale-retail pricing. **All four
-work end to end against live services.** Five gaps remain, of which one is
-cosmetic but highly visible on the day, one is a genuine missing screen that
-carries Bill's most important argument to publishers, and one needs a decision
-from Bill rather than code. None is large.
+further publisher, AI answer engines, and wholesale-retail pricing. **All four
+work end to end against live services.**
+
+Of the five gaps first recorded here, **two are now closed**: there is a third
+content site (Gap 3), and the sign-up link that led to a login form now
+registers people properly (Gap 5, issue #25). Three remain, of which one is
+cosmetic but highly visible on the day and one is the missing screen that
+carries Bill's most important argument to publishers.
 
 ---
 
@@ -25,7 +28,12 @@ from Bill rather than code. None is large.
 
 The vocabulary maps cleanly onto what exists. `Publishing Member ID` is
 `pubMbrId`; CMS is the WordPress plugin; ASP is the Retail Agent; Home Base is a
-Keycloak realm. Publisher C acts as ASP only, as the script requires.
+Keycloak realm.
+
+One deliberate divergence: the demonstration no longer keeps an ASP-only member.
+All three organisations act as both CMS and ASP, which the Definitions expressly
+permit ("operating as either an ASP, a CMS, or both") and which keeps a viewer
+from meeting five organisations when the story has three.
 
 ### Demonstration flow 1–5, 9 — met
 
@@ -64,13 +72,17 @@ outcomes — accept, counter, decline — occur in the real reader flow, and the
 refusal copy is Bill's own wording from step 29, with a link back to the home
 base.
 
-### Transparent login to a second publisher (31–42) — met for two publishers
+### Transparent login to a third publisher (31–42) — met
 
-Sign in at Bar Harbor, cross to North Berkshire: no password, no second chooser,
-and the gated article is served. The two publishers know the reader by different
-opaque identifiers, which is checked explicitly rather than assumed.
+Sign in at Bar Harbor, cross to North Berkshire, cross again to West End
+Sentinel: no password, no second chooser, and the gated article is served each
+time. The three publishers know the reader by three unrelated opaque
+identifiers, which is checked explicitly rather than assumed.
 
-See **Gap 3** on the script's "Publisher 3".
+**Gap 3 is closed.** `wesmc.org` is a third content site, so the section's
+literal staging is now met as well as its claim. Each of the three is also a
+home base, which additionally demonstrates the Definitions' allowance that a
+member may act as ASP, CMS or both.
 
 ### User reports (43) — met
 
@@ -138,7 +150,7 @@ network, which argues the opposite of what he intends.
 the network button, and the refusal page for the reader who takes neither. Half a
 day.
 
-### Gap 3 — the script stages three publishers; we have two, and the script contradicts itself
+### Gap 3 — CLOSED. There is a third publisher.
 
 Steps 31–42 are titled "transparent login to publisher number three", and step 35
 sends the reader to "Publisher 3".
@@ -151,10 +163,11 @@ The demonstrable claim — sign in once, be recognised at another publisher with
 a password — is fully met between Bar Harbor and North Berkshire. What is not met
 is the literal staging of a third content site.
 
-**This needs Bill, not code.** Either the section means "a second content site",
-which works today, or he genuinely wants three, which is another WordPress
-install and roughly a day. Worth asking before the 25th, because the audience
-will have counted the publishers in the definitions.
+**Resolved by building it.** `wesmc.org` — West End Sentinel Media Cooperative —
+is the third content site, and is also a home base. The self-contradiction in the
+script no longer matters: every publisher named is a destination that serves
+articles, and Publisher C's ASP-only role is filled by the same organisations
+wearing their other hat.
 
 ### Gap 4 — the sign-up invitation is a sentence, not a screen
 
@@ -168,7 +181,16 @@ home base actually sees, which makes it the network's only pitch to a newcomer.
 
 **Recommendation:** two or three sentences and the four-party picture. An hour.
 
-### Gap 5 — a home base cannot be found by URL
+### Gap 5 — CLOSED. Sign-up now registers people.
+
+The chooser's "Create an account with ..." link pointed at Keycloak's bare
+registration endpoint, which cannot build a flow without OIDC parameters and so
+quietly served the **sign-in** page instead — a reader told to create an account
+was shown a password box. `/auth/signup` now builds the same request a sign-in
+builds, aimed at the registration screen, and carries the reader back to the
+article they wanted. Issue #25.
+
+### Gap 6 — a home base cannot be found by URL
 
 Step 24 says the reader may be asked for their home base's URL, and that a URL
 matching a member ASP should invite sign-up there. We resolve by name and by
@@ -195,6 +217,7 @@ Publishing Member ID; a URL falls through to the default. Small, and easy.
 |---|---|---|---|
 | 1 | Hostname aliases (Gap 1) | ~1 hour | No, but visible |
 | 2 | Publisher's own subscribe option + refusal page (Gap 2) | ~half a day | **Carries the argument** |
-| 3 | Ask Bill about the third publisher (Gap 3) | one email | Needs his answer |
+| 3 | ~~Third publisher~~ — built: wesmc.org | done | — |
+| — | ~~Sign-up leads to a login form~~ — fixed (#25) | done | — |
 | 4 | Sign-up screen (Gap 4) | ~1 hour | No |
 | 5 | Resolve a home base by URL (Gap 5) | ~1 hour | No |

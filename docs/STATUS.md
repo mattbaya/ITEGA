@@ -1,5 +1,51 @@
 # Project Status and Plan Forward
 
+## 2026-08-17 — Bill tested it, and found what our tests could not
+
+Bill Densmore spent an evening clicking, and every one of his reports was real.
+The pattern is worth naming: **each fault was invisible to a suite that
+exercised the path it was built around.**
+
+- **Almost nothing was for sale** (#18). Both sites carry their real archives,
+  and exactly four articles on each had a price. The test asked the site for
+  priced articles, then checked those articles were priced — it chose its
+  inputs by the property under test. All 9,823 articles now carry a price, and
+  the suite picks articles the way a reader does, including from deep in the
+  archive.
+- **The second home base could never sign anyone in** (#22). Different client
+  secrets per realm against one secret at the exchange: 401 on every exchange
+  since the day it was created, while every test passed, because the suite had
+  one home base written into it. It now sweeps every certified home base.
+- **The dashboard looped back to the login page** (#19), then **greeted him as
+  "Alex Morgan" with an invented reading history** (#21).
+- **The first click on the network login did nothing** (#24) — a hand-off page
+  with no visible content while WordPress bootstrapped behind it.
+- **"Create an account" led to a login form** (#25), because a bare Keycloak
+  registration URL silently degrades to sign-in.
+
+### What changed as a result
+
+Three publishers and three home bases, and each organisation now does both jobs:
+Bar Harbor, North Berkshire and West End Sentinel are each a publisher *and* a
+home base, so nobody meets an organisation that appears nowhere else (#27).
+wesmc.org is the third site, running the same plugin.
+
+Readers are named from their pairwise identifier — Reader 948AFC — so a site
+with six of them no longer greets all six identically (#26).
+
+Eleven demonstration accounts exist for named colleagues, spread across the
+three home bases so two people reading the same article are billed differently
+while the publisher is paid the same. Credentials live outside the repository.
+
+### One thing that is not fixed, and needs a decision
+
+**The reader's dashboard cannot show cross-publisher activity** (#28), and no
+amount of fixing the query will change that. The dashboard is a client, so it
+holds a fourth pairwise identifier that appears on none of the reader's reading.
+Only the home base can link them — and an exchange that could would be proof the
+pairwise identifiers were not working. Three options are in the issue; it wants
+a decision rather than a patch.
+
 ## 2026-08-16 — the sign-in path was broken, and now is not
 
 The reader's authenticated journey had never been walked end to end. Walking it
@@ -67,7 +113,7 @@ Name the client and say "needs rotating".
 *Living handoff document. Anyone — or any session — picking this up cold should be
 able to read this file and continue without reconstructing context.*
 
-**Last updated:** 2026-08-16 — reader's journey verified end to end; sign-out scopes and TOTP added
+**Last updated:** 2026-08-17 — three publishers, three home bases; Bill's findings fixed
 **Deadline:** Aug 25, 2026 — RJI/ITEGA roundtable, 2 p.m. EDT
 
 ---
@@ -121,7 +167,7 @@ to make.
 | `src/asp-agent/` | Working. Accept / negotiate / decline, markup withheld. |
 | `src/als-logging/` | Working. Per-filer event records. |
 | `src/als-settlement/` | Working. Wholesale settlement, corrected. |
-| `src/wordpress-plugin/` | **Live on both publisher sites.** Gate, authenticated path, negotiation, purchase notice and both sign-out scopes all verified against the live sites. |
+| `src/wordpress-plugin/` | **Live on all three publisher sites.** Gate, authenticated path, negotiation, purchase notice and both sign-out scopes all verified against the live sites. |
 | `src/dashboard/` | **Live** at `dashboard.itega.org/demo`, driving production services. |
 | `infra/vps1`, `infra/vps2` | **Deployed and running.** Apache vhosts, TLS, both realms imported. |
 
@@ -195,7 +241,7 @@ different pairwise identifier. Deploy only with
 barharbor.info down.
 
 `greylockglass.com` — a real operating news site — may join later. That would be
-a far stronger demonstration than two sites we control, and is worth attempting
+a far stronger demonstration than three sites we control, and is worth attempting
 only once the flow is proven on these.
 
 ### 2. Monitoring — DONE

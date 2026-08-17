@@ -98,10 +98,17 @@ comments).
 the markup ratio and decides purchases; ITEGA may see neither. This is an
 architectural rule, not a deployment convenience.
 
-Publishers A and B are `barharbor.info` and `northberkshire.org` — two
-separately-branded local news sites on different domains, seeded with demo
-articles. Publisher C is **not** a WordPress site: it is the reader's home base,
-a Keycloak realm on VPS 1. See `docs/publisher-sites.md`.
+**Three publishers, three home bases, and each organisation is both.**
+`barharbor.info`, `northberkshire.org` and `wesmc.org` all run the plugin, and
+each is also a certified home base (realms `publisher-c`, `newshare`, `wesmc`
+respectively). That overlap is deliberate: Bill's Definitions allow a member to
+act as ASP, CMS or both, and a demonstration with five organisations in it is
+harder to follow than one with three. See `docs/publisher-sites.md`.
+
+Markups differ per home base — 1.10, 1.40 and 1.25 — so one wholesale nickel
+produces three retail prices. Every published article on all three sites carries
+an explicit price; do not rely on the site default alone, which is what hid
+issue #18.
 Settlement is **simulated only** — reports generated, no real money moves.
 
 ## VPS Resources — measured, not estimated
@@ -213,6 +220,12 @@ infra/smoke-test.sh      # 28 checks: every public endpoint, both realms, both s
 infra/journey-test.py    # 12 checks: the reader's journey, end to end
 infra/logout-test.py     # 19 checks: both sign-out scopes actually differ
 infra/totp-test.py       # 14 checks: two-factor really challenges, both realms
+
+A test must never select its inputs by the property it is testing. `journey-test`
+once asked for priced articles and then checked they were priced, and passed for
+weeks while 9,770 of 9,782 articles were free. It also had one home base written
+into it while the other could not sign anybody in. Both suites now sweep every
+publisher and every home base from the live registry.
 ```
 
 Deploy the publisher plugin only with `infra/deploy-publisher-plugin.sh <site>`

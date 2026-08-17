@@ -6,32 +6,34 @@ No credentials appear here; this repository is public.
 
 ---
 
-## The two sites
+## The three sites
 
-| Role | Site | Member ID | Home base for the demo |
+| Site | Publisher ID | Home base | Markup |
 |---|---|---|---|
-| **Publisher A** | `barharbor.info` | `ITEGA-PA-0001` | — content publisher |
-| **Publisher B** | `northberkshire.org` | `ITEGA-PB-0001` | — content publisher |
+| `barharbor.info` | `ITEGA-PA-0001` | Bar Harbor Info (`publisher-c`) | 1.10x |
+| `northberkshire.org` | `ITEGA-PB-0001` | North Berkshire (`newshare`) | 1.40x |
+| `wesmc.org` | `ITEGA-WESMC-0003` | West End Sentinel (`wesmc`) | 1.25x |
 
-Two separately-branded local news sites on different domains. That matters more
-than the number of sites: the claim the demo makes is that a reader with an
-account at *one* organisation is recognised at *another*, and two sites that
-visibly belong to different places carry that better than three subdomains of
-one would.
+**Each of the three is both a publisher and a home base.** Bill's Definitions
+allow a member to operate as ASP, CMS or both, and nothing was demonstrating the
+third case. It also keeps the cast small: a viewer meets three organisations
+rather than five.
 
-A third site is not needed. The cross-publisher leg of the script — sign in at
-one publisher, be recognised at the next without logging in again — is fully
-demonstrated between two.
+Three separately-branded sites on different domains, which matters more than the
+count: the claim is that a reader with an account at *one* organisation is
+recognised at *another*, and sites that visibly belong to different places carry
+that better than subdomains of one would.
 
-**Publisher C is not a WordPress site.** It is the reader's home base, which is a
-Keycloak realm on VPS 1. It issues identities; it does not serve articles.
+`wesmc.org` is an addon domain under the `northberkshire` account, so it shares
+an ssh login but not a document root — `infra/deploy-publisher-plugin.sh` knows
+the difference.
 
 ## Seeded content
 
-Each site carries four articles written to fit its own patch — ferries, Acadia,
-the lobster fleet and a cruise-ship cap for Bar Harbor; MASS MoCA, the Clark,
-the Hoosic River restoration and a Williams College purchase for North
-Berkshire.
+Bar Harbor and North Berkshire carry their real archives — 7,751 and 1,950
+published posts — and West End Sentinel 122. **Every published post on all three
+carries an explicit price**, which is the fix for issue #18: relying on the
+site-wide default left 9,770 articles readable by anyone, and no test noticed.
 
 Each article carries two pieces of post meta the plugin reads:
 
@@ -132,8 +134,8 @@ options total about 0.1 MB across ~100 rows.
 
 ## Plugin installed and verified
 
-Both sites run the plugin, installed from a pre-built package and configured
-entirely on activation — member ID, ALS and directory URLs, API key and pricing
+All three sites run the plugin, installed from a pre-built package and
+configured entirely on activation — member ID, ALS and directory URLs, API key and pricing
 all applied without anything being typed into a settings form.
 
 **The access gate works.** Verified against the live site with a single reader
@@ -189,6 +191,6 @@ sign-out scopes are all exercised by `infra/journey-test.py` and
 
 - **`greylockglass.com`** is a real, operating news site whose owner may be
   willing to take part. That would be a considerably stronger demonstration than
-  two sites we control. The demo-mode gate that makes it safe — ordinary readers
+  three sites we control. The demo-mode gate that makes it safe — ordinary readers
   see no gate, no login prompt, no pricing call, and nothing in the page source
   — is built and verified on a live site.

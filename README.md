@@ -654,6 +654,10 @@ infra/logout-test.py     # 19 checks — both sign-out scopes, and that they dif
 infra/totp-test.py       # 14 checks — two-factor really challenges, both realms
 ```
 
+Every suite sweeps **all three publishers and all three home bases**, read from
+the live registry rather than written into the test. Two separate faults hid
+behind suites that walked one publisher and one home base.
+
 **The reader's journey.** She reads three articles at Bar Harbor; the fourth is
 gated. She signs in through her home base and it is served in full. She crosses
 to North Berkshire and is asked for neither a password nor a home base, and its
@@ -669,6 +673,12 @@ is billed 5.5¢ or 7¢ — and the markup ratio is never disclosed to the publis
 
 **AI agents.** A non-member is refused and told where to join. A member is quoted
 402 with a price, agrees it, and receives a crawl grant with the content.
+
+**Three organisations, each doing both jobs.** `barharbor.info`,
+`northberkshire.org` and `wesmc.org` each publish articles *and* keep accounts
+for readers — a member may act as content provider, agent, or both. A reader
+belongs to one and is recognised at all three, and each home base sets its own
+markup, so one wholesale nickel produces three different retail prices.
 
 **Signing out.** The reader is asked how far it should reach, because leaving one
 newspaper and leaving the network are different acts. "Sign out of this
