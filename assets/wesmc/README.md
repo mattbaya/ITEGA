@@ -9,12 +9,15 @@ it can be regenerated at any size; the site itself carries rendered PNGs.
 | `wesmc-logo-light.svg` | Reversed, for the site's dark header. **This is the one in use.** |
 | `wesmc-icon.svg` | The lantern alone, square, as the browser-tab icon. |
 
-## Why a lantern
+## Why a lighthouse
 
-A sentinel is a watchman, and this one stands in Boston. The mark is geometric
-rather than illustrative so it survives at 24 pixels in a browser tab, and the
-flame is the only warm colour in it — on either ground, it is the thing the eye
-lands on first.
+A sentinel keeps watch for other people's benefit, which is exactly what a home
+base does for a reader at a paper it has never met. The light is the only warm
+colour in the mark, on either ground, so it is the thing the eye lands on first.
+
+The lighthouse itself is from **Tabler Icons**, MIT licensed
+(https://tabler.io/icons) — a cleaner drawing than the lantern that preceded it,
+and one that survives being 16 pixels tall in a browser tab.
 
 ## Why there are two versions
 
