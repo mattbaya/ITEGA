@@ -5,7 +5,7 @@
   "home_bases": [
     {
       "id": "HB001",
-      "name": "Publisher C Home Base",
+      "name": "Frenchman Bay Weekly",
       "publishing_member_id": "ITEGA-PC-0001",
       "oidc_issuer": "https://auth.itega.org/realms/publisher-c",
       "jwks_uri": "https://auth.itega.org/realms/publisher-c/protocol/openid-connect/certs",
@@ -18,7 +18,7 @@
     },
     {
       "id": "HB002",
-      "name": "Newshare Demo Home Base",
+      "name": "Berkshire Community Internet",
       "publishing_member_id": "ITEGA-DEMO-0002",
       "oidc_issuer": "https://auth.itega.org/realms/newshare",
       "jwks_uri": "https://auth.itega.org/realms/newshare/protocol/openid-connect/certs",

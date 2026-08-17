@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 300" width="360" height="300"
+     role="img" aria-label="Someone kicking a tyre.">
+  <title>Kicking the tires</title>
+  <!--
+    Drawn to sit beside ITEGA's own illustration set: one weight of line, round
+    caps, no fill, nothing rendered that a thin stroke cannot carry. The figure
+    is mid-kick rather than posed beside the tyre, because the slide is an
+    invitation to go and break something rather than to admire it.
+  -->
+  <g fill="none" stroke="#606060" stroke-width="9"
+     stroke-linecap="round" stroke-linejoin="round">
+
+    <!-- the tyre -->
+    <circle cx="268" cy="206" r="66"/>
+    <circle cx="268" cy="206" r="27"/>
+    <!-- tread, just enough to read as a tyre and not a wheel -->
+    <path d="M268 140v14M268 258v14M202 206h14M320 206h14
+             M221 159l10 10M305 243l10 10M315 159l-10 10M231 243l-10 10"
+          stroke-width="7"/>
+
+    <!-- the kicker -->
+    <circle cx="86" cy="62" r="24"/>
+    <!-- torso, leaning into it -->
+    <path d="M86 86l-6 76"/>
+    <!-- the planted leg -->
+    <path d="M80 162l-16 62 6 24"/>
+    <!-- the kicking leg, reaching the tyre -->
+    <path d="M80 162l52 30 62 20"/>
+    <!-- arms: one back for balance, one forward -->
+    <path d="M84 106l-40 30"/>
+    <path d="M84 106l44 18"/>
+
+    <!-- impact -->
+    <g stroke-width="7">
+      <path d="M206 178l-16-12M212 200l-20-2M210 224l-18 10"/>
+    </g>
+
+    <!-- ground -->
+    <path d="M28 272h306" stroke-width="7"/>
+  </g>
+</svg>

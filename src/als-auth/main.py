@@ -544,7 +544,8 @@ def _render_home_base_chooser(
             '<div class="newhere"><h2>I don\u2019t have one</h2>'
             "<p>Then you are new here, which is fine. A home base is free to "
             "join and takes a moment.</p>"
-            f'<a class="btn" href="{html.escape(default_signup.get("signup_url", ""))}">'
+            f'<a class="btn" href="/auth/signup?state={signed_state}'
+            f'&amp;hb={html.escape(urllib.parse.quote(default_signup.get("publishing_member_id", "")))}">'
             f'Create an account with {html.escape(default_signup["name"])}</a></div>'
         )
 
@@ -710,6 +711,58 @@ async def select_home_base(
         message=message,
         named_publisher=named_publisher,
     )
+
+
+# ── GET /auth/signup ─────────────────────────────────────────────────
+#
+# Send a visitor with no home base to register at one, and bring them back.
+#
+# The chooser used to link straight at Keycloak's /registrations endpoint with
+# no parameters. Keycloak cannot build a flow from that, so it quietly serves
+# the *sign-in* page instead: a reader who has just been told to create an
+# account is shown a password box, which is precisely the dead end this step of
+# the script exists to avoid.
+#
+# Registration is an authorization request like any other. Given the same
+# client, callback, scope and PKCE challenge as an ordinary sign-in, Keycloak
+# registers the reader and then completes the flow -- so they arrive back at
+# the article they were trying to read, already signed in, having never seen a
+# login form at all.
+
+@app.get("/auth/signup")
+async def signup(
+    state: str = Query(..., description="Signed state from the chooser"),
+    hb: str = Query("", description="Publishing Member ID of the home base to join"),
+) -> RedirectResponse:
+    """Begin registration at a home base, inside the reader's pending flow."""
+    if _discovery is None:
+        raise HTTPException(status_code=503, detail="Discovery client not initialised")
+
+    try:
+        session_key = _decode_state(state)
+    except ValueError as exc:
+        logger.warning("signup: invalid state — %s", exc)
+        raise HTTPException(status_code=400, detail="Invalid state parameter")
+
+    session = _pending_sessions.get(session_key)
+    if session is None:
+        raise HTTPException(status_code=400, detail="Session expired or unknown")
+
+    resolved = await _discovery.resolve(q=hb)
+    matches = resolved.get("matches") or []
+    home_base = matches[0] if matches else resolved.get("default_signup")
+    if not home_base:
+        raise HTTPException(status_code=400, detail="No home base offered for sign-up")
+
+    redirect = await _redirect_to_home_base(
+        session_key, home_base,
+        session["publisher_client_id"], session["scope"],
+    )
+    # Same request, aimed at the registration screen rather than the login one.
+    url = str(redirect.headers["location"]).replace(
+        "/protocol/openid-connect/auth?", "/protocol/openid-connect/registrations?", 1)
+    logger.info("signup: sending a new reader to register at %s", home_base["id"])
+    return RedirectResponse(url=url, status_code=302)
 
 
 # ── GET /auth/callback ───────────────────────────────────────────────
