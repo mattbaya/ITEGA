@@ -80,6 +80,7 @@ if ( file_exists( NEWSHARE_PLUGIN_DIR . 'vendor/autoload.php' ) ) {
  * classes that depend on Session (OIDC, Access, Logger), then standalone
  * classes (RSL, Admin).
  */
+require_once NEWSHARE_PLUGIN_DIR . 'includes/class-newshare-provisioning.php';
 require_once NEWSHARE_PLUGIN_DIR . 'includes/class-newshare-demo-mode.php';
 require_once NEWSHARE_PLUGIN_DIR . 'includes/class-newshare-session.php';
 require_once NEWSHARE_PLUGIN_DIR . 'includes/class-newshare-oidc.php';
@@ -197,6 +198,10 @@ final class Newshare_Network {
 		add_action( 'rest_api_init', array( $this->oidc, 'register_routes' ) );
 
 		// Handle OIDC login initiation when the newshare_login query parameter is present.
+		// Ahead of everything: the exchange fetches this while the plugin is
+		// mid-provision, and a theme or redirect plugin answering first would
+		// fail the check.
+		add_action( 'parse_request', array( 'Newshare_Provisioning', 'serve_challenge' ), 0 );
 		add_action( 'init', array( $this->demo, 'handle_optin' ), 1 );
 		add_action( 'init', array( $this, 'maybe_initiate_login' ) );
 
@@ -468,7 +473,30 @@ function newshare_activate(): void {
 			add_option( $key, $value );
 		}
 	}
+
+	// Fetch this site's own credentials a few seconds from now. See
+	// newshare_maybe_provision() for why this is not done inline.
+	if ( ! wp_next_scheduled( 'newshare_provision_event' ) ) {
+		wp_schedule_single_event( time() + 5, 'newshare_provision_event' );
+	}
 }
+/**
+ * Ask ITEGA for this site's credentials, shortly after activation.
+ *
+ * Scheduled rather than run inside the activation hook: activation happens
+ * during the plugin-upload request, and this call waits on the exchange
+ * fetching a URL back from this site. A stall there would look to the
+ * publisher like a broken install, and WordPress would have no way to say
+ * otherwise.
+ */
+function newshare_maybe_provision(): void {
+	if ( Newshare_Provisioning::is_configured() ) {
+		return;
+	}
+	Newshare_Provisioning::provision();
+}
+add_action( 'newshare_provision_event', 'newshare_maybe_provision' );
+
 register_activation_hook( __FILE__, 'newshare_activate' );
 
 /**

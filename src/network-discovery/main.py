@@ -28,10 +28,11 @@ import logging
 from pathlib import Path as FilePath
 
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi import FastAPI, HTTPException, Path, Query
+from fastapi import FastAPI, HTTPException, Path, Query, Request
 from fastapi.responses import JSONResponse
 
 from config import settings
+from provisioning import Provisioning, verify_domain, normalise
 from models import (
     HomeBase,
     HomeBaseLookupResponse,
@@ -70,6 +71,7 @@ app.add_middleware(
 )
 
 _registry: Registry = Registry()
+_provisioning: Provisioning | None = None
 
 
 @app.on_event("startup")
@@ -87,6 +89,9 @@ async def _startup() -> None:
         logger.warning("Registry file not found at %s", settings.registry_path)
     except Exception:
         logger.exception("Failed to parse registry at %s", settings.registry_path)
+
+    global _provisioning
+    _provisioning = Provisioning(settings.provisioning_path)
 
 
 def _active_home_bases() -> list[HomeBase]:
@@ -223,6 +228,77 @@ async def webfinger(
             })
 
     raise HTTPException(status_code=404, detail="No home base found for resource")
+
+
+# ── POST /provision ──────────────────────────────────────────────────
+#
+# A publisher's plugin calls this once, on activation, and receives the
+# credentials for the domain it is running on. ITEGA registers the domain
+# first; this endpoint only hands over what was already decided.
+#
+# See provisioning.py for why the claim is one-time and what that does and
+# does not guarantee.
+
+@app.post("/provision")
+async def provision(payload: dict, request: Request) -> JSONResponse:
+    """Issue a registered domain its Publishing Member ID and API key.
+
+    The caller proves it controls the domain by serving the nonce it sends
+    here at ``/.well-known/newshare-challenge``; this service fetches that
+    URL and checks it before issuing anything.
+    """
+    if _provisioning is None:
+        raise HTTPException(status_code=503, detail="Provisioning unavailable")
+
+    domain = str(payload.get("domain", "")).strip()
+    nonce = str(payload.get("nonce", "")).strip()
+    if not domain:
+        raise HTTPException(status_code=400, detail="domain is required")
+    if len(nonce) < 16:
+        raise HTTPException(
+            status_code=400,
+            detail="nonce is required, and must be at least 16 characters")
+
+    caller = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+    caller = caller or (request.client.host if request.client else "unknown")
+
+    entry, reason = _provisioning.issue(
+        domain, caller, lambda d: verify_domain(d, nonce))
+
+    if reason == "unregistered":
+        # Explicit on purpose. A publisher who mistyped their domain, or whose
+        # site reports a different host than was registered, needs to know
+        # which of those happened -- and the member domains are public anyway,
+        # at /discovery/publishers.
+        raise HTTPException(
+            status_code=404,
+            detail=(f"{domain} is not registered with ITEGA. If you believe it "
+                    f"should be, contact ITEGA."))
+    if reason == "revoked":
+        raise HTTPException(
+            status_code=403,
+            detail=f"{domain} is not currently certified. Contact ITEGA.")
+    if reason == "unverified":
+        raise HTTPException(
+            status_code=403,
+            detail=(f"Could not verify control of {domain}. This service "
+                    f"fetched https://{normalise(domain)}/.well-known/"
+                    f"newshare-challenge over HTTPS and did not get the "
+                    f"expected value back. Check the URL is reachable from "
+                    f"the public internet, serves plain text, and does not "
+                    f"redirect."))
+
+    assert entry is not None
+    return JSONResponse({
+        "pub_mbr_id": entry["pub_mbr_id"],
+        "name": entry.get("name", ""),
+        "api_key": entry["api_key"],
+        "als_auth_endpoint": entry.get("als_auth_endpoint", "https://als.itega.org"),
+        "als_logging_endpoint": entry.get("als_logging_endpoint", "https://als.itega.org/log"),
+        "discovery_endpoint": settings.discovery_base_url,
+        "als_public_key_url": entry.get(
+            "als_public_key_url", "https://als.itega.org/.well-known/jwks.json"),
+    })
 
 
 if __name__ == "__main__":

@@ -43,6 +43,16 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class Newshare_Admin {
 
+	/**
+	 * Where a publisher goes to understand this plugin.
+	 *
+	 * One canonical page rather than documentation embedded in the plugin:
+	 * the copy someone installed in March should still send them somewhere
+	 * that describes the network as it is today.
+	 */
+	public const DOCS_URL = 'https://dashboard.itega.org/plugin/';
+
+
 	// =========================================================================
 	// Composer Dependency Check
 	// =========================================================================
@@ -428,6 +438,26 @@ class Newshare_Admin {
 		?>
 		<div class="wrap">
 			<h1><?php esc_html_e( 'Newshare Network Settings', 'newshare-network' ); ?></h1>
+
+			<?php
+			// The documentation lives at one URL rather than in this page, so
+			// that a publisher deciding whether to switch anything on is
+			// reading the current explanation rather than whatever shipped
+			// inside the copy of the plugin they happen to have installed.
+			$docs = esc_url( Newshare_Admin::DOCS_URL );
+			?>
+			<div class="notice notice-info inline" style="margin:1em 0;padding:.8em 1em">
+				<p style="margin:0">
+					<strong><?php esc_html_e( 'New here?', 'newshare-network' ); ?></strong>
+					<?php esc_html_e( 'How the network works, what each setting does, what your readers see, and how you get paid:', 'newshare-network' ); ?>
+					<a href="<?php echo $docs; ?>" target="_blank" rel="noopener"><?php echo esc_html( Newshare_Admin::DOCS_URL ); ?></a>
+				</p>
+				<?php if ( ! Newshare_Provisioning::is_configured() ) : ?>
+					<p style="margin:.6em 0 0">
+						<?php esc_html_e( 'This site is not yet configured, so nothing on it is being gated, priced or logged.', 'newshare-network' ); ?>
+					</p>
+				<?php endif; ?>
+			</div>
 
 			<?php settings_errors(); ?>
 

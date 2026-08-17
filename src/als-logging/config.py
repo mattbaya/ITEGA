@@ -35,6 +35,13 @@ class Settings(BaseSettings):
     # MUST be a strong random value in production.
     api_key: str = "change-me-in-production"
 
+    # Per-publisher API keys, written by the discovery service when it
+    # provisions a publisher's plugin. Each key authorises events for exactly
+    # one Publishing Member ID; the ``api_key`` above stays as the internal
+    # key for the Auth Service and the settlement scripts, which legitimately
+    # act for every publisher.
+    publisher_keys_path: str = "data/provisioning.json"
+
     # Where to fetch the exchange's public keys, so a reader asking for their
     # own record can be authenticated by the session token they already hold
     # rather than by a shared secret a browser must never be given.

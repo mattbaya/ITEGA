@@ -21,6 +21,12 @@ class Settings(BaseSettings):
     # keeps ITEGA's certification decisions reviewable in version control.
     registry_path: str = "data/registry.json"
 
+    # Registered publisher domains and their credentials. Deliberately a
+    # different file from the registry: the registry is served to anyone who
+    # asks, and this holds per-publisher API keys. Never committed, never
+    # served -- only read by the /provision endpoint.
+    provisioning_path: str = "data/provisioning.json"
+
     # Name of the network, surfaced in the discovery document.
     network_name: str = "Newshare Network"
 

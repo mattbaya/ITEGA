@@ -44,6 +44,8 @@ GET  /healthz                              -- Health check
 from __future__ import annotations
 
 import hmac
+import json
+from pathlib import Path
 import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -169,22 +171,83 @@ app = FastAPI(
 
 # ── Auth dependency ───────────────────────────────────────────────────
 #
-# All mutating and reporting endpoints require a shared API key passed in
-# the ``X-API-Key`` header.  The key is configured via the ``api_key``
-# environment variable (see config.py).  The ALS Auth Service must send
-# this header when POSTing events (see its ``logging_api_key`` setting).
+# Two kinds of caller present an ``X-API-Key``:
+#
+#   * The internal key (``api_key``), held by the ALS Auth Service and the
+#     settlement scripts. It may write an event for any publisher, because
+#     it files authentication events on behalf of all of them.
+#
+#   * A per-publisher key, issued to one publisher when its plugin was
+#     provisioned. It may only write events for its own Publishing Member
+#     ID.
+#
+# The distinction matters because ``pubMbrId`` arrives in the request body.
+# With one shared key, anyone holding it could file reads attributed to any
+# publisher -- crediting themselves at settlement, or loading a competitor
+# with traffic they never had. The key now decides who you are allowed to
+# say you are.
+
+INTERNAL = "*"          # sentinel: may act for any publisher
+
 
 async def verify_api_key(x_api_key: str = Header(..., alias="X-API-Key")) -> str:
     """
-    Validate the shared API key on protected endpoints.
+    Validate the API key and return the Publishing Member ID it authorises.
+
+    Returns the ``INTERNAL`` sentinel for the service's own key, or the
+    publisher's member ID for a per-publisher key.
 
     SECURITY: Uses ``hmac.compare_digest()`` for constant-time comparison
     to prevent timing side-channel attacks that could leak the key length
     or value byte-by-byte.
     """
-    if not hmac.compare_digest(x_api_key.encode(), settings.api_key.encode()):
+    supplied = x_api_key.encode()
+
+    if hmac.compare_digest(supplied, settings.api_key.encode()):
+        return INTERNAL
+
+    # Compared against every publisher key rather than looked up, so the
+    # work done is the same whether the key is known or not.
+    matched = ""
+    for key, pub_mbr_id in _publisher_keys().items():
+        if hmac.compare_digest(supplied, key.encode()):
+            matched = pub_mbr_id
+
+    if not matched:
         raise HTTPException(status_code=403, detail="Invalid API key")
-    return x_api_key
+    return matched
+
+
+def _publisher_keys() -> dict[str, str]:
+    """API key -> Publishing Member ID, reloaded when the file changes.
+
+    Read from the same store the discovery service writes when it
+    provisions a publisher, so a newly-installed plugin can file its first
+    event without this service being restarted.
+    """
+    global _keys_cache, _keys_mtime
+    path = Path(settings.publisher_keys_path)
+    try:
+        mtime = path.stat().st_mtime
+    except OSError:
+        return {}
+    if mtime != _keys_mtime:
+        try:
+            raw = json.loads(path.read_text())
+            _keys_cache = {
+                e["api_key"]: e["pub_mbr_id"]
+                for e in raw.get("domains", {}).values()
+                if e.get("api_key") and e.get("pub_mbr_id")
+            }
+            _keys_mtime = mtime
+            logger.info("Loaded %d publisher key(s)", len(_keys_cache))
+        except Exception:
+            logger.exception("Could not read publisher keys from %s", path)
+    return _keys_cache
+
+
+_keys_cache: dict[str, str] = {}
+_keys_mtime: float = -1.0
 
 
 # ── Health ────────────────────────────────────────────────────────────
@@ -211,14 +274,28 @@ async def healthz() -> dict[str, str]:
 async def log_event(
     event: AccessEvent,
     pool: asyncpg.Pool = Depends(_get_pool),
-    _api_key: str = Depends(verify_api_key),
+    authorised_for: str = Depends(verify_api_key),
 ) -> dict[str, str]:
     """
     Record an access event.
 
     The server adds the authoritative timestamp; the client cannot
     back-date events.  Returns 202 Accepted on success.
+
+    A publisher's key may only file events under its own Publishing Member
+    ID. ``pubMbrId`` arrives in the request body, so without this check the
+    body decides who gets credited and the key decides nothing.
     """
+    if authorised_for != INTERNAL and event.pubMbrId != authorised_for:
+        logger.warning(
+            "Rejected event: key for %s tried to file as %s",
+            authorised_for, event.pubMbrId,
+        )
+        raise HTTPException(
+            status_code=403,
+            detail="This key may not file events for that Publishing Member ID",
+        )
+
     now = datetime.now(timezone.utc)
 
     async with pool.acquire() as conn:

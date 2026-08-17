@@ -1,0 +1,26 @@
+{
+  "_comment": [
+    "Registered publisher domains and their credentials.",
+    "",
+    "The real file is never committed: it holds one API key per publisher.",
+    "Copy this to provisioning.json on the server and fill in real keys with",
+    "  python3 -c 'import secrets; print(secrets.token_urlsafe(32))'",
+    "",
+    "A domain listed here can provision itself: the plugin proves control by",
+    "serving a nonce at /.well-known/newshare-challenge, and this service",
+    "fetches it before issuing anything. Registration is the certification",
+    "step -- being in this file is what ITEGA decided, not what the plugin",
+    "asked for.",
+    "",
+    "Set \"revoked\": true to stop issuing for a domain without deleting the",
+    "record, so the audit trail survives."
+  ],
+  "domains": {
+    "example.org": {
+      "name": "Example Publisher",
+      "pub_mbr_id": "ITEGA-XX-0000",
+      "api_key": "replace-me",
+      "revoked": false
+    }
+  }
+}

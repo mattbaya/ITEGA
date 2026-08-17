@@ -85,7 +85,15 @@ services:
     environment:
       # asyncpg uses plain postgresql:// DSNs, NOT SQLAlchemy-style postgresql+asyncpg://
       DATABASE_URL: postgresql://als:${POSTGRES_PASSWORD}@postgres:5432/als_logs
+      # The internal key: the Auth Service and the settlement scripts, which
+      # legitimately file events for every publisher.
       API_KEY: ${ALS_API_KEY}
+      # Per-publisher keys, written by the discovery service when a
+      # publisher's plugin provisions itself. Read-only here: this service
+      # verifies keys, it never issues them.
+      PUBLISHER_KEYS_PATH: /app/data/provisioning.json
+    volumes:
+      - ./data/provisioning.json:/app/data/provisioning.json:ro
     ports:
       - "127.0.0.1:8001:8001"
     depends_on:
@@ -116,9 +124,14 @@ services:
     environment:
       DISCOVERY_BASE_URL: ${DISCOVERY_BASE_URL:-https://network.newshare.example}
       REGISTRY_PATH: /app/data/registry.json
+      # Registered publisher domains and their credentials. Mounted writable
+      # because provisioning records each issuance; kept out of the repo and
+      # out of the public registry, because it holds keys.
+      PROVISIONING_PATH: /app/data/provisioning.json
       NETWORK_NAME: ${NETWORK_NAME:-Newshare Network}
     volumes:
       - ../../src/network-discovery/data/registry.json:/app/data/registry.json:ro
+      - ./data/provisioning.json:/app/data/provisioning.json:rw
     ports:
       - "127.0.0.1:8002:8002"
     networks:

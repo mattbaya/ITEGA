@@ -55,3 +55,6 @@ newshare-bill-report.html
 # Bill's column links to.
 matt.jpg
 claude-ai-logo-*.png
+
+# Per-publisher API keys. Never committed.
+infra/vps2/data/provisioning.json
