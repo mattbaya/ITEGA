@@ -44,6 +44,15 @@ class Newshare_Provisioning {
 	 */
 	private const NONCE = 'newshare_provisioning_nonce';
 
+	/** Stops a site that cannot certify from asking on every page load. */
+	private const HEALING = 'newshare_provisioning_attempt';
+
+	/** How long to wait before trying again. */
+	private const HEAL_INTERVAL = HOUR_IN_SECONDS;
+
+	/** When the exchange last confirmed this site's key. */
+	private const VERIFIED = 'newshare_credentials_verified';
+
 	/**
 	 * Path this site serves the challenge from.
 	 *
@@ -111,6 +120,100 @@ class Newshare_Provisioning {
 	 * @param bool $force Ask even if already configured.
 	 * @return array{ok:bool,message:string}
 	 */
+	/**
+	 * Credentials this site once had and no longer does are worth re-fetching.
+	 *
+	 * They live in options rather than in the plugin directory, which is what
+	 * lets a WordPress update replace the plugin without de-provisioning the
+	 * site. But options are lost in other ways -- a database restore, a
+	 * migration, a staging clone, someone deleting a row -- and nothing used to
+	 * bring them back. Provisioning is scheduled once, at activation, and an
+	 * update does not re-activate.
+	 *
+	 * The consequence is the worst shape a fault can have here. The site keeps
+	 * working to look at: the meter counts, the gate closes on the fourth
+	 * article, readers are charged by their home bases. What it cannot do is
+	 * file events, because that needs the key -- so settlement pays the
+	 * publisher nothing, and no error appears anywhere a person would look.
+	 * Verified on a live site by deleting both options: three free reads, a gate
+	 * on the fourth, and nothing filed. #50.
+	 *
+	 * Scheduled rather than run inline: the exchange has to fetch a nonce back
+	 * from this site over HTTPS, which is seconds, and no reader should wait for
+	 * it. Rate-limited so a site that genuinely cannot certify -- an unreachable
+	 * domain, a withdrawn registration -- asks once an hour instead of on every
+	 * page load.
+	 */
+	public static function heal(): void {
+		if ( self::is_configured() ) {
+			return;
+		}
+		if ( get_transient( self::HEALING ) ) {
+			return;
+		}
+		set_transient( self::HEALING, time(), self::HEAL_INTERVAL );
+		if ( ! wp_next_scheduled( 'newshare_provision_event' ) ) {
+			wp_schedule_single_event( time(), 'newshare_provision_event' );
+		}
+	}
+
+	/**
+	 * Ask the exchange whether this site's key still works.
+	 *
+	 * Event filing is fire-and-forget -- blocking a reader's page load on a log
+	 * write would be indefensible -- so the plugin never sees a rejection. This
+	 * is the one place it can wait for an answer, and it runs on a schedule
+	 * rather than in front of anybody.
+	 *
+	 * A 403 means the exchange does not hold this key: revoked, rotated, or
+	 * restored from a backup taken before it was issued. Clearing it turns the
+	 * next heal() into a fresh certification, which the site can perform on its
+	 * own because it still controls its domain.
+	 *
+	 * Anything else -- a timeout, a 500, a DNS failure -- is left alone. A
+	 * working key must not be thrown away because the exchange was briefly down;
+	 * that would turn a five-minute outage into every publisher re-certifying at
+	 * once.
+	 */
+	public static function verify(): void {
+		$key = trim( (string) get_option( 'newshare_als_api_key', '' ) );
+		if ( '' === $key ) {
+			self::heal();
+			return;
+		}
+
+		$endpoint = untrailingslashit(
+			(string) get_option( 'newshare_als_logging_endpoint', 'https://als.itega.org' )
+		) . '/log/whoami';
+
+		$response = wp_remote_get(
+			$endpoint,
+			array(
+				'timeout' => 10,
+				'headers' => array( 'X-API-Key' => $key ),
+			)
+		);
+
+		if ( is_wp_error( $response ) ) {
+			return;
+		}
+
+		$code = (int) wp_remote_retrieve_response_code( $response );
+		if ( 403 !== $code ) {
+			if ( 200 === $code ) {
+				update_option( self::VERIFIED, time() );
+			}
+			return;
+		}
+
+		// 403 also covers "this key may not file for that member ID", but that
+		// answer cannot arrive here: this request carries no member ID. So a 403
+		// means the key itself is unknown.
+		delete_option( 'newshare_als_api_key' );
+		delete_transient( self::HEALING );
+		self::heal();
+	}
+
 	public static function provision( bool $force = false ): array {
 		if ( self::is_configured() && ! $force ) {
 			return self::done( true, __( 'Already configured.', 'newshare-network' ) );

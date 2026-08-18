@@ -3,7 +3,7 @@
  * Plugin Name: Newshare Network
  * Plugin URI: https://github.com/mattbaya/ITEGA
  * Description: Federated identity and content access for the Newshare Network. Adds "Network Login" for cross-publisher SSO with privacy-preserving pseudonymous identifiers.
- * Version: 0.2.7
+ * Version: 0.2.8
  * Requires PHP: 8.1
  * Requires at least: 6.0
  * Author: ITEGA / Newshare Network
@@ -48,7 +48,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 // Plugin Constants
 // =========================================================================
 
-define( 'NEWSHARE_VERSION', '0.2.7' );
+define( 'NEWSHARE_VERSION', '0.2.8' );
 
 /**
  * Role given to readers who arrive through the network.
@@ -607,6 +607,39 @@ function newshare_maybe_provision(): void {
 add_action( 'newshare_provision_event', 'newshare_maybe_provision' );
 
 /**
+ * Notice when this site has stopped being able to file what it is owed for.
+ *
+ * Both hooks are cheap: heal() returns immediately when credentials are present,
+ * which is every request on a healthy site, and only schedules work when they
+ * are not. The daily check is the one that costs a request, and it runs on
+ * cron rather than in front of a reader.
+ */
+add_action( 'init', array( 'Newshare_Provisioning', 'heal' ) );
+add_action( 'newshare_verify_credentials', array( 'Newshare_Provisioning', 'verify' ) );
+
+/**
+ * Tell the publisher, in their own admin, rather than only in a log.
+ *
+ * A site that cannot file events looks perfectly healthy from the outside --
+ * that is the whole difficulty with #50 -- so the only place the truth can
+ * surface is here.
+ */
+function newshare_credentials_notice(): void {
+	if ( Newshare_Provisioning::is_configured() || ! current_user_can( 'manage_options' ) ) {
+		return;
+	}
+	printf(
+		'<div class="notice notice-error"><p><strong>%s</strong> %s</p></div>',
+		esc_html__( 'Newshare: this site is not certified at the moment.', 'newshare-network' ),
+		esc_html__(
+			'Readers can still be shown the gate, but nothing is being filed with the exchange, so this publication is not being credited for what it sells. It re-certifies itself automatically, and needs no key from you — if this notice is still here in an hour, the exchange cannot reach this domain.',
+			'newshare-network'
+		)
+	);
+}
+add_action( 'admin_notices', 'newshare_credentials_notice' );
+
+/**
  * Offer updates from ITEGA through WordPress's own update machinery.
  *
  * Registered outside the reader-facing class: it is nothing to do with demo
@@ -629,6 +662,20 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
 	add_action( 'init', 'newshare_register_updater' );
 }
 
+/**
+ * Ask once a day whether this site's key still works.
+ *
+ * Scheduled at activation and, because a site that was activated before this
+ * existed would otherwise never schedule it, ensured on every load. wp_schedule_event
+ * is a no-op when the hook is already scheduled.
+ */
+function newshare_schedule_verification(): void {
+	if ( ! wp_next_scheduled( 'newshare_verify_credentials' ) ) {
+		wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', 'newshare_verify_credentials' );
+	}
+}
+add_action( 'init', 'newshare_schedule_verification' );
+
 register_activation_hook( __FILE__, 'newshare_activate' );
 
 /**
@@ -641,6 +688,9 @@ register_activation_hook( __FILE__, 'newshare_activate' );
 function newshare_deactivate(): void {
 	delete_transient( 'newshare_als_public_key' );
 	delete_transient( 'newshare_als_oidc_config' );
+	// Leaving a scheduled hook behind for a plugin that is no longer loaded
+	// means WP-Cron firing an action nothing answers, every day, forever.
+	wp_clear_scheduled_hook( 'newshare_verify_credentials' );
 }
 register_deactivation_hook( __FILE__, 'newshare_deactivate' );
 

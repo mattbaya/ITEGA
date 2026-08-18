@@ -274,6 +274,31 @@ async def healthz() -> dict[str, str]:
 # The server stamps each event with an authoritative UTC timestamp;
 # clients cannot back-date events.
 
+@app.get("/log/whoami")
+async def whoami(authorised_for: str = Depends(verify_api_key)) -> dict[str, str]:
+    """Which publisher is this key, if any.
+
+    Exists so a publisher can find out that its credentials have stopped
+    working. Event filing is deliberately fire-and-forget -- blocking a reader's
+    page load on a log write would be indefensible -- which means the plugin
+    never sees a rejection. A site whose key was wiped by a database restore or
+    revoked by ITEGA goes on serving articles and gating them perfectly while
+    filing nothing, and settlement pays it nothing, with no error anywhere a
+    person would look.
+
+    So the plugin asks this, on a schedule, where it *can* wait for an answer.
+    A 403 here means the key is not one we hold, which is the signal to
+    re-certify from scratch. Filing no events and being told so is recoverable;
+    filing no events silently is what #50 was about.
+
+    Writes nothing and reads nothing, so asking often costs almost nothing.
+    """
+    return {
+        "pub_mbr_id": "" if authorised_for == INTERNAL else authorised_for,
+        "internal": "true" if authorised_for == INTERNAL else "false",
+    }
+
+
 @app.post("/log/event", status_code=202)
 async def log_event(
     event: AccessEvent,
