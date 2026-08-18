@@ -53,6 +53,12 @@ class Newshare_Provisioning {
 	/** When the exchange last confirmed this site's key. */
 	private const VERIFIED = 'newshare_credentials_verified';
 
+	/** When the key was first refused. One refusal is a race; two is a revocation. */
+	private const DOUBT = 'newshare_credentials_doubt';
+
+	/** How far apart two refusals must be before the key is believed dead. */
+	private const DOUBT_INTERVAL = HOUR_IN_SECONDS;
+
 	/**
 	 * Path this site serves the challenge from.
 	 *
@@ -202,13 +208,37 @@ class Newshare_Provisioning {
 		if ( 403 !== $code ) {
 			if ( 200 === $code ) {
 				update_option( self::VERIFIED, time() );
+				delete_option( self::DOUBT );
 			}
 			return;
 		}
 
 		// 403 also covers "this key may not file for that member ID", but that
 		// answer cannot arrive here: this request carries no member ID. So a 403
-		// means the key itself is unknown.
+		// means the exchange does not hold this key.
+		//
+		// It is still not enough to act on. A key issued moments ago can be
+		// rejected briefly, because the discovery service writes the key store
+		// and the logging service reads it, and those are not the same instant.
+		// The first version of this deleted a perfectly good key on that race,
+		// then healed, then deleted the replacement -- a site could sit in that
+		// loop indefinitely, re-certifying every hour and never able to file.
+		// Caught on wesmc.org, where provisioning reported success and the key
+		// was gone immediately afterwards.
+		//
+		// So a single refusal only raises a doubt. Two, an hour or more apart,
+		// are a revocation. A genuinely withdrawn key still recovers the same
+		// day; a race resolves itself with nothing thrown away.
+		$doubt = (int) get_option( self::DOUBT, 0 );
+		if ( 0 === $doubt ) {
+			update_option( self::DOUBT, time() );
+			return;
+		}
+		if ( time() - $doubt < self::DOUBT_INTERVAL ) {
+			return;
+		}
+
+		delete_option( self::DOUBT );
 		delete_option( 'newshare_als_api_key' );
 		delete_transient( self::HEALING );
 		self::heal();

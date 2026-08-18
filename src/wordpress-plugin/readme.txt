@@ -4,7 +4,7 @@ Tags: federated-identity, sso, oidc, paywall, news-network
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 8.1
-Stable tag: 0.2.8
+Stable tag: 0.2.9
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -108,6 +108,9 @@ Only opaque identifiers — no personally identifiable information. The network 
 No. The plugin communicates with the ALS (Account Ledger Service), which handles the Keycloak interaction on behalf of the network. Your plugin never talks to Keycloak directly.
 
 == Changelog ==
+
+= 0.2.9 =
+* One refused key is a race, not a revocation; two an hour apart are believed
 
 = 0.2.8 =
 * A site that loses its credentials re-certifies itself instead of silently filing nothing
