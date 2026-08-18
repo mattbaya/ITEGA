@@ -97,6 +97,25 @@ to someone hosting this as a favour.
 they may have comments attached, and that is the site owner's decision.
 Deactivation changes nothing.
 
+## The status badge
+
+Every page tells a reader whether they are signed in to the network:
+`ITEGA Guest 948AFC` with a way out, or `Not signed in` with a way in.
+
+It exists because the answer used to depend on the theme. WordPress's admin
+bar rendered on one site and not another, so the same reader saw their status
+at one newspaper and nothing at the next — and reading several articles
+without being stopped looks exactly like a broken paywall. The admin bar was
+never the right place for this: it is WordPress chrome, it says "Howdy", and
+it is silent about the network when a visitor is signed out.
+
+**Demo mode suppresses it entirely**, checked before any markup is emitted. A
+publisher hosting this quietly must stay quiet, and a badge on every page
+would be the most visible way to break that promise. Verified by switching
+demo mode on against a live site: zero badge markup, zero gate.
+
+`newshare_show_status_badge` turns it off without turning the plugin off.
+
 ## Files
 
 | File | What it does |
@@ -111,6 +130,7 @@ Deactivation changes nothing.
 | `includes/class-newshare-logger.php` | Files the publisher's own record |
 | `includes/class-newshare-ai-agent.php` | 403 / 402 / grant for answer engines |
 | `includes/class-newshare-logout.php` | Sign out here vs everywhere |
+| `includes/class-newshare-status.php` | The network status badge |
 | `includes/class-newshare-rsl.php` | Rights metadata |
 | `includes/class-newshare-admin.php` | Settings screen, links to the docs URL |
 | `uninstall.php` | Removes settings and role on delete |

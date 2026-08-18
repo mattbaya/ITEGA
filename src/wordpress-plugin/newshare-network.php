@@ -105,6 +105,7 @@ require_once NEWSHARE_PLUGIN_DIR . 'includes/class-newshare-rsl.php';
 require_once NEWSHARE_PLUGIN_DIR . 'includes/class-newshare-logger.php';
 require_once NEWSHARE_PLUGIN_DIR . 'includes/class-newshare-ai-agent.php';
 require_once NEWSHARE_PLUGIN_DIR . 'includes/class-newshare-logout.php';
+require_once NEWSHARE_PLUGIN_DIR . 'includes/class-newshare-status.php';
 require_once NEWSHARE_PLUGIN_DIR . 'includes/class-newshare-admin.php';
 
 // =========================================================================
@@ -162,6 +163,15 @@ final class Newshare_Network {
 
 	/** @var Newshare_Logout  Sign out of this publisher, or of the network. */
 	private Newshare_Logout $logout;
+
+	/**
+	 * The network status badge.
+	 *
+	 * Tells a reader whether they are signed in to the network, on every page,
+	 * regardless of what the theme does with WordPress's admin bar. Silent in
+	 * demo mode.
+	 */
+	private Newshare_Status $status;
 
 	/**
 	 * Get the singleton instance.
@@ -237,6 +247,11 @@ final class Newshare_Network {
 		// on its own; ordinary WordPress users are untouched, since they never
 		// signed in through the network in the first place.
 		add_action( 'init', array( $this->logout, 'handle_request' ), 2 );
+
+		// Always tell a reader where they stand. Suppressed entirely in
+		// demo mode -- see Newshare_Status.
+		$this->status = new Newshare_Status( $this->session, $this->demo );
+		add_action( 'wp_footer', array( $this->status, 'render' ) );
 		add_filter( 'logout_url', array( $this->logout, 'filter_logout_url' ), 10, 2 );
 
 		// -- Login UI --
