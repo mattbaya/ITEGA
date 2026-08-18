@@ -143,3 +143,13 @@
 .login .newshare-login-btn {
 	max-width: 100%;
 }
+
+/* The article's price on the access gate.
+   Given weight because it is the number that answers the reader's actual
+   question -- "what is this going to cost me?" -- which a sign-in prompt
+   otherwise leaves them to guess at. */
+.newshare-access-gate .newshare-price {
+	font-size: 1.05em;
+	font-weight: 600;
+	margin: .8em 0;
+}

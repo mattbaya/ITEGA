@@ -395,6 +395,19 @@ class Newshare_Access {
 		// This ensures the user returns to this article after logging in.
 		$current_url = get_permalink( $post_id );
 
+		// What this publisher is asking for this article.
+		//
+		// Shown to the reader, because "you must sign in to read this" without
+		// a number invites them to imagine a subscription. Jason Velazquez at
+		// Greylock Glass asked for reassurance that articles cost very little;
+		// the honest version of that is not a claim about what articles
+		// typically cost, it is this article's actual price.
+		$page_class = get_post_meta( $post_id, 'newshare_page_class', true );
+		if ( '' === $page_class ) {
+			$page_class = get_option( 'newshare_default_page_class', '0.05' );
+		}
+		$page_class = (float) $page_class;
+
 		// Render the access gate template.
 		ob_start();
 		$tier_name       = $this->get_tier_name( $required_bits );

@@ -298,6 +298,12 @@ Network readers get the **`newshare_guest`** role ("ITEGA Guest"), holding only
 `read` — never `subscriber`, which is the publisher's own and which plugins
 routinely add capabilities to.
 
+**Publish the plugin with `infra/publish-plugin.sh` after every change.** It
+lints, packages, writes the update manifest, uploads, and then checks what is
+actually served against what was built. Installed copies learn about the new
+version through WordPress's own update machinery. Greylock Glass ran a build
+one hour stale with no way to know, which is what this prevents.
+
 Deploy the publisher plugin only with `infra/deploy-publisher-plugin.sh <site>`
 (or `all`). It lints locally, ships the plugin as a unit, checks real pages
 afterwards and rolls back if the site stops answering. Copying single files with
@@ -322,8 +328,11 @@ returns 200 proves almost nothing about whether a person can get through it, so:
 - **Walk the whole path** as a reader does, from the article to the session, not
   from the API inwards.
 - **Log defects as GitHub issues** with cause, fix and verification, then close
-  them with what proved the fix. `gh issue list --state all` is the record.
-  Twenty-six closed, two open (#23, #28).
+  them with what proved the fix. **Every fix and every feature request gets an
+  issue, including ones already solved** — the tracker is the project's log of
+  what was done and why, and a change that only exists as a commit message is
+  not findable by anyone who was not there. `gh issue list --state all` is the
+  record.
 
 **The recurring failure in this project is a check that cannot observe what it
 claims to.** Not a wrong threshold — a quantity that could not have revealed the

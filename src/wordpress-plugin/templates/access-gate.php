@@ -82,6 +82,32 @@ if ( ! defined( 'ABSPATH' ) ) {
 		<p>
 			<?php esc_html_e( 'This article is included if you hold an account at any newspaper in the network — not just this one.', 'newshare-network' ); ?>
 		</p>
+		<?php
+		// Say what it costs.
+		//
+		// A wall that asks you to sign in without naming a number invites the
+		// reader to imagine a subscription, which is the anxiety this whole
+		// arrangement exists to remove. But the exact figure is the
+		// publisher's asking price, not the reader's bill: their home base
+		// adds its own margin, and this site is deliberately never told what
+		// that margin is. So the number is given as what the newspaper is
+		// paid, with the difference acknowledged rather than papered over.
+		$newshare_price = isset( $page_class ) ? (float) $page_class : 0.0;
+		if ( $newshare_price > 0 ) :
+			$newshare_shown = $newshare_price < 1
+				? sprintf( '%d&cent;', (int) round( $newshare_price * 100 ) )
+				: sprintf( '$%s', number_format( $newshare_price, 2 ) );
+			?>
+			<p class="newshare-price">
+				<?php
+				printf(
+					/* translators: %s: the publisher's price for this article, e.g. 5¢ */
+					esc_html__( 'This story costs %s. Not a subscription, and no card details — your account is with your own newspaper, and it settles up on your behalf.', 'newshare-network' ),
+					wp_kses_post( $newshare_shown )
+				);
+				?>
+			</p>
+		<?php endif; ?>
 		<p class="newshare-already">
 			<?php esc_html_e( 'Already signed in somewhere in the network? You will not be asked for a password. This publisher cannot tell, by design — it never sees who you are until you choose to continue.', 'newshare-network' ); ?>
 		</p>
