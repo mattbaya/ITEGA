@@ -65,16 +65,6 @@ class PublisherEntry:
         # ITEGA network membership identifier for this publisher
         self.pub_mbr_id: str = data["pub_mbr_id"]
 
-    def secret_for(self, home_base_id: str) -> str:
-        """The secret this publisher's client uses at one particular home base.
-
-        Falls back to the shared value when a home base has no entry, so a
-        two-realm demonstration keeps working while a real network can give
-        every member its own. The caller logs the fallback: sharing a secret
-        across members is a thing an operator should know they are doing rather
-        than discover later.
-        """
-        return self.client_secrets.get(home_base_id) or self.client_secret
         # Human-readable display name (optional, defaults to client_id)
         self.name: str = data.get("name", self.client_id)
         # How the session token is handed back: "post" or "fragment".
@@ -89,6 +79,17 @@ class PublisherEntry:
         # uses it for exactly this case; a query parameter would be written into
         # the logs of every host in the path.
         self.handoff: str = data.get("handoff", "post")
+
+    def secret_for(self, home_base_id: str) -> str:
+        """The secret this publisher's client uses at one particular home base.
+
+        Falls back to the shared value when a home base has no entry, so a
+        two-realm demonstration keeps working while a real network can give
+        every member its own. The caller logs the fallback: sharing a secret
+        across members is a thing an operator should know they are doing rather
+        than discover later.
+        """
+        return self.client_secrets.get(home_base_id) or self.client_secret
 
 
 class Settings(BaseSettings):
