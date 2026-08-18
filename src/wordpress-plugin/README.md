@@ -1,0 +1,173 @@
+# Newshare Network — WordPress plugin
+
+Lets a WordPress site accept readers who hold an account at any other
+newspaper in the network, be paid for what they read, and never learn who they
+are.
+
+**Publisher-facing documentation** lives at
+<https://dashboard.itega.org/plugin/> — that is the page to send a publisher
+to, and the one the plugin's settings screen links to. This file is for people
+working on the code.
+
+---
+
+## What it is
+
+A WordPress plugin (PHP 8.1+, WP 6.0+) that turns a news site into a
+**Content Provider** in the four-party model: it meters anonymous reads, offers
+the network alongside the publisher's own subscription, accepts a session
+vouched for by the reader's home base, negotiates a price, serves the article,
+and files its own record of the sale.
+
+It also answers machines: an AI answer engine that is a network member can buy
+an article over plain HTTP 402 rather than scraping it.
+
+## Installing it as a publisher would
+
+```
+Plugins → Add New → Upload Plugin → newshare-network.zip → Activate
+```
+
+There is nothing to configure. See [Self-provisioning](#self-provisioning).
+
+Build the distributable with `infra/build-publisher-plugin.sh`, and deploy to
+the demonstration sites **only** with `infra/deploy-publisher-plugin.sh <site>`
+— never by copying single files. That restriction exists because copying one
+file after it gained a constructor argument took barharbor.info down
+completely.
+
+## Self-provisioning
+
+The distributable is a public download, so it contains no credentials. Instead:
+
+1. ITEGA registers the publisher's domains — the certification step
+2. On activation the plugin publishes a random nonce at
+   `/.well-known/newshare-challenge`
+3. It calls `POST https://network.itega.org/provision` with `{domain, nonce}`
+4. The discovery service fetches that URL **over HTTPS, following no
+   redirects**, and compares the body exactly
+5. Only then does it return the Publishing Member ID, a per-publisher API key,
+   the service endpoints, and a demonstration key
+
+This is ACME's HTTP-01 challenge. A domain arriving as a parameter is a claim;
+only the site itself can answer for it. Because control is re-proved on every
+attempt, **reinstalling works** and needs no operator involvement.
+
+The call is scheduled a few seconds after activation rather than run inline —
+activation happens during the plugin-upload request, and this waits on the
+exchange fetching a URL back from the site.
+
+Server side: `src/network-discovery/provisioning.py`.
+
+## Demo mode
+
+Lets the plugin be installed on a real, operating news site without any of its
+behaviour reaching that site's ordinary readers. When enabled, every
+reader-facing behaviour is suppressed unless the visitor opted in with the
+demonstration key:
+
+- no access gate, whatever a post's `required_bits` say
+- no price negotiation
+- nothing sent to the exchange
+- no RSL metadata in the page head
+
+**Every uncertain case resolves to "not a participant"** — missing key, blank
+key, mismatch, malformed cookie. The worst outcome of a bug here should be that
+the demonstration does not run, never that a real reader is gated.
+
+Ships **on**, with the key issued by provisioning rather than invented by the
+publisher.
+
+That is deliberately stronger than leaving prices at zero, which is inert only
+until somebody saves a price on one post.
+
+## The guest role
+
+Network readers get a WordPress user — the session lives in user meta, which is
+how the access check knows they are entitled — with the role
+**`newshare_guest`** ("ITEGA Guest"), holding exactly one capability: `read`.
+
+Not `subscriber`. A publisher's subscriber role is theirs, and plugins
+routinely add capabilities to it; a network reader landing in that role would
+inherit access nobody decided to grant. The dedicated role also makes these
+accounts a visible group in the users list, which matters when the site belongs
+to someone hosting this as a favour.
+
+`uninstall.php` removes the settings and the role but **not** the accounts —
+they may have comments attached, and that is the site owner's decision.
+Deactivation changes nothing.
+
+## Files
+
+| File | What it does |
+|---|---|
+| `newshare-network.php` | Bootstrap, activation, role registration, hooks |
+| `includes/class-newshare-provisioning.php` | Serves the challenge, fetches credentials |
+| `includes/class-newshare-demo-mode.php` | Suppresses everything for non-participants |
+| `includes/class-newshare-session.php` | Session claims in user meta |
+| `includes/class-newshare-oidc.php` | The RP flow, through the ALS |
+| `includes/class-newshare-access.php` | The meter and the gate |
+| `includes/class-newshare-pricing.php` | Asking price, negotiation, refusal |
+| `includes/class-newshare-logger.php` | Files the publisher's own record |
+| `includes/class-newshare-ai-agent.php` | 403 / 402 / grant for answer engines |
+| `includes/class-newshare-logout.php` | Sign out here vs everywhere |
+| `includes/class-newshare-rsl.php` | Rights metadata |
+| `includes/class-newshare-admin.php` | Settings screen, links to the docs URL |
+| `uninstall.php` | Removes settings and role on delete |
+
+## Options
+
+Read `newshare_*` options; all are created on activation with `add_option`, so
+an existing configuration is never overwritten by a reactivation or upgrade.
+
+| Option | Default | Meaning |
+|---|---|---|
+| `newshare_pub_mbr_id` | *provisioned* | Publishing Member ID |
+| `newshare_als_api_key` | *provisioned* | Per-publisher key; may only file events under its own member ID |
+| `newshare_demo_mode` | `1` | Suppress everything for non-participants |
+| `newshare_demo_key` | *provisioned* | Opts a visitor in |
+| `newshare_free_article_count` | `3` | Reads before the meter closes |
+| `newshare_default_page_class` | `0.05` | Asking price for unpriced articles |
+| `newshare_premium_page_class` | `0.20` | Suggested premium rate |
+| `newshare_minimum_page_class` | `0.02` | Lowest counter-offer accepted |
+| `newshare_posted_price_is_final` | `''` | Refuse to negotiate |
+| `newshare_default_required_bits` | `0` | `4096` gates to paid subscribers |
+| `newshare_default_rsl_tag` | `CC-BY-NC` | Rights tag |
+
+`NEWSHARE_PUB_MBR_ID` and `NEWSHARE_ALS_API_KEY` in `wp-config.php` win over
+the database.
+
+Per post: `newshare_page_class` and `newshare_required_bits`.
+
+## Things worth knowing before changing it
+
+**The asking price is the publisher's, and lives only here.** `pageClass` is
+what the publisher is owed. The reader's bill is that times the home base's
+`markupRatio`, which is the home base's margin and **must never be disclosed to
+a publisher**.
+
+**A single anonymous request proves nothing about the gate.** The first three
+reads are free by design, so the meter has to be exhausted before the gate is
+even asked to act. An anonymous request returning a whole article looks like a
+broken paywall and is not.
+
+**Relying on the site-wide price default is how issue #18 hid.** It left 9,770
+articles readable by anyone across two sites, and no test noticed for weeks,
+because the test asked the site for priced articles and then checked those were
+priced.
+
+**The plugin is deployed as a unit.** See `infra/deploy-publisher-plugin.sh`;
+`NEWSHARE_DEPLOY_FORCE_FAIL=1` rehearses its rollback against a healthy site.
+
+## Testing
+
+From the repository root, against the live deployment:
+
+```bash
+infra/journey-test.py    # 18 checks — the reader's journey, at every publisher
+infra/logout-test.py     # 19 checks — both sign-out scopes actually differ
+infra/smoke-test.sh      # 28 checks — every public surface
+```
+
+Assert on what the reader ends up with, never on the redirect that points at
+it. A 302 towards a login page is not a login.

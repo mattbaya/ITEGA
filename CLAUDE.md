@@ -47,6 +47,7 @@ ITEGA/
 │   ├── vps-setup-record.md     ← How the servers were built, and what went wrong
 │   ├── monitoring.md           ← Beszel hub and agents
 │   ├── publisher-sites.md      ← The three WordPress publisher sites
+│   ├── publisher-onboarding.md ← How a real newspaper joins; domain proof
 │   ├── demo-script-gap-analysis.md ← Aug 25 demo script vs. the code; open questions
 │   ├── peer-review-synthesis.md ← Synthesis of Drummond Reed + Don Marti feedback
 │   ├── response-to-bill.md     ← Summary for Bill Densmore
@@ -272,6 +273,30 @@ weeks while 9,770 of 9,782 articles were free. It also had one home base written
 into it while the other could not sign anybody in. Both suites now sweep every
 publisher and every home base from the live registry.
 ```
+
+## Publishers provision themselves
+
+A publisher installs the plugin and activates it; that is their whole job. The
+distributable carries **no credentials** — it is a public download at
+`dashboard.itega.org/plugin/` — so the plugin fetches its own, proving it
+controls the domain by serving a nonce at `/.well-known/newshare-challenge`
+which the discovery service then fetches over HTTPS. ACME's HTTP-01 challenge.
+
+ITEGA registers the domains first; that registration **is** the certification
+step. See `docs/publisher-onboarding.md`.
+
+Two rules that came from real failures:
+
+- **A key may only file events under its own Publishing Member ID.** `pubMbrId`
+  arrives in the request body, so with one shared key any holder could file
+  settlement-affecting reads as any publisher.
+- **Mount the provisioning *directory*, not the file.** Renaming onto a
+  bind-mounted file is renaming onto a mount point; the kernel answers EBUSY,
+  and it fails *after* verification succeeds, so it looks like the wrong bug.
+
+Network readers get the **`newshare_guest`** role ("ITEGA Guest"), holding only
+`read` — never `subscriber`, which is the publisher's own and which plugins
+routinely add capabilities to.
 
 Deploy the publisher plugin only with `infra/deploy-publisher-plugin.sh <site>`
 (or `all`). It lints locally, ships the plugin as a unit, checks real pages

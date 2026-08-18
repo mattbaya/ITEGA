@@ -1,5 +1,64 @@
 # Project Status and Plan Forward
 
+## 2026-08-18 — publishers provision themselves, and Greylock is registered
+
+**A publisher now installs the plugin and activates it. That is their whole
+job.** No member ID typed in, no API key pasted into a form. The distributable
+carries no credentials — it is a public download at
+`dashboard.itega.org/plugin/` — so the plugin fetches its own, proving it
+controls the domain by serving a nonce the discovery service then fetches back
+over HTTPS. ACME's HTTP-01 challenge. See `docs/publisher-onboarding.md`.
+
+**greylockglass.com and greylockguardian.com are registered**, so Jason
+Velazquez can skip registration entirely. He is hosting this as a favour, on the
+condition it never affects his ordinary readers, and demo mode is what keeps
+that promise: with it on and no key in the URL, nothing reader-facing happens at
+all.
+
+**A shared API key let any holder file settlement records as any publisher.**
+`pubMbrId` arrives in the request body, so with one key across the network,
+whoever held it could credit themselves for reads that never happened, or load a
+competitor with traffic they never had. Keys are per publisher now, and a key
+may only file events under its own member ID. Verified live: wesmc's key files
+as itself (202), as Bar Harbor (403), an invented key (403).
+
+**Network readers get their own role**, `newshare_guest` ("ITEGA Guest"),
+holding only `read`. Never `subscriber` — that is the publisher's own role, and
+plugins routinely add capabilities to it, so a network reader would inherit
+access nobody decided to grant. It also makes these accounts a visible group in
+a users list, which matters on a site hosted as a favour. `uninstall.php`
+removes the settings and the role but not the accounts; those may have comments
+attached and belong to the site owner.
+
+### Verified by wiping a live site
+
+wesmc.org had its credentials deleted and re-certified from scratch, as a fresh
+install would. One call, correct member ID, per-publisher key, demonstration
+key, and 18/18 journey checks afterwards. That also exercised the plugin's own
+challenge-serving, which an earlier static-file test had not.
+
+### Two failures worth not repeating
+
+- **`os.replace` onto a bind-mounted *file* returns EBUSY.** Docker makes the
+  file a mount point, so the atomic write protecting the store failed — *after*
+  the domain had verified, which made it look like a verification bug. Mount the
+  directory.
+- **FastAPI exports its own `Path`**, which shadowed `pathlib.Path` in
+  als-logging. The container started, `/healthz` answered 200, and every
+  authenticated request returned 500 including ones that should have been a
+  clean 403.
+
+Both are the recurring shape: a check that cannot observe what it claims to. A
+health endpoint answering 200 while every real request fails is not a health
+check.
+
+### Also
+
+Films re-rendered twice: "eye-TAY-ga" as a speech-only respelling (the slides
+still read ITEGA), and the baker analogy moved from pounds to dollars, both at
+Bill's request. 51 demonstration accounts exist for 17 people across all three
+home bases.
+
 ## 2026-08-17 — two films, and a renderer that lied three ways
 
 The 120-slide explainer is now narrated video: a **12-minute cut** for
