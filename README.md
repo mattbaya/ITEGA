@@ -27,6 +27,7 @@ Governed by the [Information Trust Exchange Governing Association (ITEGA)](https
 - [Missouri Pilot: Proof of Concept](#missouri-pilot-proof-of-concept)
 - [What Has Actually Been Verified](#what-has-actually-been-verified)
 - [Prototype: Low-Cost Demo](#prototype-low-cost-demo-15month)
+- [What Changed Recently](#what-changed-recently)
 - [Project Structure](#project-structure)
 - [Competitive Landscape](#competitive-landscape)
 - [History and Lineage](#history-and-lineage)
@@ -672,9 +673,22 @@ infra/journey-test.py       # 18 checks — the reader's journey, at every publi
 infra/logout-test.py        # 19 checks — both sign-out scopes, and that they differ
 infra/totp-test.py          # 14 checks — two-factor really challenges, every realm
 infra/local-reader-test.py  #  9 checks — the publisher's own readers are never gated
+infra/demo-mode-test.py     #  9 checks — a suppressed site leaves no trace at all
+infra/reader-eyes-test.py   # in a real browser: what the screens actually say
 ```
 
-Last run 2026-08-18 against the live deployment: **88 checks, none failing**.
+The last of those is new and is the answer to a specific embarrassment. The
+other suites assert on structure — a status code, an element with a known class
+— and none of them can see what a page *says*. A paywall telling readers "This
+story costs 5¢" ran green through all of them, because five cents is the
+*wholesale* price and the reader pays 5.5¢, 6.25¢ or 7¢ depending on their home
+base. It was found by an outside reviewer reading the source, not by us. The
+browser suite opens Chromium, walks the meter like a person, photographs every
+gate, and asserts on the claims: that the price is attributed to the publication
+and never called the reader's cost, that nothing is promised which the home base
+may refuse, that a home base is not assumed to be a newspaper, that continuing
+is not implied to reveal the reader, and that the figure on the panel matches
+the licensing tag in the same page.
 
 Every suite sweeps **all three publishers and all three home bases**, read from
 the live registry rather than written into the test. Two separate faults hid
@@ -737,8 +751,8 @@ publishers filing their own purchases matters.
 
 The sign-in path was broken for weeks and nobody knew, because nobody had walked
 it end to end. Doing so found seven separate faults, any one of which stopped a
-reader dead, and each looked healthy from the hop before it. Twelve defects in
-total, all recorded with cause and verification in the
+reader dead, and each looked healthy from the hop before it. Forty-four defects
+and feature requests are now recorded, with cause, fix and verification, in the
 [issue tracker](https://github.com/mattbaya/ITEGA/issues).
 
 That a service returns 200 proves very little about whether a person can get
@@ -889,6 +903,58 @@ are the reason for the difference — its US regions cost roughly 3.4× the same
 hardware, which is worth knowing before comparing anyone's quote to this one.
 
 ---
+
+## What Changed Recently
+
+Newest first. The [issue tracker](https://github.com/mattbaya/ITEGA/issues) has
+the full record — every fix and every feature request, with cause, fix and what
+proved it — but these are the changes that alter what a reader or a publisher
+actually meets.
+
+**A newspaper outside this project is running it.** Greylock Glass installed the
+plugin from the public download and its site fetched its own credentials,
+proving it controlled its domain, with no involvement from ITEGA beyond having
+registered the domain in advance. First install by anyone not building this.
+
+**The access gate no longer presents the wholesale price as the reader's cost
+(#43).** It names the figure as what the publication is owed, says the reader's
+own price is set by their home base, and — new — says what the button does
+before it is pressed, because for a reader whose entitlement does not cover the
+article, continuing authorizes a purchase at a price they have not yet seen.
+
+**A publisher's own signed-in readers are never gated, metered or quoted
+(#41).** Subscribers, monthly contributors, members and staff read everything on
+their own site. The network carries visitors from elsewhere; it does not come
+between a newspaper and the people already paying it.
+
+**Demo mode stopped being a checkbox (#38), and the sites it stranded got a door
+back (#42).** A publisher unchecked it within a day of installing, reasonably,
+since nothing said what it did — and that made the plugin live for every reader
+of a working newspaper with no preview. Nothing in the admin can make a site
+live now; the only remaining control returns it to demonstration only.
+
+**The plugin updates itself through WordPress (#37).** Installed copies are
+offered new versions the ordinary way. Before this, a publisher could run a
+build an hour stale with no way to know.
+
+**Network readers get their own role (#34).** `newshare_guest` — "ITEGA Guest",
+holding `read` and nothing else. Never the publisher's own subscriber role,
+which plugins routinely add capabilities to.
+
+**Publishers provision themselves (#30), and a key may only speak for its owner
+(#31).** The distributable carries no credentials, because it is a public
+download.
+
+**Bar Harbor's public notices came out from behind the paywall.** Road closures,
+meeting listings and hearing notices are free; reporting is not. The archive
+stays priced at any age — a reader arriving from a search result onto a
+five-year-old story is a read the publisher is owed for.
+
+**Settled, not built.** The reader's cross-publisher history (#28) will be
+assembled by the *home base* from logging-service data, since it alone holds the
+map from one person to their several pairwise identifiers; building it centrally
+would require the ALS to learn that map, which is the one thing the design
+exists to prevent. A publisher-facing dashboard for weekly totals is #44.
 
 ## Project Structure
 

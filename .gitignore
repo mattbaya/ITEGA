@@ -58,3 +58,4 @@ claude-ai-logo-*.png
 
 # Per-publisher API keys. Never committed.
 infra/vps2/data/provisioning.json
+infra/screenshots/
