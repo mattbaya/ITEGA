@@ -59,6 +59,34 @@ still read ITEGA), and the baker analogy moved from pounds to dollars, both at
 Bill's request. 51 demonstration accounts exist for 17 people across all three
 home bases.
 
+## 2026-08-18 (late) — Three rounds of outside review, three real defects
+
+Jason Velazquez's AI reviewer read the repository and found, in order: the gate
+quoting wholesale as the reader's price (#43), the reader's follow-up link
+pointing at an OIDC issuer (#45), and refusal and outage sharing one screen
+(#46). All three were real, all three are fixed and live in **0.2.6**.
+
+The third is the one worth remembering. `Newshare_Pricing` had always
+distinguished `decline` from `unavailable`; `filter_content()` collapsed them,
+and its own comment said so. An outage on our side therefore told the reader
+their home base had refused, and sent them to argue about a decision nobody had
+made.
+
+Two arguments were put back and conceded: that charging for archive content is
+correct however old it is (the age rule is what produced #18), and that the
+nickel should be named rather than removed. Gigi's shortened gate copy was
+adopted; it is about half the length and says the same true things.
+
+**Still Bill's to decide.** The refusal wording replaces his specified copy from
+step 29, which was being used for a case it was never written for. The new
+sentence is a better fit for both screens, but the decision to reword his
+sentence is his.
+
+**Gap this exposed.** No suite exercises either failure path. The README's claim
+that all three pricing outcomes are verified rests on a manual walk.
+`infra/reader-eyes-test.py` now reads the gate in a real browser and asserts on
+claims rather than markup, but it does not yet reach a decline.
+
 ## 2026-08-18 (evening) — Bill settles the reader dashboard
 
 **Bill proposed a change freeze until the 25th and it was not adopted.** His
@@ -290,7 +318,7 @@ Name the client and say "needs rotating".
 *Living handoff document. Anyone — or any session — picking this up cold should be
 able to read this file and continue without reconstructing context.*
 
-**Last updated:** 2026-08-18 — public notices freed on Bar Harbor; #28 settled by Bill
+**Last updated:** 2026-08-18 — 0.2.6; refusal and outage separated
 **Deadline:** Aug 25, 2026 — RJI/ITEGA roundtable, 2 p.m. EDT
 
 ---

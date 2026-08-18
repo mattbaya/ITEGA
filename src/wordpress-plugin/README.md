@@ -110,6 +110,28 @@ This came from Jason Velazquez running the plugin at Greylock Glass and putting
 the screen in front of an AI reviewer, which caught the wholesale-as-retail
 contradiction from the source. Issue #43.
 
+## The two ways a purchase fails
+
+`Newshare_Pricing` returns **`decline`** when the home base was reached and
+refused, and **`unavailable`** when no decision was made — unreachable,
+unresolvable, or an answer we could not read. They render different screens, and
+that is not a nicety.
+
+Collapsing them, which is what the plugin did until 0.2.6, means an outage on our
+side tells the reader their home base refused them and sends them to ask about a
+decision that organization never made. It misattributes our fault to a third
+party and creates a support question nobody there can answer. The remedies
+differ too: a refusal is settled by changing something at the home base, an
+unavailability by trying again.
+
+Both screens name the organization rather than saying "your ITEGA Home Base" at
+someone, and the declined one links to the registry's `account_url` — never
+`oidc_issuer`, which is an identity endpoint and not a place a person can do
+anything.
+
+Neither path has an automated test. Both were rendered against the live plugin
+with real values, which is not the same thing. See #46.
+
 ## The guest role
 
 Network readers get a WordPress user — the session lives in user meta, which is
