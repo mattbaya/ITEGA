@@ -59,6 +59,40 @@ still read ITEGA), and the baker analogy moved from pounds to dollars, both at
 Bill's request. 51 demonstration accounts exist for 17 people across all three
 home bases.
 
+## 2026-08-18 (late night) — Bill's two suggestions are one build
+
+Both of his 18 Aug ideas need the same missing capability, and neither can be
+built without it. The Retail Agent receives `networkUserId`, which is pairwise,
+so it cannot tell which of its own readers is asking — a threshold belongs to a
+person, and the agent can only hold policy for everybody at once. Assembling a
+reader's history needs the same lookup. That is #53, and it is the prerequisite
+for #28 and #29 alike.
+
+**It is soluble, and it is proven.** The home base issued those identifiers, so
+it can recompute them:
+
+    sub = UUID.nameUUIDFromBytes( SHA256( sector + localSub + salt ) )
+
+`salt` is each publisher's own `pairwiseSubAlgorithmSalt`; `sector` is the host
+of the redirect URI, because no `sectorIdentifierUri` is set — so every
+publisher shares a sector and the salt separates them. Changing a redirect URI
+would silently re-issue every reader a new identity, which is worth knowing
+before anyone does it.
+
+`infra/ppid-derivation-test.py` reconstructs a real reader's identifiers and
+checks them against the WordPress accounts two publisher sites created when that
+reader actually signed in. Both match; the test also asserts they differ from
+each other.
+
+**#23 closed, and it cost an outage first.** Per-home-base client secrets are
+live. The first attempt put the new method inside `__init__`, leaving `name` and
+`handoff` after a `return` — valid Python, silently dead, and every sign-in in
+the network returned 500. `ast.parse`, the new unit test and all 29 smoke checks
+passed over it; only `journey-test` saw it, because only `journey-test` walks a
+reader through. Rolled back in a minute, fixed, redeployed.
+
+**Still open:** #53's reverse index, #28 and #29 on top of it, and #44.
+
 ## 2026-08-18 (night) — The invisible failure, and the fix that caused it
 
 **#50 is closed.** A site whose credentials went missing — a database restore, a
@@ -353,7 +387,7 @@ Name the client and say "needs rotating".
 *Living handoff document. Anyone — or any session — picking this up cold should be
 able to read this file and continue without reconstructing context.*
 
-**Last updated:** 2026-08-18 — 0.2.9; sites re-certify themselves
+**Last updated:** 2026-08-18 — #23 closed; the pairwise join proven (#53)
 **Deadline:** Aug 25, 2026 — RJI/ITEGA roundtable, 2 p.m. EDT
 
 ---

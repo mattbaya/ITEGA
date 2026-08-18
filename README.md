@@ -675,6 +675,7 @@ infra/totp-test.py          # 14 checks — two-factor really challenges, every 
 infra/local-reader-test.py  #  9 checks — the publisher's own readers are never gated
 infra/demo-mode-test.py     #  9 checks — a suppressed site leaves no trace at all
 infra/reader-eyes-test.py   # in a real browser: what the screens actually say
+infra/ppid-derivation-test.py # the home base can rebuild the map; nobody else can
 ```
 
 The last of those is new and is the answer to a specific embarrassment. The
@@ -910,6 +911,19 @@ Newest first. The [issue tracker](https://github.com/mattbaya/ITEGA/issues) has
 the full record — every fix and every feature request, with cause, fix and what
 proved it — but these are the changes that alter what a reader or a publisher
 actually meets.
+
+**The privacy claim is now checked, not just asserted (#53).** The identifier a
+reader carries at one publisher is reconstructed from first principles and
+compared against what two different publisher sites recorded for that same
+person — and the check also asserts the two identifiers differ, so a change that
+collapsed them would fail a test rather than quietly de-anonymise every reader.
+This is also the capability the home base needs to assemble a reader's history
+(#28) or honour a threshold they set themselves (#29): both of Bill Densmore's
+suggestions turn out to be one piece of infrastructure.
+
+**Each home base gets its own client secret (#23).** One secret per client had
+two independent organisations sharing credentials, which would let either
+authenticate to the exchange as the other.
 
 **A publisher that loses its credentials re-certifies itself (#50).** Proved by
 deleting both from a live site: it went on serving articles and closing the gate

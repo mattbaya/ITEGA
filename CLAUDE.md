@@ -307,6 +307,24 @@ Network readers get the **`newshare_guest`** role ("ITEGA Guest"), holding only
 `read` — never `subscriber`, which is the publisher's own and which plugins
 routinely add capabilities to.
 
+**Only the home base can join a reader's pairwise identifiers, and it can.**
+Each publisher is a Keycloak client in the home base's realm with its own
+`pairwiseSubAlgorithmSalt`, and the identifier is
+`UUID.nameUUIDFromBytes(SHA256(sector + localSub + salt))` — hence the version-3
+UUIDs. **`sector` is the host of the redirect URI**, since no
+`sectorIdentifierUri` is configured, so every publisher shares a sector and the
+salt is what separates them; changing a redirect URI would silently re-issue
+every reader a new identity. `infra/ppid-derivation-test.py` reconstructs a real
+reader's identifiers and checks them against what two publisher sites recorded
+independently — run it before trusting anything built on the derivation, because
+a wrong join is silent and shows one reader another's history. Issue #53, which
+is the shared prerequisite for #28 and #29.
+
+**A client secret belongs to one home base, not to the network.** A client of a
+given id exists in every home base's realm and each issues its own credentials;
+`PublisherEntry.secret_for(home_base_id)` resolves it and logs loudly when
+falling back to a shared value. Issue #23.
+
 **A site that loses its credentials gets them back by itself.** They live in
 WordPress options, so an update cannot lose them, but a database restore or a
 migration can — and the resulting failure is invisible: the meter counts, the
