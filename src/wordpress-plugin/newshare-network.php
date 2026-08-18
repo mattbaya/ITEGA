@@ -3,7 +3,7 @@
  * Plugin Name: Newshare Network
  * Plugin URI: https://github.com/mattbaya/ITEGA
  * Description: Federated identity and content access for the Newshare Network. Adds "Network Login" for cross-publisher SSO with privacy-preserving pseudonymous identifiers.
- * Version: 0.2.6
+ * Version: 0.2.7
  * Requires PHP: 8.1
  * Requires at least: 6.0
  * Author: ITEGA / Newshare Network
@@ -48,7 +48,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 // Plugin Constants
 // =========================================================================
 
-define( 'NEWSHARE_VERSION', '0.2.6' );
+define( 'NEWSHARE_VERSION', '0.2.7' );
 
 /**
  * Role given to readers who arrive through the network.
@@ -609,15 +609,25 @@ add_action( 'newshare_provision_event', 'newshare_maybe_provision' );
 /**
  * Offer updates from ITEGA through WordPress's own update machinery.
  *
- * Registered unconditionally and outside the reader-facing class: it runs in
- * the admin, it is nothing to do with demo mode, and a publisher must hear
- * about a fix whether or not they have switched anything on.
+ * Registered outside the reader-facing class: it is nothing to do with demo
+ * mode, and a publisher must hear about a fix whether or not they have switched
+ * anything on.
+ *
+ * WP-CLI is registered separately and deliberately. It runs neither admin_init
+ * nor wp_version_check, so `wp plugin update newshare-network` used to answer
+ * "Plugin already updated" however far behind the site was -- and command-line
+ * updating is what managed hosts, staging pipelines and any automated site do.
+ * They would have sat on an old build forever with nothing to indicate it,
+ * which is the failure the update mechanism exists to prevent. #49.
  */
 function newshare_register_updater(): void {
 	( new Newshare_Updater( NEWSHARE_PLUGIN_BASENAME ) )->register();
 }
 add_action( 'admin_init', 'newshare_register_updater' );
 add_action( 'wp_version_check', 'newshare_register_updater' );
+if ( defined( 'WP_CLI' ) && WP_CLI ) {
+	add_action( 'init', 'newshare_register_updater' );
+}
 
 register_activation_hook( __FILE__, 'newshare_activate' );
 
