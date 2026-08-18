@@ -45,7 +45,11 @@ from __future__ import annotations
 
 import hmac
 import json
-from pathlib import Path
+# Aliased: FastAPI exports its own Path for path parameters, and its import
+# below shadows this one. The collision surfaces only when a request is
+# served, so the service starts cleanly and /healthz passes while every
+# authenticated call returns 500.
+from pathlib import Path as FilePath
 import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
