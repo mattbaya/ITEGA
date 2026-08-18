@@ -49,6 +49,21 @@ if ( ! defined( 'ABSPATH' ) ) {
 // =========================================================================
 
 define( 'NEWSHARE_VERSION', '0.2.0' );
+
+/**
+ * Role given to readers who arrive through the network.
+ *
+ * Deliberately not `subscriber`. A publisher's own subscriber role is theirs,
+ * and plugins routinely add capabilities to it -- membership plugins, forums,
+ * private-content plugins. A network reader inheriting those would be given
+ * access on this site that nobody decided to give them, and the publisher
+ * would have no way to see it had happened.
+ *
+ * This role holds exactly one capability, `read`. It is also what makes these
+ * accounts visible as a group: a publisher can sort their users list by role
+ * and see precisely which ones arrived through ITEGA.
+ */
+define( 'NEWSHARE_ROLE', 'newshare_guest' );
 define( 'NEWSHARE_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'NEWSHARE_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'NEWSHARE_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
@@ -419,7 +434,70 @@ final class Newshare_Network {
  * Uses add_option() (not update_option()) so existing values are preserved
  * if the plugin is deactivated and reactivated.
  */
+/**
+ * Create the network reader role, if it is not already there.
+ *
+ * Called on activation and again on init, because a role lives in the
+ * database rather than in code: a site restored from a backup taken before
+ * this version, or one where the activation hook did not run, would otherwise
+ * have the plugin assigning a role that does not exist -- which WordPress
+ * accepts silently, leaving the reader with no capabilities at all.
+ */
+function newshare_register_role(): void {
+	if ( ! get_role( NEWSHARE_ROLE ) ) {
+		add_role(
+			NEWSHARE_ROLE,
+			__( 'ITEGA Guest', 'newshare-network' ),
+			array( 'read' => true )
+		);
+	}
+}
+add_action( 'init', 'newshare_register_role', 0 );
+
+/**
+ * Move readers this plugin created onto the new role, once.
+ *
+ * Scoped as tightly as it can be: only accounts carrying this plugin's own
+ * meta key, and only those still holding the role we used to assign. A
+ * publisher's own subscribers are never touched, and neither is any account
+ * whose role someone has since changed on purpose.
+ *
+ * Guarded by an option so it runs once rather than on every request.
+ */
+function newshare_migrate_reader_roles(): void {
+	if ( get_option( 'newshare_role_migrated' ) ) {
+		return;
+	}
+	update_option( 'newshare_role_migrated', '1' );
+
+	if ( ! get_role( NEWSHARE_ROLE ) ) {
+		return;
+	}
+
+	$readers = get_users(
+		array(
+			'meta_key'     => 'newshare_network_user_id',
+			'meta_compare' => 'EXISTS',
+			'role'         => 'subscriber',
+			'fields'       => 'ID',
+			'number'       => 500,
+		)
+	);
+
+	foreach ( $readers as $id ) {
+		$user = get_userdata( $id );
+		// Only if subscriber is their *only* role -- an account someone has
+		// also made an editor is not ours to demote.
+		if ( $user instanceof WP_User && array( 'subscriber' ) === $user->roles ) {
+			$user->set_role( NEWSHARE_ROLE );
+		}
+	}
+}
+add_action( 'init', 'newshare_migrate_reader_roles', 1 );
+
+
 function newshare_activate(): void {
+	newshare_register_role();
 	// Network-level defaults. These are the live ITEGA services and are the
 	// same for every publisher, so there is no reason to make each site's
 	// operator retype them -- and a typo here fails in ways that look like a

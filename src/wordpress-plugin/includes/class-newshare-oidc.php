@@ -729,7 +729,7 @@ class Newshare_OIDC {
 				'user_login'   => $username,
 				'user_email'   => $email,
 				'user_pass'    => wp_generate_password( 32, true, true ),
-				'role'         => 'subscriber',
+				'role'         => NEWSHARE_ROLE,
 				'display_name' => self::reader_label( $network_user_id ),
 			)
 		);
