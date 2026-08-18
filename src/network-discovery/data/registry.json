@@ -67,14 +67,6 @@
       "certification_tier": "content_publisher"
     },
     {
-      "id": "PUB003",
-      "name": "Publisher C",
-      "publishing_member_id": "ITEGA-PC-0001",
-      "domain": "publisher-c.example",
-      "certification_status": "active",
-      "certification_tier": "content_publisher"
-    },
-    {
       "id": "PUB004",
       "name": "West End Sentinel",
       "publishing_member_id": "ITEGA-WESMC-0003",

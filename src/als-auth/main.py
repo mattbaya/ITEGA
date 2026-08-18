@@ -624,7 +624,7 @@ def _render_home_base_chooser(
     <input type="hidden" name="state" value="{signed_state}">
     <label for="q">Or type its name, or its Publishing Member ID if you know it</label>
     <input type="text" id="q" name="q" autocomplete="off"
-           placeholder="e.g. Publisher C Home Base, or ITEGA-PC-0001">
+           placeholder="e.g. Bar Harbor Info, or ITEGA-PC-0001">
     <button class="btn" type="submit">Continue</button>
   </form>
 
