@@ -47,8 +47,8 @@ interface Step {
 
 const PARTIES = {
   reader: { label: 'Reader', color: 'bg-navy-600' },
-  publisher: { label: 'Publisher B', color: 'bg-teal-600' },
-  homebase: { label: 'Home Base (Publisher C)', color: 'bg-navy-800' },
+  publisher: { label: 'North Berkshire', color: 'bg-teal-600' },
+  homebase: { label: 'Home Base (Bar Harbor Info)', color: 'bg-navy-800' },
   itega: { label: 'ITEGA', color: 'bg-teal-800' },
 } as const;
 
@@ -57,15 +57,15 @@ const STEPS: Step[] = [
     title: 'A reader follows a link',
     actor: 'reader',
     narration:
-      'Susan has an account with Publisher C — her home base — and no account at Publisher B. She follows a link to a Publisher B article.',
+      'Susan has an account with Bar Harbor Info — her home base — and no account at North Berkshire. She follows a link to a North Berkshire article.',
     background:
-      'Nothing has happened yet. Publisher B does not know who she is, and will not find out.',
+      'Nothing has happened yet. North Berkshire does not know who she is, and will not find out.',
   },
   {
     title: 'The paywall does not recognise her',
     actor: 'publisher',
     narration:
-      'Publisher B offers her its own subscription, and — because it is an ITEGA member — the option to sign in through the network instead.',
+      'North Berkshire offers her its own subscription, and — because it is an ITEGA member — the option to sign in through the network instead.',
     background:
       'The publisher keeps its existing paywall. Joining the network adds an option; it replaces nothing.',
   },
@@ -82,41 +82,41 @@ const STEPS: Step[] = [
     title: 'Resolving the name she typed',
     actor: 'itega',
     narration:
-      'Susan types "Publisher C". The directory resolves it to a certified home base and its endpoints.',
+      'Susan types "Bar Harbor Info". The directory resolves it to a certified home base and its endpoints.',
     background:
       'Resolution tries an exact member ID first, then a name, then a hint from her network. If nothing matches she is offered somewhere to sign up rather than a dead end.',
-    run: () => resolveHomeBase('Publisher C'),
+    run: () => resolveHomeBase('Bar Harbor Info'),
   },
   {
     title: 'Her home base vouches for her',
     actor: 'homebase',
     narration:
-      'She authenticates with Publisher C — the only party that knows who she is. It issues an identifier for use at Publisher B.',
+      'She authenticates with Bar Harbor Info — the only party that knows who she is. It issues an identifier for use at North Berkshire.',
     background:
-      'That identifier is pairwise: it is different at every publisher. Publisher B and Publisher A cannot compare notes and discover they have the same reader. Only her home base could link them, and it does not.',
+      'That identifier is pairwise: it is different at every publisher. North Berkshire and West End Sentinel cannot compare notes and discover they have the same reader. Only her home base could link them, and it does not.',
   },
   {
-    title: 'Publisher B welcomes her',
+    title: 'North Berkshire welcomes her',
     actor: 'publisher',
     narration:
       'She is admitted as a network reader, with her home base named. She never created an account here.',
     background:
-      'Publisher B knows a reader arrived from Publisher C and holds a subscription tier. It does not know her name, her email, or that she reads anywhere else.',
+      'North Berkshire knows a reader arrived from Bar Harbor Info and holds a subscription tier. It does not know her name, her email, or that she reads anywhere else.',
   },
   {
     title: 'What her home base will pay',
     actor: 'homebase',
     narration:
-      'Publisher C acts as her buying agent. These are the standing instructions it applies on her behalf.',
+      'Bar Harbor Info acts as her buying agent. These are the standing instructions it applies on her behalf.',
     background:
-      'The markup ratio lives here and only here. Publisher B never learns it — what Publisher C charges its own readers is between them.',
+      'The markup ratio lives here and only here. North Berkshire never learns it — what Bar Harbor Info charges its own readers is between them.',
     run: fetchAgentPolicy,
   },
   {
-    title: 'Publisher B names its price',
+    title: 'North Berkshire names its price',
     actor: 'publisher',
     narration:
-      'The article is priced at $0.05. Publisher B posts that to Susan\'s home base and waits.',
+      'The article is priced at $0.05. North Berkshire posts that to Susan\'s home base and waits.',
     background:
       'This is a real exchange, not a lookup. The publisher sets its own price; the home base may accept it, ask to negotiate, or refuse.',
     run: () => requestQuote(0.05, 'open'),
@@ -127,14 +127,14 @@ const STEPS: Step[] = [
     narration:
       'A more expensive article — $0.20 — and the home base asks to negotiate rather than accepting outright.',
     background:
-      'Publisher B now chooses: meet the offer, or re-post its price as final. A publisher that never wants to haggle can mark its prices final from the outset.',
+      'North Berkshire now chooses: meet the offer, or re-post its price as final. A publisher that never wants to haggle can mark its prices final from the outset.',
     run: () => requestQuote(0.2, 'open'),
   },
   {
     title: 'The publisher holds its price',
     actor: 'publisher',
     narration:
-      'Publisher B re-posts $0.20 as final. The home base pays it — it is within what it will spend for this reader.',
+      'North Berkshire re-posts $0.20 as final. The home base pays it — it is within what it will spend for this reader.',
     background:
       'The agent gets one turn to ask. After that the exchange resolves, so a negotiation cannot loop.',
     run: () => requestQuote(0.2, 'final', 'demo-negotiation'),
@@ -171,7 +171,7 @@ const STEPS: Step[] = [
     narration:
       'Weekly, the logs are aggregated: home bases are debited, publishers are credited, ITEGA takes a small fee.',
     background:
-      'Publisher B asked $0.05 and receives $0.05. Publisher C may bill Susan $0.055, or bundle it into her subscription, or absorb it — that spread is its margin for bringing her here, and it is the reason a home base has any interest in sending its readers to someone else\'s site.',
+      'North Berkshire asked $0.05 and receives $0.05. Bar Harbor Info may bill Susan $0.055, or bundle it into her subscription, or absorb it — that spread is its margin for bringing her here, and it is the reason a home base has any interest in sending its readers to someone else\'s site.',
   },
 ];
 
