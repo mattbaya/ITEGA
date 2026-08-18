@@ -264,16 +264,34 @@ class Newshare_Admin {
 		// For installs on a real publisher's site. With demo mode on, readers
 		// who do not present the key see nothing this plugin does: no gate, no
 		// pricing call, no logging, no RSL metadata.
+		// Demo mode is deliberately NOT a setting a publisher can click.
+		//
+		// This is pilot software. Switching it off changes what every reader
+		// of a live newspaper sees, and the change is silent -- no preview, no
+		// confirmation, and nothing on the page to say the site now behaves
+		// differently. Greylock Glass unchecked it within a day of installing,
+		// reasonably enough, and then reported that nothing happened at the
+		// fourth article, which had nothing to do with demo mode and
+		// everything to do with no article being priced. A control whose
+		// effect people cannot predict is worse than no control.
+		//
+		// It remains an option, so a site can be configured deliberately by
+		// someone who knows what they are doing:
+		//
+		//     wp option update newshare_demo_mode 0
+		//
+		// or NEWSHARE_DEMO_MODE in wp-config.php. Both are choices somebody
+		// has to mean.
 		register_setting( 'newshare-network', 'newshare_demo_mode', array(
 			'type'              => 'boolean',
 			'sanitize_callback' => 'rest_sanitize_boolean',
-			'default'           => false,
+			'default'           => true,
 		) );
 
 		add_settings_field(
-			'newshare_demo_mode',
-			__( 'Demo Mode', 'newshare-network' ),
-			array( $this, 'render_demo_mode_toggle' ),
+			'newshare_demo_mode_state',
+			__( 'Mode', 'newshare-network' ),
+			array( $this, 'render_demo_mode_state' ),
 			'newshare-network',
 			'newshare_access'
 		);
@@ -718,17 +736,25 @@ class Newshare_Admin {
 	}
 
 	/**
-	 * Render the demo-mode toggle.
+	 * Say which mode the site is in, without offering to change it.
+	 *
+	 * Shown alongside the demonstration key so a publisher can always see
+	 * where they stand, which is the part that was actually useful about the
+	 * old checkbox.
 	 */
-	public function render_demo_mode_toggle(): void {
-		$on = (bool) get_option( 'newshare_demo_mode', false );
+	public function render_demo_mode_state(): void {
+		$on = (bool) get_option( 'newshare_demo_mode', true );
 		?>
-		<label>
-			<input type="checkbox" name="newshare_demo_mode" value="1" <?php checked( $on ); ?> />
-			<?php esc_html_e( 'Only show Newshare behaviour to demonstration participants', 'newshare-network' ); ?>
-		</label>
+		<p style="margin:0">
+			<strong><?php echo $on
+				? esc_html__( 'Demonstration only.', 'newshare-network' )
+				: esc_html__( 'Live for all readers.', 'newshare-network' ); ?></strong>
+			<?php echo $on
+				? esc_html__( 'Your ordinary readers see nothing of this plugin: no access gate, no login prompt, no pricing, no logging, and nothing in your page source. Only visitors holding the demonstration key below take part.', 'newshare-network' )
+				: esc_html__( 'This plugin is active for everyone who visits. Readers may see an access gate on articles you have priced.', 'newshare-network' ); ?>
+		</p>
 		<p class="description">
-			<?php esc_html_e( 'Turn this on when installing on a live news site. Ordinary readers will see no access gate, no login prompt, no pricing and no logging. Only visitors holding the demo key below take part.', 'newshare-network' ); ?>
+			<?php esc_html_e( 'This is pilot software, so the mode is not a checkbox. Ask ITEGA to change it, or set it yourself with WP-CLI if you run the server.', 'newshare-network' ); ?>
 		</p>
 		<?php
 	}

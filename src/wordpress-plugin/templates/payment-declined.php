@@ -3,7 +3,7 @@
  * Template: Payment Declined.
  *
  * Shown when a reader has a valid network session, but their home base did not
- * authorise payment for this article -- either refusing the price outright, or
+ * authorize payment for this article -- either refusing the price outright, or
  * proving unreachable.
  *
  * This is deliberately distinct from the tier-upgrade message in

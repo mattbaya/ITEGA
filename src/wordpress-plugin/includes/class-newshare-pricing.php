@@ -25,8 +25,8 @@
  *
  * Newshare_Logger fires events asynchronously because a dropped log entry is
  * recoverable. This request is different: we must not release content before
- * knowing payment is authorised, so the call blocks. It is kept to a short
- * timeout, and a failure to reach the agent is treated as "not authorised"
+ * knowing payment is authorized, so the call blocks. It is kept to a short
+ * timeout, and a failure to reach the agent is treated as "not authorized"
  * rather than silently serving content nobody has agreed to pay for.
  *
  * @package Newshare_Network
@@ -64,7 +64,7 @@ class Newshare_Pricing {
 	}
 
 	/**
-	 * Ask the reader's home base to authorise payment for a resource.
+	 * Ask the reader's home base to authorize payment for a resource.
 	 *
 	 * @param int $post_id The post being requested.
 	 * @return array {

@@ -3,7 +3,7 @@
  * Plugin Name: Newshare Network
  * Plugin URI: https://github.com/mattbaya/ITEGA
  * Description: Federated identity and content access for the Newshare Network. Adds "Network Login" for cross-publisher SSO with privacy-preserving pseudonymous identifiers.
- * Version: 0.2.0
+ * Version: 0.2.1
  * Requires PHP: 8.1
  * Requires at least: 6.0
  * Author: ITEGA / Newshare Network
@@ -48,7 +48,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 // Plugin Constants
 // =========================================================================
 
-define( 'NEWSHARE_VERSION', '0.2.0' );
+define( 'NEWSHARE_VERSION', '0.2.1' );
 
 /**
  * Role given to readers who arrive through the network.
@@ -106,6 +106,7 @@ require_once NEWSHARE_PLUGIN_DIR . 'includes/class-newshare-logger.php';
 require_once NEWSHARE_PLUGIN_DIR . 'includes/class-newshare-ai-agent.php';
 require_once NEWSHARE_PLUGIN_DIR . 'includes/class-newshare-logout.php';
 require_once NEWSHARE_PLUGIN_DIR . 'includes/class-newshare-status.php';
+require_once NEWSHARE_PLUGIN_DIR . 'includes/class-newshare-updater.php';
 require_once NEWSHARE_PLUGIN_DIR . 'includes/class-newshare-admin.php';
 
 // =========================================================================
@@ -541,6 +542,11 @@ function newshare_activate(): void {
 		'newshare_default_required_bits' => '0',
 		'newshare_default_rsl_tag'       => 'CC-BY-NC',
 		'newshare_free_article_count'    => '3',
+		// Tell anonymous readers they are not signed in. Off by default: on a
+		// live newspaper that is a visible change to every reader. Our
+		// demonstration sites turn it on, because a tester who cannot tell
+		// whether they are signed in reports the paywall as broken.
+		'newshare_status_badge_anonymous' => '',
 	);
 
 	// Per-site values -- the publisher's own member ID and the shared API key
@@ -599,6 +605,19 @@ function newshare_maybe_provision(): void {
 	Newshare_Provisioning::provision();
 }
 add_action( 'newshare_provision_event', 'newshare_maybe_provision' );
+
+/**
+ * Offer updates from ITEGA through WordPress's own update machinery.
+ *
+ * Registered unconditionally and outside the reader-facing class: it runs in
+ * the admin, it is nothing to do with demo mode, and a publisher must hear
+ * about a fix whether or not they have switched anything on.
+ */
+function newshare_register_updater(): void {
+	( new Newshare_Updater( NEWSHARE_PLUGIN_BASENAME ) )->register();
+}
+add_action( 'admin_init', 'newshare_register_updater' );
+add_action( 'wp_version_check', 'newshare_register_updater' );
 
 register_activation_hook( __FILE__, 'newshare_activate' );
 

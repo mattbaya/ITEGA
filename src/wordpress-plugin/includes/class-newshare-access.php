@@ -82,7 +82,7 @@ class Newshare_Access {
 	private Newshare_Session $session;
 
 	/**
-	 * Pricing negotiator, used to get payment authorised before vending.
+	 * Pricing negotiator, used to get payment authorized before vending.
 	 *
 	 * @var Newshare_Pricing
 	 */
@@ -235,7 +235,7 @@ class Newshare_Access {
 	}
 
 	/**
-	 * Render the disclosure shown when a purchase has been authorised.
+	 * Render the disclosure shown when a purchase has been authorized.
 	 *
 	 * The reader is told what they now owe their home base -- the retail price,
 	 * which includes their home base's markup. This publisher is settled at the
@@ -342,7 +342,7 @@ class Newshare_Access {
 		}
 
 		// The tier does not cover this article, but a network reader may still
-		// buy it if their home base authorises payment. Ask before vending.
+		// buy it if their home base authorizes payment. Ask before vending.
 		if ( $this->session->is_network_user() && $this->is_priced( $post_id ) ) {
 			$quote = $this->pricing->negotiate( $post_id );
 
@@ -363,7 +363,7 @@ class Newshare_Access {
 				 */
 				do_action( 'newshare_content_purchased', $post_id, $quote );
 
-				// Payment authorised. Show the reader what they have committed
+				// Payment authorized. Show the reader what they have committed
 				// to pay their home base, then release the article.
 				return $this->render_purchase_notice( $quote ) . $content;
 			}

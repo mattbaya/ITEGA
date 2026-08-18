@@ -4,6 +4,7 @@ Lets a WordPress site accept readers who hold an account at any other
 newspaper in the network, be paid for what they read, and never learn who they
 are.
 
+**Download:** <https://dashboard.itega.org/plugin/newshare-network.zip>
 **Publisher-facing documentation** lives at
 <https://dashboard.itega.org/plugin/> — that is the page to send a publisher
 to, and the one the plugin's settings screen links to. This file is for people
@@ -116,6 +117,28 @@ demo mode on against a live site: zero badge markup, zero gate.
 
 `newshare_show_status_badge` turns it off without turning the plugin off.
 
+## Publishing a new version
+
+```bash
+infra/publish-plugin.sh
+```
+
+Lints, packages, writes the update manifest, uploads both, and then checks
+what is actually served against what was built. Run it for **every** plugin
+change, without exception.
+
+The reason is not tidiness. Greylock Glass installed a build that was one hour
+stale, and the consequences were invisible to them: their demonstration key
+was never issued, and two of our asset URLs sat in their page source. Nobody
+could have noticed, because until 0.2.1 the plugin had no way to say a newer
+version existed.
+
+`class-newshare-updater.php` reads `update.json` and reports newer versions
+through WordPress's own update machinery, so a publisher sees the ordinary
+"update available" notice and presses the ordinary button. Bump the version in
+the plugin header, then run the script; the manifest takes its version from
+the header, and the script refuses to finish if the two disagree.
+
 ## Files
 
 | File | What it does |
@@ -131,6 +154,7 @@ demo mode on against a live site: zero badge markup, zero gate.
 | `includes/class-newshare-ai-agent.php` | 403 / 402 / grant for answer engines |
 | `includes/class-newshare-logout.php` | Sign out here vs everywhere |
 | `includes/class-newshare-status.php` | The network status badge |
+| `includes/class-newshare-updater.php` | Offers updates through WordPress |
 | `includes/class-newshare-rsl.php` | Rights metadata |
 | `includes/class-newshare-admin.php` | Settings screen, links to the docs URL |
 | `uninstall.php` | Removes settings and role on delete |

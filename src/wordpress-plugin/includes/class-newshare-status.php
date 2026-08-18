@@ -77,6 +77,24 @@ class Newshare_Status {
 			return false;
 		}
 
+		// Whether an anonymous reader is told they are not signed in.
+		//
+		// Default is no, and the default is the important part. On a
+		// demonstration site a tester needs to know they are flying blind --
+		// that is why this badge exists. But on a real newspaper that has
+		// switched demo mode off, "Not signed in" in the corner of every page
+		// is a visible change to every reader, which is not something a
+		// publisher agreed to by installing a plugin. Greylock Glass turned
+		// demo mode off within a day of installing; they would have got the
+		// badge with the next update and never asked for it.
+		//
+		// So: signed-in readers always see their status, because it is theirs.
+		// Anonymous readers see nothing unless the publisher opts in.
+		$signed_in = $this->session->is_network_user() && $this->session->is_session_valid();
+		if ( ! $signed_in && '1' !== (string) get_option( 'newshare_status_badge_anonymous', '' ) ) {
+			return false;
+		}
+
 		/**
 		 * Let a publisher turn the badge off without turning the plugin off.
 		 *

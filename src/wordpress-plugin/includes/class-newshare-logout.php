@@ -10,7 +10,7 @@
  *
  *   Sign out here        Ends the session with this publisher. The reader
  *                        stays signed in to the network, so the next member
- *                        site still recognises them without a password --
+ *                        site still recognizes them without a password --
  *                        which is the whole point of the network, and not
  *                        something to throw away by accident.
  *

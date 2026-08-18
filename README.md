@@ -38,6 +38,20 @@ Governed by the [Information Trust Exchange Governing Association (ITEGA)](https
 
 ---
 
+## For publishers: install the plugin
+
+**Download:** <https://dashboard.itega.org/plugin/newshare-network.zip>
+**Documentation:** <https://dashboard.itega.org/plugin/>
+
+Upload it under Plugins → Add New, activate, and stop. There is nothing to
+configure: the plugin fetches its own credentials from ITEGA, proving it
+controls the domain by serving a nonce ITEGA then fetches back over HTTPS.
+Your domains must be registered first — see `docs/publisher-onboarding.md`.
+
+It ships in demonstration mode, in which your ordinary readers see nothing of
+it at all: no access gate, no login prompt, no pricing, nothing logged, and
+nothing in your page source.
+
 ## What Is This?
 
 > **If you would rather watch than read:** the whole argument is a narrated

@@ -3,7 +3,7 @@
  * Newshare Demo Mode.
  *
  * Lets the plugin be installed on a real, operating news site without any of
- * its behaviour reaching that site's ordinary readers.
+ * its behavior reaching that site's ordinary readers.
  *
  * == Why this exists ==
  *
@@ -16,7 +16,7 @@
  * already subscribe to.
  *
  * Demo mode makes it inert *by design*. When enabled, every reader-facing
- * behaviour of this plugin is suppressed unless the visitor has explicitly
+ * behavior of this plugin is suppressed unless the visitor has explicitly
  * opted in to the demonstration:
  *
  *   - no access gate, whatever the post's required_bits say
@@ -161,7 +161,7 @@ class Newshare_Demo_Mode {
 	}
 
 	/**
-	 * Whether the current visitor should see any Newshare behaviour at all.
+	 * Whether the current visitor should see any Newshare behavior at all.
 	 *
 	 * When demo mode is off this returns true for everyone, which is ordinary
 	 * operation on our own demonstration sites.
@@ -192,7 +192,7 @@ class Newshare_Demo_Mode {
 	}
 
 	/**
-	 * Whether plugin behaviour must be suppressed for this visitor.
+	 * Whether plugin behavior must be suppressed for this visitor.
 	 *
 	 * The inverse of is_participant(), named so that call sites read as an
 	 * early bail rather than a double negative.

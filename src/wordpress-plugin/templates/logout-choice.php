@@ -74,7 +74,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 			printf( esc_html__( 'Sign out of %s', 'newshare-network' ), esc_html( $site ) );
 			?>
 		</strong>
-		<span><?php esc_html_e( 'Other newspapers in the network will still recognise you, and you will not need a password to read them.', 'newshare-network' ); ?></span>
+		<span><?php esc_html_e( 'Other newspapers in the network will still recognize you, and you will not need a password to read them.', 'newshare-network' ); ?></span>
 	</a>
 
 	<a class="choice" href="<?php echo esc_url( $everywhere ); ?>">
