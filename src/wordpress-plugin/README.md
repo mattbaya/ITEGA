@@ -110,6 +110,30 @@ This came from Jason Velazquez running the plugin at Greylock Glass and putting
 the screen in front of an AI reviewer, which caught the wholesale-as-retail
 contradiction from the source. Issue #43.
 
+## Credentials, and getting them back
+
+They live in WordPress **options**, not in the plugin directory — which is what
+lets WordPress replace that directory during an update without de-provisioning
+the site.
+
+Options are lost other ways, though: a database restore, a migration, a staging
+clone. The resulting failure is the worst shape available here. The site looks
+completely healthy — the meter counts, the gate closes, readers are charged by
+their home bases — and it cannot file a single event, so settlement credits the
+publisher with nothing and no error surfaces anywhere a person looks.
+
+- `heal()` runs on `init`, returns immediately when credentials are present, and
+  otherwise schedules a certification. Scheduled, never inline: the exchange
+  fetches a nonce back from the site over HTTPS and no reader should wait for
+  that. Rate-limited to once an hour.
+- `verify()` runs daily against `GET /log/whoami`. Event filing is
+  fire-and-forget, so this is the only place the plugin can wait for an answer.
+- **One 403 is a race, not a revocation.** The discovery service writes the key
+  store and the logging service reads it; a key issued seconds ago can be
+  refused. Two refusals an hour apart are believed. The first version of this
+  check deleted good keys in a loop — see #52.
+- An admin notice says so meanwhile, since nothing outward-facing will.
+
 ## The two ways a purchase fails
 
 `Newshare_Pricing` returns **`decline`** when the home base was reached and

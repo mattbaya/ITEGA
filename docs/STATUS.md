@@ -59,6 +59,41 @@ still read ITEGA), and the baker analogy moved from pounds to dollars, both at
 Bill's request. 51 demonstration accounts exist for 17 people across all three
 home bases.
 
+## 2026-08-18 (night) — The invisible failure, and the fix that caused it
+
+**#50 is closed.** A site whose credentials went missing — a database restore, a
+migration, a staging clone — never got them back. `newshare_maybe_provision()`
+was scheduled once, at activation, and nothing re-activates.
+
+The shape of the failure is what made it urgent. Deleting both options on a live
+site left it looking perfectly healthy: three free reads, the gate on the fourth,
+readers billed by their home bases. What it could not do was file events, so
+settlement would have paid that publisher nothing, and no error appeared anywhere
+a person would look.
+
+Now `heal()` re-certifies on any request that finds credentials missing —
+scheduled, never inline, rate-limited to once an hour — and `verify()` asks the
+new `GET /log/whoami` once a day whether the key still works, since event filing
+is fire-and-forget and cannot see a rejection. An admin notice states it plainly,
+because the outside of the site looks fine.
+
+**Then the fix broke it worse, which is worth recording.** `verify()` treated a
+single 403 as a revocation. But the discovery service writes the key store and
+the logging service reads it, and those are not the same instant, so a key issued
+seconds earlier is legitimately refused — and `heal()` and `verify()` both run
+from cron, back to back. The result was a loop: certify, be refused, delete,
+certify. wesmc.org reported provisioning success with no key at all. One refusal
+is now a doubt; two an hour apart are believed. Issue #52.
+
+Verified end to end: both credentials wiped, two ordinary page loads, everything
+back, no doubt flag.
+
+**Also this session.** The registry's phantom publisher removed and deployed
+(#47); the step-through demo asking for a home base name that was never
+registered (#48); `wp plugin update` unable to see ITEGA releases at all (#49);
+a stale deploy now a failing check, narrowed to the paths VPS 2 actually runs so
+it does not go red on every plugin release (#51).
+
 ## 2026-08-18 (late) — Three rounds of outside review, three real defects
 
 Jason Velazquez's AI reviewer read the repository and found, in order: the gate
@@ -318,7 +353,7 @@ Name the client and say "needs rotating".
 *Living handoff document. Anyone — or any session — picking this up cold should be
 able to read this file and continue without reconstructing context.*
 
-**Last updated:** 2026-08-18 — 0.2.6; refusal and outage separated
+**Last updated:** 2026-08-18 — 0.2.9; sites re-certify themselves
 **Deadline:** Aug 25, 2026 — RJI/ITEGA roundtable, 2 p.m. EDT
 
 ---

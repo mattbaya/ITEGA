@@ -911,6 +911,15 @@ the full record — every fix and every feature request, with cause, fix and wha
 proved it — but these are the changes that alter what a reader or a publisher
 actually meets.
 
+**A publisher that loses its credentials re-certifies itself (#50).** Proved by
+deleting both from a live site: it went on serving articles and closing the gate
+on the fourth, exactly as if healthy, while filing nothing — so readers were
+charged and the publisher was credited for none of it, with no error anywhere a
+person would look. The site now notices and certifies itself again from two
+ordinary reader page loads, and says so in the admin meanwhile. The check that
+watches for a revoked key had to be fixed too (#52): its first version treated a
+single refusal as proof and deleted the key it was protecting.
+
 **Our own sites now update the way a publisher's does (#49).** They used to be
 shipped to by rsync — a path no real publisher has, which meant the update
 mechanism everyone else depends on was exercised by nobody. Switching found that

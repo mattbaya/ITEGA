@@ -307,6 +307,17 @@ Network readers get the **`newshare_guest`** role ("ITEGA Guest"), holding only
 `read` — never `subscriber`, which is the publisher's own and which plugins
 routinely add capabilities to.
 
+**A site that loses its credentials gets them back by itself.** They live in
+WordPress options, so an update cannot lose them, but a database restore or a
+migration can — and the resulting failure is invisible: the meter counts, the
+gate closes, readers are charged, and settlement pays the publisher nothing.
+`Newshare_Provisioning::heal()` re-certifies (scheduled, rate-limited to once an
+hour) and `verify()` asks `GET /log/whoami` daily whether the key still works.
+**One 403 there is a race, not a revocation** — the discovery service writes the
+key store and the logging service reads it, and they are not the same instant;
+the first version of this deleted good keys in a loop. Two refusals an hour
+apart are believed. Issues #50, #52.
+
 **A refusal and a failure to ask are different events, and the reader must be
 told which happened.** `Newshare_Pricing` returns `decline` when the home base
 refused and `unavailable` when it could not be reached; `payment-declined.php`

@@ -168,12 +168,20 @@ if [ -r "$DEPLOY_KEY" ]; then
   WANT=$(git -C "$(dirname "$0")/.." rev-parse origin/main 2>/dev/null || echo unknown)
   GOT=$(ssh -o BatchMode=yes -o ConnectTimeout=15 -i "$DEPLOY_KEY" "$DEPLOY_HOST" \
         "cd /opt/newshare && git rev-parse HEAD" 2>/dev/null || echo unreachable)
-  if [ "$WANT" = "unknown" ]; then
-    ok "deployed commit" "no origin/main to compare against — skipped"
+  # Compared over the paths this host actually runs, not the whole tree. A
+  # plugin release or a documentation commit moves origin/main without changing
+  # anything here, and a check that goes red for those teaches people to ignore
+  # it -- which would cost more than the drift it was built to catch.
+  VPS2_PATHS="src/als-auth src/als-logging src/als-settlement src/network-discovery infra/vps2"
+  if [ "$WANT" = "unknown" ] || [ "$GOT" = "unreachable" ]; then
+    ok "deployed code" "could not compare — skipped"
   elif [ "$GOT" = "$WANT" ]; then
     ok "VPS 2 runs origin/main" "${GOT:0:8}"
+  elif git -C "$(dirname "$0")/.." diff --quiet "$GOT" "$WANT" -- $VPS2_PATHS 2>/dev/null; then
+    ok "VPS 2 runs current service code" "${GOT:0:8}, and nothing it serves has changed since"
   else
-    bad "VPS 2 runs origin/main" "serving ${GOT:0:8}, repository is ${WANT:0:8}"
+    bad "VPS 2 runs current service code" \
+        "serving ${GOT:0:8}; ${WANT:0:8} changes $(git -C "$(dirname "$0")/.." diff --name-only "$GOT" "$WANT" -- $VPS2_PATHS 2>/dev/null | wc -l | tr -d ' ') file(s) it runs"
   fi
 else
   ok "deployed commit" "no deploy key here — skipped"
