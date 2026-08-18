@@ -36,6 +36,12 @@ class Settings(BaseSettings):
     logging_service_url: str = "http://localhost:8001"
     logging_api_key: str = ""
 
+    # Where readers reach this agent from a browser. Used to build the link a
+    # publisher shows when a purchase is waiting on the reader's approval, so
+    # it must be the address the reader can actually get to rather than the
+    # internal one this service binds.
+    public_url: str = ""
+
     # ── The home base's own directory ─────────────────────────────────
     # Used to resolve a reader's pairwise identifiers back to the reader, which
     # only this party may do. Left empty, the agent runs exactly as before and

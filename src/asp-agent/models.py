@@ -72,7 +72,7 @@ class QuoteResponse(BaseModel):
     ``markupRatio`` producing it is never disclosed.
     """
 
-    decision: str = Field(..., description="accept | negotiate | decline")
+    decision: str = Field(..., description="accept | negotiate | decline | confirm")
     negotiationId: str = Field(..., max_length=64)
     # Present on accept: the wholesale figure the publisher will be settled at.
     agreedPrice: float | None = Field(default=None, ge=0.0)
@@ -83,6 +83,11 @@ class QuoteResponse(BaseModel):
     retailPrice: float | None = Field(default=None, ge=0.0)
     # Human-readable rationale, shown in the demo UI to make the exchange legible.
     reason: str = Field(default="")
+    # Where the reader goes to approve a purchase above the limit they set.
+    # Present only on a "confirm" decision. The publisher shows it and learns
+    # nothing from it: what the reader's limit is, and what they are charged,
+    # stay between them and their home base.
+    confirmUrl: str = Field(default="")
 
 
 class AgentPolicy(BaseModel):

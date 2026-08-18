@@ -28,14 +28,17 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Any
+from urllib.parse import quote_plus
 
 import httpx
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import HTMLResponse
 
 from config import settings
 from models import AgentPolicy, QuoteRequest, QuoteResponse  # noqa: F401
 from pairwise import PairwiseIndex
+from thresholds import Thresholds
 
 logging.basicConfig(
     level=logging.INFO,
@@ -82,6 +85,18 @@ _index: PairwiseIndex | None = (
         settings.keycloak_admin_password,
     )
     if settings.keycloak_url and settings.keycloak_realm and settings.keycloak_admin
+    else None
+)
+
+# The reader's own spending limit, and what they have approved above it.
+_limits: Thresholds | None = (
+    Thresholds(
+        settings.keycloak_url,
+        settings.keycloak_realm,
+        settings.keycloak_admin,
+        settings.keycloak_admin_password,
+    )
+    if _index is not None
     else None
 )
 
@@ -194,6 +209,75 @@ async def reader_history(network_user_id: str, days: int = 30) -> dict[str, Any]
     }
 
 
+@app.get("/agent/confirm", response_class=HTMLResponse)
+async def confirm(reader: str, resource: str, price: float) -> HTMLResponse:
+    """The reader approves, or does not, a purchase above the limit they set.
+
+    This screen is the home base's, and deliberately so. It is the only point in
+    the whole exchange where the reader is asked to agree to spend money, and it
+    names their retail price -- the figure the publisher is never told and could
+    not display. Asking them at the publisher would mean the publisher quoting a
+    number it does not have.
+
+    Approving is narrow: this article, this price, for a few minutes. It does
+    not raise the limit, and the next article above it asks again.
+    """
+    if _index is None or _limits is None:
+        raise HTTPException(status_code=501, detail="No reader directory configured")
+
+    local_sub = await _index.resolve(reader)
+    if local_sub is None:
+        raise HTTPException(status_code=404, detail="Not a reader of this home base")
+
+    _limits.approve(local_sub, resource, Decimal(str(price)))
+    logger.info("confirm: reader approved %s at %s", resource, price)
+
+    # Deliberately plain. A home base may be a library or a co-operative with no
+    # front-end of its own, and this has to be legible without one.
+    return HTMLResponse(f"""<!doctype html>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Purchase approved</title>
+<style>
+ body {{ font: 16px/1.6 system-ui, sans-serif; max-width: 34em; margin: 12vh auto; padding: 0 1.2em; color: #1a1a1a; }}
+ .price {{ font-size: 1.6em; font-weight: 600; }}
+ a {{ color: #14507a; }}
+ p.small {{ color: #555; font-size: .9em; }}
+</style>
+<h1>Approved</h1>
+<p class="price">{_money(Decimal(str(price))):.4f}</p>
+<p>{settings.home_base_name} will buy this story for you and add it to your
+account. You set a limit, so we asked first.</p>
+<p><a href="{resource}">Back to the story</a></p>
+<p class="small">This approval covers this story at this price, for the next few
+minutes. Anything else above your limit will ask you again.</p>
+""")
+
+
+@app.get("/agent/reader/{network_user_id}/limit")
+async def get_limit(network_user_id: str) -> dict[str, Any]:
+    """The limit this reader has set, if any."""
+    if _index is None or _limits is None:
+        raise HTTPException(status_code=501, detail="No reader directory configured")
+    local_sub = await _index.resolve(network_user_id)
+    if local_sub is None:
+        raise HTTPException(status_code=404, detail="Not a reader of this home base")
+    limit = await _limits.limit_for(local_sub)
+    return {"limit": None if limit is None else float(limit),
+            "note": "Above this, your home base asks you before buying."}
+
+
+@app.put("/agent/reader/{network_user_id}/limit")
+async def put_limit(network_user_id: str, amount: float | None = None) -> dict[str, Any]:
+    """Set or clear it. The reader's own figure, held by their own home base."""
+    if _index is None or _limits is None:
+        raise HTTPException(status_code=501, detail="No reader directory configured")
+    local_sub = await _index.resolve(network_user_id)
+    if local_sub is None:
+        raise HTTPException(status_code=404, detail="Not a reader of this home base")
+    await _limits.set_limit(local_sub, None if amount is None else Decimal(str(amount)))
+    return {"limit": amount}
+
+
 @app.get("/agent/directory-status")
 async def directory_status() -> dict[str, Any]:
     """Whether this agent can resolve its own readers, and on what evidence."""
@@ -243,6 +327,47 @@ async def quote(req: QuoteRequest) -> QuoteResponse:
     # requested figure would be asked to negotiate against it again, and the
     # exchange would never terminate.
     settled_terms = req.terms == "final" or bool(req.negotiationId)
+
+    # A limit the reader set for themselves, checked before the home base's own
+    # policy. Bill Densmore's, from the 1990s: name a figure, and anything above
+    # it asks you first.
+    #
+    # Measured against the RETAIL price, because that is what the reader is
+    # billed. Their limit refers to their money, not to what the publisher asks
+    # -- and the publisher is never told either number.
+    #
+    # A reader who has set no limit is unaffected: no extra call, no change of
+    # behaviour, and the buying path below is exactly as it was.
+    if _index is not None and _limits is not None and req.networkUserId:
+        try:
+            reader = await _index.resolve(req.networkUserId)
+            if reader is not None:
+                limit = await _limits.limit_for(reader)
+                if limit is not None:
+                    retail = ask * Decimal(str(policy.markupRatio))
+                    if retail > limit and not _limits.approved(reader, req.resourceId, retail):
+                        logger.info(
+                            "quote %s: CONFIRM %s — retail %s above the reader's limit %s",
+                            negotiation_id, req.resourceId, _money(retail), limit,
+                        )
+                        return QuoteResponse(
+                            decision="confirm",
+                            negotiationId=negotiation_id,
+                            reason=(
+                                f"{settings.home_base_name} is holding this purchase "
+                                "for your approval, at your request."
+                            ),
+                            confirmUrl=(
+                                f"{settings.public_url.rstrip('/')}/agent/confirm"
+                                f"?reader={req.networkUserId}"
+                                f"&resource={quote_plus(req.resourceId)}"
+                                f"&price={_money(retail)}"
+                            ),
+                        )
+        except Exception as exc:
+            # A limit that cannot be read must never stop a reader buying. It
+            # would turn a directory outage into a network-wide refusal.
+            logger.warning("threshold check skipped: %s", exc)
 
     # Above the ceiling there is nothing to discuss, whatever the terms.
     if ask > ceiling:
