@@ -115,6 +115,27 @@ Verified live:
 | wesmc's key | `ITEGA-PA-0001` | **403** |
 | an invented key | anything | **403** |
 
+## What it does to a publisher's own audience
+
+Nothing. Anyone signed in to the publisher's WordPress site who did not arrive
+through the network reads everything on it — no meter, no gate, no price quote,
+no log report. Subscribers, members, monthly contributors and staff are all
+covered, whatever roles the site's own membership plugin invented for them.
+
+This is the condition on which Greylock Glass installed the plugin, and it is
+the right rule in general: a newspaper's existing relationships are not the
+network's to intermediate. The network is for visitors from elsewhere.
+
+A contributor who *also* wants a network account registers at a home base like
+any reader. The account they get there is unrelated to their account at the
+publisher — network readers are always a separate WordPress user, derived from
+the `networkUserId` and never adopted from a local account by email — so
+joining costs them nothing at their own paper. That is pairwise identifiers
+doing what they are for.
+
+Verified by `infra/local-reader-test.py`, which proves on each site that the
+same article gates an anonymous reader and does not gate the publisher's own.
+
 ## Operating it
 
 **Register a domain.** Add an entry to the store and restart

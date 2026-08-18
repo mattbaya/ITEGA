@@ -98,6 +98,31 @@ to someone hosting this as a favour.
 they may have comments attached, and that is the site owner's decision.
 Deactivation changes nothing.
 
+## The publisher's own readers
+
+Anyone signed in to the WordPress site who did not arrive through the network
+reads everything on it. No meter, no gate, no price quote, no log report.
+
+This is Jason Velazquez's question at Greylock Glass, and the answer has to be
+unconditional: he has monthly contributors, and a plugin that started charging
+the people who already pay him would be worse than no plugin. A newspaper's own
+relationships are not the network's to intermediate — the network exists for
+visitors from elsewhere. Subscribers, members, contributors and staff are all
+covered by the same rule, whatever roles the site's own membership plugin
+invented for them.
+
+Network accounts are always separate: `find_or_create_user()` derives its
+username from the `networkUserId` and never adopts a local account by email, so
+a monthly contributor who also joins the network keeps two unrelated identities
+— which is the point of pairwise identifiers, and means joining costs them
+nothing at their own paper.
+
+The check reads the role as well as the link meta. A network account holds
+`newshare_guest` and nothing else, so if its meta is ever lost — a partial
+write, a restore, a manual edit — reading the meta alone would silently promote
+that reader into the publisher's own audience with the run of the site. Two
+signals, and it fails towards the gate.
+
 ## The status badge
 
 Every page tells a reader whether they are signed in to the network:

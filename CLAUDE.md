@@ -266,6 +266,7 @@ infra/smoke-test.sh      # 28 checks: every public endpoint, every realm and sit
 infra/journey-test.py    # 18 checks: the reader's journey, at every publisher
 infra/logout-test.py     # 19 checks: both sign-out scopes actually differ
 infra/totp-test.py       # 14 checks: two-factor really challenges, every realm
+infra/local-reader-test.py  # 9 checks: the publisher's own readers are never gated
 
 A test must never select its inputs by the property it is testing. `journey-test`
 once asked for priced articles and then checked they were priced, and passed for
@@ -297,6 +298,14 @@ Two rules that came from real failures:
 Network readers get the **`newshare_guest`** role ("ITEGA Guest"), holding only
 `read` — never `subscriber`, which is the publisher's own and which plugins
 routinely add capabilities to.
+
+**A publisher's own signed-in readers are never gated, metered or quoted.**
+Subscribers, members, monthly contributors and staff read everything on their
+own newspaper's site; the network is for visitors from elsewhere, and a plugin
+that came between a publisher and the people already paying them would be worse
+than no plugin. The check reads the role as well as the link meta, so an account
+whose meta is lost fails towards the gate rather than into the publisher's
+audience. Issue #41, and Jason Velazquez's condition for installing it.
 
 **Publish the plugin with `infra/publish-plugin.sh` after every change.** It
 lints, packages, writes the update manifest, uploads, and then checks what is

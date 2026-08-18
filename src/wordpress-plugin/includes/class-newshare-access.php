@@ -121,8 +121,9 @@ class Newshare_Access {
 	 * Decision flow:
 	 *   1. Look up the post's required_bits (per-post meta, or site default).
 	 *   2. If required_bits is 0, the content is free -- everyone can access it.
-	 *   3. If the user is NOT a network user, fall through to the anonymous meter.
-	 *   4. If the user IS a network user, check session validity and bitmask.
+	 *   3. If the reader is the publisher's own, serve it; see is_publisher_reader().
+	 *   4. If the user is NOT a network user, fall through to the anonymous meter.
+	 *   5. If the user IS a network user, check session validity and bitmask.
 	 *
 	 * @param int $post_id The post ID to check access for.
 	 * @return bool True if the user has access, false otherwise.
@@ -141,6 +142,11 @@ class Newshare_Access {
 			return true;
 		}
 
+		// The publisher's own readers stay the publisher's own business.
+		if ( $this->is_publisher_reader() ) {
+			return true;
+		}
+
 		// If user is not logged in via the network, check the anonymous article meter.
 		if ( ! $this->session->is_network_user() ) {
 			return $this->check_anonymous_meter( $post_id );
@@ -155,6 +161,43 @@ class Newshare_Access {
 		// Example: required=4104 (4096|8), user=4106 (4096|8|2) -> 4106 & 4104 = 4104 -> pass.
 		$user_group_id = (int) get_user_meta( get_current_user_id(), 'newshare_network_group_id', true );
 		return ( $user_group_id & $required_bits ) === $required_bits;
+	}
+
+	/**
+	 * Whether the current reader is one of the publisher's own.
+	 *
+	 * A newspaper's existing relationships are not the network's to intermediate.
+	 * Anyone signed in to this WordPress site who did not arrive through the
+	 * network -- a subscriber, a monthly contributor, a member, staff -- reads
+	 * everything on it and is never metered, gated, quoted or filed. The network
+	 * is for visitors from elsewhere, and a publisher who installs the plugin
+	 * must not find it standing between them and the people who already pay them.
+	 *
+	 * Network readers are always a separate account: find_or_create_user() never
+	 * adopts a local one, deriving its username from the networkUserId instead.
+	 *
+	 * @return bool True if this is the publisher's own signed-in reader.
+	 */
+	private function is_publisher_reader(): bool {
+		if ( ! is_user_logged_in() ) {
+			return false;
+		}
+
+		if ( $this->session->is_network_user() ) {
+			return false;
+		}
+
+		// A network account holds newshare_guest and nothing else. If its link
+		// meta is ever lost -- a partial write, a restore, a manual edit --
+		// is_network_user() goes false, and reading the meta alone would promote
+		// that account to a member of the publisher's own audience with the run
+		// of the site. Read the role too, and fail towards the gate.
+		$user = wp_get_current_user();
+		if ( array( NEWSHARE_ROLE ) === array_values( (array) $user->roles ) ) {
+			return false;
+		}
+
+		return true;
 	}
 
 	// =========================================================================

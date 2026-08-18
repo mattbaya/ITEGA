@@ -4,7 +4,7 @@ Tags: federated-identity, sso, oidc, paywall, news-network
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 8.1
-Stable tag: 0.1.0
+Stable tag: 0.2.3
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -108,6 +108,24 @@ Only opaque identifiers — no personally identifiable information. The network 
 No. The plugin communicates with the ALS (Account Ledger Service), which handles the Keycloak interaction on behalf of the network. Your plugin never talks to Keycloak directly.
 
 == Changelog ==
+
+= 0.2.3 =
+* The publisher's own signed-in readers are never gated, metered or quoted
+
+= 0.2.2 =
+* The access gate names what the article costs
+
+= 0.2.1 =
+* Updates arrive through WordPress's own update machinery
+* Demo mode is no longer a setting; the plugin is a demonstration throughout
+* US spellings in reader-facing copy
+
+= 0.2.0 =
+* Self-provisioning: the plugin fetches its own credentials, proving it controls
+  the domain by serving a nonce the discovery service fetches back over HTTPS
+* Network readers get their own role, "ITEGA Guest", holding read and nothing else
+* A status indicator tells a reader whether they are signed in to the network
+* No assets are loaded at all when demo mode is suppressing the plugin
 
 = 0.1.0 =
 * Initial release

@@ -664,16 +664,17 @@ Phase 2 (broader rollout + UDEX): ~$2M over 3 years. Not part of this request.
 ## What Has Actually Been Verified
 
 Every claim below was exercised against the live system, not inferred from the
-code. Four suites, all passing, all runnable before showing anyone anything:
+code. Five suites, all passing, all runnable before showing anyone anything:
 
 ```bash
-infra/smoke-test.sh      # 28 checks — every public endpoint, every realm and site
-infra/journey-test.py    # 18 checks — the reader's journey, at every publisher
-infra/logout-test.py     # 19 checks — both sign-out scopes, and that they differ
-infra/totp-test.py       # 14 checks — two-factor really challenges, every realm
+infra/smoke-test.sh         # 28 checks — every public endpoint, every realm and site
+infra/journey-test.py       # 18 checks — the reader's journey, at every publisher
+infra/logout-test.py        # 19 checks — both sign-out scopes, and that they differ
+infra/totp-test.py          # 14 checks — two-factor really challenges, every realm
+infra/local-reader-test.py  #  9 checks — the publisher's own readers are never gated
 ```
 
-Last run 2026-08-17 against the live deployment: **79 checks, none failing**.
+Last run 2026-08-18 against the live deployment: **88 checks, none failing**.
 
 Every suite sweeps **all three publishers and all three home bases**, read from
 the live registry rather than written into the test. Two separate faults hid

@@ -186,12 +186,13 @@ The ones worth remembering:
   SMTP disabled. Sixteen rules now exist and the disk rule fired on dev-svaha
   within a minute. Delivery is still unconfigured.
 
-Four test suites now guard this and should be run before showing anyone anything:
+Five test suites now guard this and should be run before showing anyone anything:
 
-    infra/smoke-test.sh     28 checks, every public surface
-    infra/journey-test.py   12 checks, the reader's journey end to end
-    infra/logout-test.py    19 checks, both sign-out scopes, and that they differ
-    infra/totp-test.py      14 checks, two-factor really challenges, both realms
+    infra/smoke-test.sh        28 checks, every public surface
+    infra/journey-test.py      18 checks, the reader's journey end to end
+    infra/logout-test.py       19 checks, both sign-out scopes, and that they differ
+    infra/totp-test.py         14 checks, two-factor really challenges, both realms
+    infra/local-reader-test.py  9 checks, the publisher's own readers are never gated
 
 Verified working: cross-publisher recognition with distinct pairwise identifiers,
 all three negotiation outcomes in the real reader flow, the wholesale/retail
