@@ -686,7 +686,7 @@ class Newshare_OIDC {
 	private static function reader_label( string $network_user_id ): string {
 		$short = strtoupper( substr( preg_replace( '/[^a-zA-Z0-9]/', '', $network_user_id ), 0, 6 ) );
 		/* translators: %s: a short opaque code identifying the reader at this publisher. */
-		return sprintf( __( 'Reader %s', 'newshare-network' ), $short );
+		return sprintf( __( 'ITEGA Guest %s', 'newshare-network' ), $short );
 	}
 
 	private function find_or_create_user( string $network_user_id ): int|WP_Error {
