@@ -36,12 +36,45 @@ class PublisherEntry:
     def __init__(self, data: dict[str, Any]) -> None:
         # OIDC client_id registered with the home base (Keycloak)
         self.client_id: str = data["client_id"]
-        # OIDC client_secret shared between ALS and home base
-        self.client_secret: str = data["client_secret"]
+        # OIDC client_secret, per home base.
+        #
+        # A client of this id exists in *every* home base's realm, and each home
+        # base issues its own credentials for it. One secret per client therefore
+        # forced two independent organisations to use identical credentials --
+        # which is how #22 happened, and it means any member holding that secret
+        # could authenticate to the exchange as any other member's client.
+        #
+        # Accepts either shape. A mapping keyed by home base id is what a real
+        # network needs; a bare string still loads, so existing configuration
+        # keeps working, and is used as the fallback for a home base with no
+        # entry of its own.
+        raw = data["client_secret"]
+        if isinstance(raw, dict):
+            self.client_secrets: dict[str, str] = {str(k): str(v) for k, v in raw.items()}
+            self.client_secret: str = str(raw.get("default", ""))
+        else:
+            self.client_secrets = {}
+            self.client_secret = str(raw)
+        # An explicit mapping wins over an inline one, if both are given.
+        if isinstance(data.get("client_secrets"), dict):
+            self.client_secrets.update(
+                {str(k): str(v) for k, v in data["client_secrets"].items()}
+            )
         # Publisher's registered redirect URI (used for open-redirect validation)
         self.redirect_uri: str = data["redirect_uri"]
         # ITEGA network membership identifier for this publisher
         self.pub_mbr_id: str = data["pub_mbr_id"]
+
+    def secret_for(self, home_base_id: str) -> str:
+        """The secret this publisher's client uses at one particular home base.
+
+        Falls back to the shared value when a home base has no entry, so a
+        two-realm demonstration keeps working while a real network can give
+        every member its own. The caller logs the fallback: sharing a secret
+        across members is a thing an operator should know they are doing rather
+        than discover later.
+        """
+        return self.client_secrets.get(home_base_id) or self.client_secret
         # Human-readable display name (optional, defaults to client_id)
         self.name: str = data.get("name", self.client_id)
         # How the session token is handed back: "post" or "fragment".

@@ -806,7 +806,8 @@ async def callback(
     if _discovery is None:
         raise HTTPException(status_code=503, detail="Discovery client not initialised")
 
-    home_base = await _discovery.get(session.get("home_base_id", ""))
+    home_base_id = str(session.get("home_base_id", ""))
+    home_base = await _discovery.get(home_base_id)
     if home_base is None:
         logger.warning(
             "callback: session referenced unknown home base %s",
@@ -821,8 +822,18 @@ async def callback(
         "code": code,
         "redirect_uri": als_callback_uri,
         "client_id": publisher_client_id,
-        "client_secret": publisher.client_secret,
+        # Scoped to the home base this session actually authenticated against.
+        # Every home base's realm has a client of this id and issues its own
+        # credentials for it; using one secret everywhere would let any member
+        # holding it authenticate as another member's client. #23.
+        "client_secret": publisher.secret_for(home_base_id),
     }
+    if not publisher.client_secrets.get(home_base_id):
+        logger.warning(
+            "callback: %s has no client secret of its own for %s — using the "
+            "shared value. Acceptable for a demonstration, not for a network.",
+            publisher_client_id, home_base_id,
+        )
     # Prove we are the same party that began the exchange.
     verifier = session.get("code_verifier")
     if verifier:
