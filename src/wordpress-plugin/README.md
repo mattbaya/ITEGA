@@ -142,6 +142,24 @@ demo mode on against a live site: zero badge markup, zero gate.
 
 `newshare_show_status_badge` turns it off without turning the plugin off.
 
+## Getting back to demonstration only
+
+Demo mode is on by default and is no longer a checkbox — the reasoning is in
+`register_settings()`, and it comes from Greylock Glass unchecking it within a
+day and then reporting a symptom that had nothing to do with it.
+
+That left a hole: the option survives an update, so a site already switched off
+could not be switched back. The settings page now shows a warning whenever the
+plugin is live for all readers, with a button that returns it to demonstration
+only. It opens one way. Nothing in the admin can make a site live, which is the
+mistake the old checkbox made easy.
+
+Going live is still possible for someone who means it:
+
+```bash
+wp option update newshare_demo_mode 0
+```
+
 ## Publishing a new version
 
 ```bash

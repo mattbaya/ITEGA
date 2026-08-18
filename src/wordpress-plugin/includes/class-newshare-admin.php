@@ -453,6 +453,22 @@ class Newshare_Admin {
 			$test_result = $this->test_connection();
 		}
 
+		// Removing the demo-mode checkbox stranded anyone who had already
+		// unchecked it: the option survives an update, and there is no longer a
+		// control to put it back. Greylock Glass is in exactly that position.
+		//
+		// This is the door back, and it only opens one way -- towards leaving
+		// readers alone. Nothing here can switch a live site on, which is the
+		// mistake the old checkbox made easy.
+		$restored = false;
+		if (
+			isset( $_POST['newshare_restore_demo_mode'] ) &&
+			check_admin_referer( 'newshare_restore_demo_mode', 'newshare_restore_nonce' )
+		) {
+			update_option( 'newshare_demo_mode', true );
+			$restored = true;
+		}
+
 		?>
 		<div class="wrap">
 			<h1><?php esc_html_e( 'Newshare Network Settings', 'newshare-network' ); ?></h1>
@@ -478,6 +494,27 @@ class Newshare_Admin {
 			</div>
 
 			<?php settings_errors(); ?>
+
+			<?php if ( $restored ) : ?>
+				<div class="notice notice-success inline" style="margin:1em 0;padding:.8em 1em">
+					<p style="margin:0">
+						<?php esc_html_e( 'Back to demonstration only. Your ordinary readers see nothing of this plugin again.', 'newshare-network' ); ?>
+					</p>
+				</div>
+			<?php elseif ( ! (bool) get_option( 'newshare_demo_mode', true ) ) : ?>
+				<div class="notice notice-warning inline" style="margin:1em 0;padding:.8em 1em">
+					<p style="margin:0 0 .6em">
+						<strong><?php esc_html_e( 'This plugin is live for all your readers.', 'newshare-network' ); ?></strong>
+						<?php esc_html_e( 'Anyone visiting the site may meet it: an access gate on articles you have priced, and the plugin\'s own markup in your page source. If that was not deliberate, put it back.', 'newshare-network' ); ?>
+					</p>
+					<form method="post" style="margin:0">
+						<?php wp_nonce_field( 'newshare_restore_demo_mode', 'newshare_restore_nonce' ); ?>
+						<button type="submit" name="newshare_restore_demo_mode" value="1" class="button">
+							<?php esc_html_e( 'Return to demonstration only', 'newshare-network' ); ?>
+						</button>
+					</form>
+				</div>
+			<?php endif; ?>
 
 			<form method="post" action="options.php">
 				<?php
