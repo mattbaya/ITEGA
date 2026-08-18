@@ -299,6 +299,18 @@ Network readers get the **`newshare_guest`** role ("ITEGA Guest"), holding only
 `read` — never `subscriber`, which is the publisher's own and which plugins
 routinely add capabilities to.
 
+**The gate names the publisher's price, never the reader's.** `pageClass` is
+what the publication is owed; the reader's bill is `pageClass * markupRatio`,
+and the publisher's own site is deliberately never told the markup — so the gate
+cannot state a retail figure and must not imply that it has. It also says what
+the button does, because for a reader whose entitlement does not cover the
+article, continuing authorizes a purchase at a price they have not yet seen. A
+home base may be a library or a cooperative, not only a newspaper, and
+continuing never reveals the reader: the publisher gets a pairwise opaque
+identifier before and after. Issue #43, found by Jason Velazquez's AI reviewer
+reading the repository and spotting that the comment above the string
+contradicted the string.
+
 **A publisher's own signed-in readers are never gated, metered or quoted.**
 Subscribers, members, monthly contributors and staff read everything on their
 own newspaper's site; the network is for visitors from elsewhere, and a plugin

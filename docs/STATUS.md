@@ -59,6 +59,31 @@ still read ITEGA), and the baker analogy moved from pounds to dollars, both at
 Bill's request. 51 demonstration accounts exist for 17 people across all three
 home bases.
 
+## 2026-08-18 — Greylock Glass installed it, and read the paywall properly
+
+Jason Velazquez put the plugin on greylockglass.com — the first install by
+anyone outside this project — and showed the gate to an AI reviewer, which read
+the repository and found that the screen contradicted the code beneath it.
+
+The gate said "This story costs 5¢". Five cents is `pageClass`, the wholesale
+price. The reader pays `pageClass * markupRatio`, which across our three home
+bases is 5.5¢, 6.25¢ or 7¢. The comment directly above the string said exactly
+that, and the string said otherwise. The retail figure appeared only *after* the
+purchase, in the notice — so a reader met the wrong number before deciding and
+the right one afterwards.
+
+Four more in the same panel: an "included" promise the pricing code may refuse,
+"your own newspaper" when a home base may be a library or a cooperative, a
+privacy sentence implying that continuing reveals the reader, and a button that
+reads as a login while also authorizing a purchase at an unseen price.
+
+All fixed in **0.2.5**, deployed to the three sites and published. Issue #43.
+
+Also this day: the publisher's own signed-in readers are exempt from the gate
+entirely (#41), the demo-mode checkbox is gone and a one-way door back exists
+for sites stranded by its removal (#38, #42), and the plugin updates itself
+through WordPress (#37).
+
 ## 2026-08-17 — two films, and a renderer that lied three ways
 
 The 120-slide explainer is now narrated video: a **12-minute cut** for
@@ -233,7 +258,7 @@ Name the client and say "needs rotating".
 *Living handoff document. Anyone — or any session — picking this up cold should be
 able to read this file and continue without reconstructing context.*
 
-**Last updated:** 2026-08-17 — three publishers, three home bases; Bill's findings fixed
+**Last updated:** 2026-08-18 — first outside install; gate copy corrected to wholesale/retail truth
 **Deadline:** Aug 25, 2026 — RJI/ITEGA roundtable, 2 p.m. EDT
 
 ---
@@ -397,8 +422,6 @@ Bill presents this. The demo is presenter-paced by design, but he has not seen i
 
 ## Open with Bill
 
-- **Calendar invite** for the Aug 25 webinar to `drummond.reed@gmail.com` — he asked,
-  and it is easy to lose in a long thread.
 - **Drummond's VTN framing** ("what you could create is a verifiable trust network for
   news") is worth adopting as positioning even while deferring the technology. Costs
   nothing; `docs/peer-review-synthesis.md` already has the mapping.

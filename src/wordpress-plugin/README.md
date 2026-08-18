@@ -82,6 +82,34 @@ publisher.
 That is deliberately stronger than leaving prices at zero, which is inert only
 until somebody saves a price on one post.
 
+## What the gate says, and why
+
+The gate is rendered by the publisher's own site, which knows the wholesale
+price and is **deliberately never told the markup**. So it cannot state the
+reader's price, and must not imply that it has. It names the figure as what the
+publication is owed and says plainly that the reader's own price is set
+elsewhere.
+
+It also says what the button does. For a reader whose entitlement does not
+already cover the article, continuing is not only a sign-in: the home base
+authorizes a purchase under a policy the reader agreed with *it*, and the retail
+figure appears only in the notice afterwards. Letting a reader discover that
+after the fact would be the cheapest possible place to lose their trust.
+
+Three further rules the copy follows:
+
+- **A home base is not necessarily a newspaper.** A library, a cooperative or an
+  internet provider may be one. Copy saying "your own newspaper" rules out most
+  of the network's future members.
+- **Continuing does not reveal the reader.** The publisher receives a pairwise
+  opaque identifier and an entitlement, before and after. Copy hinting otherwise
+  gives away the strongest thing the architecture offers.
+- **Nothing is promised as included.** The home base may negotiate or refuse.
+
+This came from Jason Velazquez running the plugin at Greylock Glass and putting
+the screen in front of an AI reviewer, which caught the wholesale-as-retail
+contradiction from the source. Issue #43.
+
 ## The guest role
 
 Network readers get a WordPress user — the session lives in user meta, which is

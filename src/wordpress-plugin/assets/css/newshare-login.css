@@ -94,7 +94,7 @@
 	border: 1px solid #ddd;
 	border-radius: 6px;
 	background: #fafafa;
-	text-align: center;
+	text-align: left;
 }
 
 .newshare-access-gate h3 {
@@ -103,8 +103,15 @@
 	color: #333;
 }
 
+/* The reader scans this, so it reads as one column of prose with the action
+   at the end -- not as three centred announcements. Centred text is slower to
+   scan, and every line here introduces a concept the reader does not have yet. */
+.newshare-access-gate > p {
+	max-width: 34em;
+}
+
 .newshare-access-gate p {
-	margin: 0 0 20px;
+	margin: 0 0 12px;
 	color: #555;
 	font-size: 15px;
 	line-height: 1.6;
@@ -112,6 +119,12 @@
 
 .newshare-access-gate .newshare-login-btn {
 	max-width: 280px;
+	margin-top: 20px;
+}
+
+.newshare-access-gate .newshare-already {
+	font-size: 14px;
+	color: #6b6b6b;
 }
 
 /* Content preview fade-out effect. */
@@ -149,7 +162,5 @@
    question -- "what is this going to cost me?" -- which a sign-in prompt
    otherwise leaves them to guess at. */
 .newshare-access-gate .newshare-price {
-	font-size: 1.05em;
 	font-weight: 600;
-	margin: .8em 0;
 }

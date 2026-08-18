@@ -78,21 +78,29 @@ if ( ! defined( 'ABSPATH' ) ) {
 		// Show a login prompt with the "Network Login" button.
 		// -----------------------------------------------------------------
 		?>
-		<h3><?php esc_html_e( 'Continue Reading', 'newshare-network' ); ?></h3>
+		<?php
+		// What this screen has to do, in the reader's order of asking: can I
+		// use this, what will it cost me, what happens to what I read.
+		//
+		// The price here is the publisher's asking price and NOT the reader's
+		// bill. Their home base adds its own margin, and this site is
+		// deliberately never told what it is -- so a gate rendered here cannot
+		// state a retail figure and must not imply that it has. Naming the
+		// wrong number is worse than naming none: the reader meets the real one
+		// at settlement and concludes the gate lied to them.
+		//
+		// A home base need not be a newspaper either. Bill Densmore's
+		// Definitions allow a library, a cooperative or an internet provider to
+		// act as one, and copy that says "your own newspaper" quietly rules
+		// out most of the network's future members.
+		$newshare_site  = get_bloginfo( 'name' );
+		$newshare_price = isset( $page_class ) ? (float) $page_class : 0.0;
+		?>
+		<h3><?php esc_html_e( 'Read this story through Newshare', 'newshare-network' ); ?></h3>
 		<p>
-			<?php esc_html_e( 'This article is included if you hold an account at any newspaper in the network — not just this one.', 'newshare-network' ); ?>
+			<?php esc_html_e( 'You can read it with an account you already hold somewhere else in the network — another newspaper, a library, a cooperative, an internet provider. There is nothing to subscribe to here, and no card details to enter.', 'newshare-network' ); ?>
 		</p>
 		<?php
-		// Say what it costs.
-		//
-		// A wall that asks you to sign in without naming a number invites the
-		// reader to imagine a subscription, which is the anxiety this whole
-		// arrangement exists to remove. But the exact figure is the
-		// publisher's asking price, not the reader's bill: their home base
-		// adds its own margin, and this site is deliberately never told what
-		// that margin is. So the number is given as what the newspaper is
-		// paid, with the difference acknowledged rather than papered over.
-		$newshare_price = isset( $page_class ) ? (float) $page_class : 0.0;
 		if ( $newshare_price > 0 ) :
 			$newshare_shown = $newshare_price < 1
 				? sprintf( '%d&cent;', (int) round( $newshare_price * 100 ) )
@@ -101,15 +109,30 @@ if ( ! defined( 'ABSPATH' ) ) {
 			<p class="newshare-price">
 				<?php
 				printf(
-					/* translators: %s: the publisher's price for this article, e.g. 5¢ */
-					esc_html__( 'This story costs %s. Not a subscription, and no card details — your account is with your own newspaper, and it settles up on your behalf.', 'newshare-network' ),
+					/* translators: 1: publication name, 2: the publisher's asking price, e.g. 5¢ */
+					esc_html__( '%1$s asks %2$s for this story. That is what the publication is owed, not what you pay: your own price is set by the organization your account is with, which bills you and pays this publication on your behalf.', 'newshare-network' ),
+					esc_html( $newshare_site ),
 					wp_kses_post( $newshare_shown )
 				);
 				?>
 			</p>
 		<?php endif; ?>
+		<?php
+		// Say what the button does. It reads like a login, and for a reader
+		// whose entitlement does not already cover the article it is also a
+		// purchase -- authorized by their home base, under a policy they agreed
+		// with it, at a retail price this page has no way to know. Letting the
+		// reader discover that in the notice afterwards would be the one place
+		// in this whole arrangement where trust is cheapest to lose.
+		?>
+		<p>
+			<?php esc_html_e( 'Continuing signs you in there and asks it to buy this story for you. It decides, at its own price, and tells you what you owe. If it declines, nothing is charged and the story stays closed.', 'newshare-network' ); ?>
+		</p>
+		<p>
+			<?php esc_html_e( 'This publication is paid, but never learns your name, your email address, or what you read anywhere else. That stays true after you continue.', 'newshare-network' ); ?>
+		</p>
 		<p class="newshare-already">
-			<?php esc_html_e( 'Already signed in somewhere in the network? You will not be asked for a password. This publisher cannot tell, by design — it never sees who you are until you choose to continue.', 'newshare-network' ); ?>
+			<?php esc_html_e( 'If you are already signed in with your account, you will not be asked for a password.', 'newshare-network' ); ?>
 		</p>
 
 		<?php
@@ -136,7 +159,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 					<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
 				</svg>
 			</span>
-			<?php esc_html_e( 'Continue with your news network account', 'newshare-network' ); ?>
+			<?php esc_html_e( 'Continue with your Newshare account', 'newshare-network' ); ?>
 		</a>
 	<?php endif; ?>
 </div>
