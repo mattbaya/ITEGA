@@ -107,11 +107,26 @@ class Provisioning:
         )
 
     def _save(self) -> None:
-        # Written beside the target and moved into place, so a crash mid-write
-        # cannot leave the store truncated and every publisher unprovisionable.
+        body = json.dumps({"domains": self.entries}, indent=2) + "\n"
+
+        # Write beside the target and rename, so a crash mid-write cannot leave
+        # the store truncated and every publisher unprovisionable.
+        #
+        # That rename fails if the target is a bind-mounted single file, which
+        # is how this was first deployed: Docker mounts the file itself, so
+        # renaming onto it is renaming onto a mount point and the kernel
+        # answers EBUSY. The directory is mounted instead now, but the
+        # fallback stays -- the failure surfaced only in production, and an
+        # unwritable store means no publisher can ever install the plugin.
         tmp = self.path.with_suffix(".tmp")
-        tmp.write_text(json.dumps({"domains": self.entries}, indent=2) + "\n")
-        tmp.replace(self.path)
+        try:
+            tmp.write_text(body)
+            tmp.replace(self.path)
+        except OSError as exc:
+            logger.warning(
+                "Atomic rename unavailable (%s); writing in place", exc)
+            tmp.unlink(missing_ok=True)
+            self.path.write_text(body)
 
     def keys_by_pub_mbr_id(self) -> dict[str, str]:
         """API key -> Publishing Member ID, for the logging service to verify."""

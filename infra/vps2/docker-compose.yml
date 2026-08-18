@@ -91,9 +91,9 @@ services:
       # Per-publisher keys, written by the discovery service when a
       # publisher's plugin provisions itself. Read-only here: this service
       # verifies keys, it never issues them.
-      PUBLISHER_KEYS_PATH: /app/data/provisioning.json
+      PUBLISHER_KEYS_PATH: /app/state/provisioning.json
     volumes:
-      - ./data/provisioning.json:/app/data/provisioning.json:ro
+      - ./data:/app/state:ro
     ports:
       - "127.0.0.1:8001:8001"
     depends_on:
@@ -127,11 +127,13 @@ services:
       # Registered publisher domains and their credentials. Mounted writable
       # because provisioning records each issuance; kept out of the repo and
       # out of the public registry, because it holds keys.
-      PROVISIONING_PATH: /app/data/provisioning.json
+      PROVISIONING_PATH: /app/state/provisioning.json
       NETWORK_NAME: ${NETWORK_NAME:-Newshare Network}
     volumes:
       - ../../src/network-discovery/data/registry.json:/app/data/registry.json:ro
-      - ./data/provisioning.json:/app/data/provisioning.json:rw
+      # The directory, so the store can be rewritten atomically. Mounting the
+      # single file makes it a mount point and rename onto it returns EBUSY.
+      - ./data:/app/state:rw
     ports:
       - "127.0.0.1:8002:8002"
     networks:
