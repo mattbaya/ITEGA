@@ -3,7 +3,7 @@
  * Plugin Name: Newshare Network
  * Plugin URI: https://github.com/mattbaya/ITEGA
  * Description: Federated identity and content access for the Newshare Network. Adds "Network Login" for cross-publisher SSO with privacy-preserving pseudonymous identifiers.
- * Version: 0.2.9
+ * Version: 0.3.0
  * Requires PHP: 8.1
  * Requires at least: 6.0
  * Author: ITEGA / Newshare Network
@@ -48,7 +48,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 // Plugin Constants
 // =========================================================================
 
-define( 'NEWSHARE_VERSION', '0.2.9' );
+define( 'NEWSHARE_VERSION', '0.3.0' );
 
 /**
  * Role given to readers who arrive through the network.
@@ -96,6 +96,7 @@ if ( file_exists( NEWSHARE_PLUGIN_DIR . 'vendor/autoload.php' ) ) {
  * classes (RSL, Admin).
  */
 require_once NEWSHARE_PLUGIN_DIR . 'includes/class-newshare-provisioning.php';
+require_once NEWSHARE_PLUGIN_DIR . 'includes/class-newshare-earnings.php';
 require_once NEWSHARE_PLUGIN_DIR . 'includes/class-newshare-demo-mode.php';
 require_once NEWSHARE_PLUGIN_DIR . 'includes/class-newshare-session.php';
 require_once NEWSHARE_PLUGIN_DIR . 'includes/class-newshare-oidc.php';
@@ -638,6 +639,18 @@ function newshare_credentials_notice(): void {
 	);
 }
 add_action( 'admin_notices', 'newshare_credentials_notice' );
+
+/**
+ * The publisher's own view of what they are owed.
+ *
+ * Registered outside the reader-facing class and independently of demo mode: a
+ * publisher is entitled to see their settlement figures whether or not the
+ * plugin is showing anything to readers yet.
+ */
+function newshare_register_earnings(): void {
+	( new Newshare_Earnings() )->register();
+}
+add_action( 'init', 'newshare_register_earnings' );
 
 /**
  * Offer updates from ITEGA through WordPress's own update machinery.

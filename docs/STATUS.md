@@ -59,6 +59,38 @@ still read ITEGA), and the baker analogy moved from pounds to dollars, both at
 Bill's request. 51 demonstration accounts exist for 17 people across all three
 home bases.
 
+## 2026-08-18 (very late) — A publisher can finally see their own numbers
+
+**#44 is done.** Settings → Newshare Earnings, in the publisher's own admin,
+reading the key the plugin already holds so nobody handles a credential.
+Verified against live data on barharbor.info: $8.70 owed across 165 reads,
+split HB001 $8.20, HB002 $0.30, HB003 $0.05, and the AI answer engine $0.15.
+
+Checked rather than assumed, because #6 was a markup ratio reaching a publisher
+report: no `markup`, `retail`, `markup_ratio`, `networkUserId` or `session_id`
+appears anywhere in the response, and the aggregates sum to exactly the figure
+the page prints.
+
+**#55, found while building it.** The daily credential check from #50 was asking
+for `/log/log/whoami`. Provisioning stores the logging endpoint already
+carrying `/log`, and the code appended `/log/whoami` to it. The result was a
+404, and since `verify()` only acts on a 403, the check did nothing at all,
+every day, while reporting success — the whole of #50 quietly restored. Both
+call sites now derive the base robustly, tested against all four stored shapes.
+
+That is three faults in one night of the same family: something that looks
+correct, passes what is pointed at it, and silently stops doing its job. The
+question that catches them all is what the check would print if the feature were
+entirely absent.
+
+**#54 filed** on the back of the sign-in outage: there is nowhere to test but
+production. The first remedy is cheaper than an environment — run
+`journey-test.py` immediately after every service deploy, since it caught that
+outage in a minute when 29 smoke checks did not. An environment is genuinely
+needed for destructive verification, which tonight was done by deleting
+credentials from live sites we own. That is defensible for wesmc.org and not for
+a Missouri newspaper.
+
 ## 2026-08-18 (late night) — Bill's two suggestions are one build
 
 Both of his 18 Aug ideas need the same missing capability, and neither can be
@@ -387,7 +419,7 @@ Name the client and say "needs rotating".
 *Living handoff document. Anyone — or any session — picking this up cold should be
 able to read this file and continue without reconstructing context.*
 
-**Last updated:** 2026-08-18 — #23 closed; the pairwise join proven (#53)
+**Last updated:** 2026-08-18 — 0.3.0; publishers can see what they are owed
 **Deadline:** Aug 25, 2026 — RJI/ITEGA roundtable, 2 p.m. EDT
 
 ---

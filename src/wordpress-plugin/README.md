@@ -110,6 +110,28 @@ This came from Jason Velazquez running the plugin at Greylock Glass and putting
 the screen in front of an AI reviewer, which caught the wholesale-as-retail
 contradiction from the source. Issue #43.
 
+## What a publisher can see
+
+**Settings → Newshare Earnings.** What this publication is owed, over 7, 30 or
+90 days, broken down by the organization each reader has their account with.
+
+It exists because settlement is the claim this network makes, and a publisher
+who cannot check their own figures without writing a curl command is trusting
+them rather than auditing them. The endpoint has always returned this; there was
+simply no page.
+
+Two things are absent from it, and not by suppression — they are absent from the
+response it renders. There are no individual readers, because this publication
+only ever receives an opaque identifier that differs at every publication, so
+there is nobody in the totals to name. And there is no retail price or markup,
+because that is the home base's margin and the Rights Owner is not entitled to
+it. Verified against the live endpoint: no `markup`, `retail`, `markup_ratio`,
+`networkUserId` or `session_id` appears anywhere in the response. See #6, where a
+markup ratio did once reach a publisher report.
+
+The page reads the key the plugin already holds, so a publisher never handles a
+credential to see their own numbers.
+
 ## Credentials, and getting them back
 
 They live in WordPress **options**, not in the plugin directory — which is what

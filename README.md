@@ -912,6 +912,12 @@ the full record — every fix and every feature request, with cause, fix and wha
 proved it — but these are the changes that alter what a reader or a publisher
 actually meets.
 
+**Publishers can see what they are owed (#44).** A page in their own WordPress
+admin — totals by home base over 7, 30 or 90 days — rather than only a JSON
+endpoint reachable by curl. Settlement is the network's central claim, and a
+publisher who cannot check the figure is trusting it. Individual readers and
+retail prices are absent from it, not hidden: neither is in the response.
+
 **The privacy claim is now checked, not just asserted (#53).** The identifier a
 reader carries at one publisher is reconstructed from first principles and
 compared against what two different publisher sites recorded for that same

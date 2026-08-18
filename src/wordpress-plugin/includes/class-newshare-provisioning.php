@@ -150,6 +150,29 @@ class Newshare_Provisioning {
 	 * domain, a withdrawn registration -- asks once an hour instead of on every
 	 * page load.
 	 */
+	/**
+	 * A URL under the logging service, whichever shape the endpoint is stored in.
+	 *
+	 * Both are in the wild. The default in this file has no path; what
+	 * provisioning writes is "https://als.itega.org/log", because that is what
+	 * the exchange hands out. Appending "/log/whoami" to the second produced
+	 * /log/log/whoami, a 404 -- and since verify() only acts on a 403, the daily
+	 * credential check quietly did nothing at all, every day, while reporting
+	 * success. #55.
+	 *
+	 * @param string $path Path below the service, without a leading slash.
+	 * @return string Absolute URL.
+	 */
+	private static function logging_url( string $path ): string {
+		$base = untrailingslashit(
+			(string) get_option( 'newshare_als_logging_endpoint', 'https://als.itega.org' )
+		);
+		if ( ! preg_match( '#/log$#', $base ) ) {
+			$base .= '/log';
+		}
+		return $base . '/' . ltrim( $path, '/' );
+	}
+
 	public static function heal(): void {
 		if ( self::is_configured() ) {
 			return;
@@ -188,9 +211,7 @@ class Newshare_Provisioning {
 			return;
 		}
 
-		$endpoint = untrailingslashit(
-			(string) get_option( 'newshare_als_logging_endpoint', 'https://als.itega.org' )
-		) . '/log/whoami';
+		$endpoint = self::logging_url( 'whoami' );
 
 		$response = wp_remote_get(
 			$endpoint,
