@@ -405,6 +405,16 @@ final class Newshare_Network {
 	 * Hooked to: wp_enqueue_scripts
 	 */
 	public function enqueue_assets(): void {
+		// Nothing at all when demo mode is suppressing this visitor. Two asset
+		// URLs in the page source name the plugin, and cost two HTTP requests,
+		// on a site whose owner was promised their ordinary readers would see
+		// no trace of it. Behaviour was already suppressed; this is the last
+		// fingerprint, and it was visible on greylockglass.com within hours of
+		// them installing it.
+		if ( $this->demo->should_suppress() ) {
+			return;
+		}
+
 		wp_enqueue_style(
 			'newshare-login',
 			NEWSHARE_PLUGIN_URL . 'assets/css/newshare-login.css',
