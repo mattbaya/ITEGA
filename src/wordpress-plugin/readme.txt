@@ -4,7 +4,7 @@ Tags: federated-identity, sso, oidc, paywall, news-network
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 8.1
-Stable tag: 0.2.5
+Stable tag: 0.2.6
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -108,6 +108,12 @@ Only opaque identifiers — no personally identifiable information. The network 
 No. The plugin communicates with the ALS (Account Ledger Service), which handles the Keycloak interaction on behalf of the network. Your plugin never talks to Keycloak directly.
 
 == Changelog ==
+
+= 0.2.6 =
+* A refused purchase and an unreachable home base are now different screens
+* The reader is linked to somewhere a person can act, not to an OIDC issuer
+* Both screens name the organization that decided, or that could not be reached
+* Gate copy cut by about half
 
 = 0.2.5 =
 * The gate no longer presents the publisher's asking price as the reader's price

@@ -911,6 +911,15 @@ the full record — every fix and every feature request, with cause, fix and wha
 proved it — but these are the changes that alter what a reader or a publisher
 actually meets.
 
+**A refusal and an outage no longer look the same to a reader (#46, #45).** The
+pricing code always distinguished a home base that refused from one that could
+not be reached; the screen did not, so an outage on our side told readers their
+home base had refused them and sent them to argue about a decision it never
+made. Two screens now: one names the organization that decided and links the
+reader to somewhere a person can act, the other says we could not ask, that the
+fault is ours, and offers Try again. The follow-up link used to be the OIDC
+issuer — an identity endpoint with nothing on it a reader could use.
+
 **A newspaper outside this project is running it.** Greylock Glass installed the
 plugin from the public download and its site fetched its own credentials,
 proving it controlled its domain, with no involvement from ITEGA beyond having
@@ -1033,6 +1042,15 @@ ITEGA/
 | 2025 | RSL (Really Simple Licensing) standard established. |
 | 2025–2026 | Richard Lerner and Bill Densmore modernize architecture to OIDC, JWT, W3C VC. Full technical specification completed January 2026. |
 | 2026 (Feb) | Newshare Network Technical Architecture v1.0 Draft published. Funding request for Missouri pilot circulated. |
+| 2026 (Feb) | Peer review by Drummond Reed and Don Marti. Reed maps the four-party model onto Trust Over IP's verifiable trust networks and recommends a DID/VC evolution path; Marti argues for the smallest demonstrable version. |
+| 2026 (Jul) | Bill Densmore writes the demonstration script for the RJI/ITEGA roundtable, which becomes the specification the prototype is built against. |
+| 2026 (Aug 11) | Prototype goes live on two Hetzner servers, $15.48/month for the pair: three Keycloak realms, the ALS services, the discovery registry, three Retail Agents. |
+| 2026 (Aug 13) | The reader's sign-in path is walked end to end for the first time. Seven separate faults sit between a reader and a session, each invisible from the hop before it. |
+| 2026 (Aug 15) | Three publisher sites running the plugin, each also a certified home base. One wholesale nickel, three retail prices. |
+| 2026 (Aug 16) | Bill Densmore tests it himself and every fault he reports is real. Two narrated explainer films published. |
+| 2026 (Aug 17) | Publishers become able to join themselves: the plugin fetches its own credentials, proving domain control by ACME's HTTP-01 challenge. Fifty-one demonstration accounts issued to seventeen people. |
+| 2026 (Aug 18) | Greylock Glass installs the plugin — the first by anyone outside the project. Its AI reviewer finds three real defects in three rounds, including a paywall quoting the wholesale price as the reader's. |
+| 2026 (Aug 25) | RJI/ITEGA "Collective Action" roundtable. |
 
 ---
 

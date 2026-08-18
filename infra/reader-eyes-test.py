@@ -89,9 +89,10 @@ FORBIDDEN = [
 
 REQUIRED = [
     (r"\basks\b", "attributes the price to the publication"),
-    (r"not what you pay", "says the figure is not the reader's bill"),
-    (r"buy this story", "says the button may purchase"),
-    (r"\bdeclines\b", "says what happens if the home base refuses"),
+    (r"decides whether to buy", "says the button may purchase, before it is pressed"),
+    (r"what it charges you", "says the reader's own price is set elsewhere"),
+    (r"nothing is charged", "says what happens if the home base refuses"),
+    (r"never receives your name", "states the privacy boundary without conditions"),
 ]
 
 PRICE = re.compile(r"(\d+)\s*¢|\$\s*(\d+\.\d+)")

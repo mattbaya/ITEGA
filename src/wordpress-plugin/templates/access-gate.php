@@ -98,7 +98,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 		?>
 		<h3><?php esc_html_e( 'Read this story through Newshare', 'newshare-network' ); ?></h3>
 		<p>
-			<?php esc_html_e( 'You can read it with an account you already hold somewhere else in the network — another newspaper, a library, a cooperative, an internet provider. There is nothing to subscribe to here, and no card details to enter.', 'newshare-network' ); ?>
+			<?php esc_html_e( 'Use an account you already have with a participating newspaper, library, cooperative or internet provider. No new subscription, and no card details.', 'newshare-network' ); ?>
 		</p>
 		<?php
 		if ( $newshare_price > 0 ) :
@@ -110,29 +110,18 @@ if ( ! defined( 'ABSPATH' ) ) {
 				<?php
 				printf(
 					/* translators: 1: publication name, 2: the publisher's asking price, e.g. 5¢ */
-					esc_html__( '%1$s asks %2$s for this story. That is what the publication is owed, not what you pay: your own price is set by the organization your account is with, which bills you and pays this publication on your behalf.', 'newshare-network' ),
+					esc_html__( '%1$s asks %2$s for this story. Your account provider decides whether to buy it for you and what it charges you. If it declines, nothing is charged.', 'newshare-network' ),
 					esc_html( $newshare_site ),
 					wp_kses_post( $newshare_shown )
 				);
 				?>
 			</p>
 		<?php endif; ?>
-		<?php
-		// Say what the button does. It reads like a login, and for a reader
-		// whose entitlement does not already cover the article it is also a
-		// purchase -- authorized by their home base, under a policy they agreed
-		// with it, at a retail price this page has no way to know. Letting the
-		// reader discover that in the notice afterwards would be the one place
-		// in this whole arrangement where trust is cheapest to lose.
-		?>
 		<p>
-			<?php esc_html_e( 'Continuing signs you in there and asks it to buy this story for you. It decides, at its own price, and tells you what you owe. If it declines, nothing is charged and the story stays closed.', 'newshare-network' ); ?>
-		</p>
-		<p>
-			<?php esc_html_e( 'This publication is paid, but never learns your name, your email address, or what you read anywhere else. That stays true after you continue.', 'newshare-network' ); ?>
+			<?php esc_html_e( 'This publication gets paid but never receives your name, your email address, or your reading activity anywhere else.', 'newshare-network' ); ?>
 		</p>
 		<p class="newshare-already">
-			<?php esc_html_e( 'If you are already signed in with your account, you will not be asked for a password.', 'newshare-network' ); ?>
+			<?php esc_html_e( 'Already signed in? You will not need a password.', 'newshare-network' ); ?>
 		</p>
 
 		<?php
@@ -159,7 +148,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 					<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
 				</svg>
 			</span>
-			<?php esc_html_e( 'Continue with your Newshare account', 'newshare-network' ); ?>
+			<?php esc_html_e( 'Continue with an account I already have', 'newshare-network' ); ?>
 		</a>
 	<?php endif; ?>
 </div>

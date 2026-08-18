@@ -307,6 +307,14 @@ Network readers get the **`newshare_guest`** role ("ITEGA Guest"), holding only
 `read` — never `subscriber`, which is the publisher's own and which plugins
 routinely add capabilities to.
 
+**A refusal and a failure to ask are different events, and the reader must be
+told which happened.** `Newshare_Pricing` returns `decline` when the home base
+refused and `unavailable` when it could not be reached; `payment-declined.php`
+and `payment-unavailable.php` say so separately. Collapsing them attributes our
+outages to a third party and sends the reader to ask about a decision nobody
+made. Link a reader to `account_url` from the registry — never `oidc_issuer`,
+which is infrastructure and not a destination. Issue #45, #46.
+
 **The gate names the publisher's price, never the reader's.** `pageClass` is
 what the publication is owed; the reader's bill is `pageClass * markupRatio`,
 and the publisher's own site is deliberately never told the markup — so the gate

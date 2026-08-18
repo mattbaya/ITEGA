@@ -270,11 +270,24 @@ class Newshare_Access {
 	 * @return bool True if the post has a non-zero asking price.
 	 */
 	private function is_priced( int $post_id ): bool {
+		return $this->page_class( $post_id ) > 0;
+	}
+
+	/**
+	 * This publisher's asking price for a post, in dollars.
+	 *
+	 * Wholesale. What the publication is owed, never what the reader pays --
+	 * their home base sets that and does not tell us what it is.
+	 *
+	 * @param int $post_id Post to price.
+	 * @return float Asking price, zero if not for individual sale.
+	 */
+	private function page_class( int $post_id ): float {
 		$page_class = get_post_meta( $post_id, 'newshare_page_class', true );
 		if ( '' === $page_class ) {
 			$page_class = get_option( 'newshare_default_page_class', '0.05' );
 		}
-		return (float) $page_class > 0;
+		return (float) $page_class;
 	}
 
 	/**
@@ -411,13 +424,22 @@ class Newshare_Access {
 				return $this->render_purchase_notice( $quote ) . $content;
 			}
 
-			// The home base was reached and refused, or could not be reached.
-			// Either way we withhold the article and tell the reader to take it
-			// up with their home base, which is the party that decides.
+			// A refusal and a failure to ask are not the same event, and the
+			// reader's remedy differs: one is settled by changing something at
+			// their home base, the other by trying again. Both used to render
+			// the same screen, so an outage on our side told the reader their
+			// home base had refused them, and sent them to a party that knew
+			// nothing about it. Newshare_Pricing has always distinguished the
+			// two; this is where the distinction was being thrown away.
 			ob_start();
-			$decline_reason = $quote['reason'];
-			$home_base_url  = $quote['home_base_url'] ?? '';
-			include NEWSHARE_PLUGIN_DIR . 'templates/payment-declined.php';
+			$decline_reason  = $quote['reason'];
+			$home_base_url   = $quote['home_base_url'] ?? '';
+			$home_base_name  = $quote['home_base_name'] ?? '';
+			$newshare_asking = self::format_price( $this->page_class( $post_id ) );
+			$template        = 'unavailable' === ( $quote['decision'] ?? '' )
+				? 'templates/payment-unavailable.php'
+				: 'templates/payment-declined.php';
+			include NEWSHARE_PLUGIN_DIR . $template;
 			$gate = ob_get_clean();
 
 			return wp_trim_words( wp_strip_all_tags( $content ), 80, '&hellip;' ) . $gate;
