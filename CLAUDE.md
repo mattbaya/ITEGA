@@ -183,24 +183,6 @@ never described anything that was actually bought. If a cost question comes up,
 the real numbers are above and in `docs/server-specs.md`; Hetzner's US regions
 cost roughly 3.4x the EU ones for identical hardware.
 
-## Change freeze until Aug 25
-
-**Bill Densmore, 18 Aug 2026: no more changes before the roundtable other than
-fixing something that breaks.** He is right that nothing has been promised to
-anyone and that polish has diminishing returns against the risk of breaking a
-working system four days out.
-
-What this does and does not cover:
-
-- **Fixes for breakage: yes.** Something a person cannot get through is still a
-  fix, not a change.
-- **Tests, documentation and issue-writing: yes.** They alter nothing that runs
-  on the day, and a check is how breakage gets found before Bill's audience
-  finds it.
-- **Features, copy improvements, refactors: no.** File them as issues with the
-  reasoning intact and build them after the 25th. #28 and #44 are both parked
-  this way.
-
 ## Technology Stack (for code)
 
 When building components, use these technologies:

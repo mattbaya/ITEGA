@@ -59,14 +59,16 @@ still read ITEGA), and the baker analogy moved from pounds to dollars, both at
 Bill's request. 51 demonstration accounts exist for 17 people across all three
 home bases.
 
-## 2026-08-18 (evening) — Bill calls a freeze, and settles the reader dashboard
+## 2026-08-18 (evening) — Bill settles the reader dashboard
 
-**No more changes before Aug 25 other than fixing something that breaks.** Bill's
-call, and a correct one: nothing has been promised to anyone, and polish four
-days out risks more than it gains. Tests, docs and issue-writing continue, since
-they change nothing that runs on the day.
+**Bill proposed a change freeze until the 25th and it was not adopted.** His
+reasoning was that nothing has been promised to anyone; Matt's, that answering
+questions and fixing faults in advance is worth more than the risk, and Bill did
+not press it. Recorded because it will come up again, and because an earlier
+revision of this file wrongly wrote it down as settled. Work continues.
 
-Two things were settled rather than built.
+Two things were settled rather than built, both parked as issues because they are
+features rather than faults and the week is short.
 
 **The reader's cross-publisher history (#28) has an answer, and Bill found it.**
 He proposed that the home base assemble it from logging-service data. That is
@@ -288,7 +290,7 @@ Name the client and say "needs rotating".
 *Living handoff document. Anyone — or any session — picking this up cold should be
 able to read this file and continue without reconstructing context.*
 
-**Last updated:** 2026-08-18 — change freeze until the 25th; #28 settled by Bill
+**Last updated:** 2026-08-18 — public notices freed on Bar Harbor; #28 settled by Bill
 **Deadline:** Aug 25, 2026 — RJI/ITEGA roundtable, 2 p.m. EDT
 
 ---
