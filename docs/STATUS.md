@@ -59,6 +59,43 @@ still read ITEGA), and the baker analogy moved from pounds to dollars, both at
 Bill's request. 51 demonstration accounts exist for 17 people across all three
 home bases.
 
+## 2026-08-19 (early hours) — Bill's dashboard, working
+
+**#53 built and #28 with it.** The Retail Agent now holds a directory of its own
+readers: 69 identifiers at HB001, 66 at HB002, each computed from its own realm's
+users and its own clients' salts.
+
+`GET /agent/reader/{networkUserId}/history` returns a reader's activity across
+the network, assembled by their home base exactly as Bill proposed. Live, for a
+real account: 500 visits across two publishers, joining reading at Bar Harbor to
+reading at North Berkshire under two identifiers neither newspaper can connect.
+
+Four things were checked rather than assumed, and two of the checks were wrong
+before the system was:
+
+- An identifier minted by **HB002 is refused by HB001's agent** — 404. The first
+  attempt at this test used an identifier that turned out to be HB001's own, so
+  it proved nothing; the second used one taken from HB002's own log.
+- **500 visits looked like a truncation** at a suspiciously round number. It is
+  not: the log holds 560 events for that home base and returned all of them, and
+  that reader really has 500.
+- **"price" appeared** in the reader's history. It is an article slug —
+  *lobster-landings-down-prices-up*. No cost figure is in the payload, which is
+  deliberate: what a reader paid is their home base's billing, not the log's.
+- The agent **refuses to answer until live traffic confirms the derivation
+  twice**, so an empty history can never be mistaken for a working one.
+
+**#56 filed** on the way past: the dashboard client is not pairwise, so events it
+files carry the reader's actual home base user id rather than an opaque one. No
+join is possible without the salts, but "every identifier we hold is pairwise" is
+a much stronger sentence than the one currently available.
+
+Keycloak admin credentials are the wrong grant for the directory and are what
+exists today. A service account with `view-users` and `view-clients` is required
+before a pilot; it is noted in the agent's own config.
+
+Suites after: smoke 29, journey 18, logout 19, reader-eyes 12, derivation 3.
+
 ## 2026-08-18 (very late) — A publisher can finally see their own numbers
 
 **#44 is done.** Settings → Newshare Earnings, in the publisher's own admin,
@@ -419,7 +456,7 @@ Name the client and say "needs rotating".
 *Living handoff document. Anyone — or any session — picking this up cold should be
 able to read this file and continue without reconstructing context.*
 
-**Last updated:** 2026-08-18 — 0.3.0; publishers can see what they are owed
+**Last updated:** 2026-08-19 — the reader's cross-publisher history works
 **Deadline:** Aug 25, 2026 — RJI/ITEGA roundtable, 2 p.m. EDT
 
 ---

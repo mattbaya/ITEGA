@@ -912,6 +912,15 @@ the full record — every fix and every feature request, with cause, fix and wha
 proved it — but these are the changes that alter what a reader or a publisher
 actually meets.
 
+**A reader can be shown where they have been, by their own home base (#28, #53).**
+Bill Densmore asked for this and answered it in the same message — the home base
+assembles it from the exchange's log, because it alone can. Its Retail Agent
+resolves the reader, recomputes what they are called at each publisher, and joins
+the results: live, this returns one reader's real history across two newspapers
+who each know them by a different name and cannot connect the two. The exchange
+never learns the mapping, and an agent refuses identifiers minted by any other
+home base.
+
 **Publishers can see what they are owed (#44).** A page in their own WordPress
 admin — totals by home base over 7, 30 or 90 days — rather than only a JSON
 endpoint reachable by curl. Settlement is the network's central claim, and a

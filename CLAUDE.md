@@ -307,6 +307,18 @@ Network readers get the **`newshare_guest`** role ("ITEGA Guest"), holding only
 `read` — never `subscriber`, which is the publisher's own and which plugins
 routinely add capabilities to.
 
+**The Retail Agent holds the reader directory, and refuses to use it unproven.**
+`src/asp-agent/pairwise.py` inverts the derivation into `networkUserId` → the
+home base's own user, scoped to its own realm — HB001's agent returns 404 for an
+identifier HB002 minted, which is checked. `GET /agent/reader/{id}/history`
+assembles a reader's cross-publisher history there, never at the ALS: doing it
+centrally would mean the exchange learning the mapping, which is the one thing
+the design exists to prevent. It answers only once live quote traffic has
+confirmed the arithmetic twice (`/agent/directory-status`), because an empty
+history and a broken derivation are indistinguishable from outside. Keycloak
+admin credentials are the wrong grant and are what exists; a service account with
+`view-users` and `view-clients` is required before a pilot. Issues #53, #28.
+
 **Only the home base can join a reader's pairwise identifiers, and it can.**
 Each publisher is a Keycloak client in the home base's realm with its own
 `pairwiseSubAlgorithmSalt`, and the identifier is
