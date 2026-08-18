@@ -230,7 +230,7 @@ def _publisher_keys() -> dict[str, str]:
     event without this service being restarted.
     """
     global _keys_cache, _keys_mtime
-    path = Path(settings.publisher_keys_path)
+    path = FilePath(settings.publisher_keys_path)
     try:
         mtime = path.stat().st_mtime
     except OSError:
