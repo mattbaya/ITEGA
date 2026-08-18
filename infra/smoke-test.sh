@@ -151,5 +151,34 @@ else
 fi
 
 echo
+echo "DEPLOYED CODE"
+# Is the code answering on these hosts the code in the repository?
+#
+# Nothing used to ask. #47 removed a phantom publisher from the registry, the
+# commit went green, and the live service went on serving it for hours -- every
+# endpoint returning 200 the whole time, because a stale deploy is indis-
+# tinguishable from a healthy one unless something compares the two.
+#
+# The plugin has had this check since a publisher ran an hour-stale build:
+# publish-plugin.sh compares the served zip against the built one. This is the
+# same question asked of the services.
+DEPLOY_KEY="${NEWSHARE_DEPLOY_KEY:-$HOME/.ssh/newshare_deploy}"
+DEPLOY_HOST="${NEWSHARE_VPS2_HOST:-deploy@als.itega.org}"
+if [ -r "$DEPLOY_KEY" ]; then
+  WANT=$(git -C "$(dirname "$0")/.." rev-parse origin/main 2>/dev/null || echo unknown)
+  GOT=$(ssh -o BatchMode=yes -o ConnectTimeout=15 -i "$DEPLOY_KEY" "$DEPLOY_HOST" \
+        "cd /opt/newshare && git rev-parse HEAD" 2>/dev/null || echo unreachable)
+  if [ "$WANT" = "unknown" ]; then
+    ok "deployed commit" "no origin/main to compare against — skipped"
+  elif [ "$GOT" = "$WANT" ]; then
+    ok "VPS 2 runs origin/main" "${GOT:0:8}"
+  else
+    bad "VPS 2 runs origin/main" "serving ${GOT:0:8}, repository is ${WANT:0:8}"
+  fi
+else
+  ok "deployed commit" "no deploy key here — skipped"
+fi
+
+echo
 printf '  %d passed, %d failed\n\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

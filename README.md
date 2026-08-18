@@ -668,7 +668,7 @@ Every claim below was exercised against the live system, not inferred from the
 code. Five suites, all passing, all runnable before showing anyone anything:
 
 ```bash
-infra/smoke-test.sh         # 28 checks — every public endpoint, every realm and site
+infra/smoke-test.sh         # 29 checks — every public endpoint, every realm and site
 infra/journey-test.py       # 18 checks — the reader's journey, at every publisher
 infra/logout-test.py        # 19 checks — both sign-out scopes, and that they differ
 infra/totp-test.py          # 14 checks — two-factor really challenges, every realm
@@ -910,6 +910,18 @@ Newest first. The [issue tracker](https://github.com/mattbaya/ITEGA/issues) has
 the full record — every fix and every feature request, with cause, fix and what
 proved it — but these are the changes that alter what a reader or a publisher
 actually meets.
+
+**Our own sites now update the way a publisher's does (#49).** They used to be
+shipped to by rsync — a path no real publisher has, which meant the update
+mechanism everyone else depends on was exercised by nobody. Switching found that
+`wp plugin update` could never see an ITEGA release, because the updater only
+registered inside the admin. Every managed host and staging pipeline would have
+sat on an old build indefinitely.
+
+**A stale deploy is now a failing test (#51).** The live registry went on serving
+a publisher that had been removed, because committing a fix and deploying it are
+different things and nothing compared them. `smoke-test.sh` asks whether the
+running services are the code in the repository.
 
 **A refusal and an outage no longer look the same to a reader (#46, #45).** The
 pricing code always distinguished a home base that refused from one that could

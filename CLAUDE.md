@@ -335,6 +335,23 @@ than no plugin. The check reads the role as well as the link meta, so an account
 whose meta is lost fails towards the gate rather than into the publisher's
 audience. Issue #41, and Jason Velazquez's condition for installing it.
 
+**Deploy the services, then prove it.** VPS 2 is a git checkout at
+`/opt/newshare`; ship with `git pull` there and
+`docker compose up -d --build <service>`, and note that code is baked into the
+images while `registry.json` is bind-mounted — so a data change needs no rebuild
+and a code change does. `smoke-test.sh` now compares the deployed commit against
+`origin/main`, because a stale deploy is indistinguishable from a healthy one:
+#47 removed a phantom publisher, the commit went green, and the live registry
+went on serving it. Issue #51.
+
+**Update the demonstration sites the way a publisher does**, with
+`infra/update-demo-sites.sh` — WordPress's own updater against the public
+manifest. Shipping to our own sites by rsync means the mechanism every real
+publisher depends on is exercised by nobody until it fails at their end; that is
+how #49 hid, where `wp plugin update` could never see an ITEGA release at all.
+`deploy-publisher-plugin.sh` remains the way back when an update goes wrong, and
+the bootstrap when installed code cannot yet update itself.
+
 **Publish the plugin with `infra/publish-plugin.sh` after every change.** It
 lints, packages, writes the update manifest, uploads, and then checks what is
 actually served against what was built. Installed copies learn about the new
