@@ -121,10 +121,21 @@ class Thresholds:
                 attributes.pop(ATTRIBUTE, None)
             else:
                 attributes[ATTRIBUTE] = [str(amount)]
+
+            # The whole representation goes back, not just the attributes.
+            #
+            # Keycloak's declarative User Profile validates what it is sent as
+            # if it were the complete user, so a partial update reads as a user
+            # who has lost their email address:
+            #
+            #     {"field":"email","errorMessage":"error-user-attribute-required"}
+            #
+            # which is a 400 that says nothing about the attribute being set.
+            user["attributes"] = attributes
             resp = await client.put(
                 f"{self._base}/admin/realms/{self._realm}/users/{local_sub}",
                 headers=headers,
-                json={"attributes": attributes},
+                json=user,
             )
             resp.raise_for_status()
 
