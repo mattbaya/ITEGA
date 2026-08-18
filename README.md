@@ -912,6 +912,15 @@ the full record — every fix and every feature request, with cause, fix and wha
 proved it — but these are the changes that alter what a reader or a publisher
 actually meets.
 
+**A reader can cap what their home base spends without asking (#29).** Bill
+Densmore's idea from the 1990s Clickshare documentation, and it could not be
+built until the home base could identify its own readers. Live: with a 4¢ limit
+set, a 5¢ article — 5.5¢ once the home base's margin is added — is held, the
+reader approves it on their home base's own page, and the same article then
+completes while a different one above the limit asks again. The limit is measured
+against what the *reader* pays, which is precisely why it cannot live at the
+publisher: the publisher is never told that number.
+
 **A reader can be shown where they have been, by their own home base (#28, #53).**
 Bill Densmore asked for this and answered it in the same message — the home base
 assembles it from the exchange's log, because it alone can. Its Retail Agent

@@ -307,6 +307,16 @@ Network readers get the **`newshare_guest`** role ("ITEGA Guest"), holding only
 `read` — never `subscriber`, which is the publisher's own and which plugins
 routinely add capabilities to.
 
+**A reader's spending limit is measured against retail, and lives at their home
+base.** `src/asp-agent/thresholds.py` holds it as a Keycloak user attribute; a
+quote above it returns decision **`confirm`** with a `confirmUrl`, and the reader
+approves on their *home base's* page — the publisher cannot show that screen
+because it is never told the retail price. Approval is narrow on purpose: this
+reader, this article, this price, ten minutes. A reader with no limit is
+completely unaffected, and an unreadable limit is treated as no limit rather than
+zero, so a directory outage cannot become a network-wide refusal. Issue #29;
+there is still no interface for a reader to set one (#58).
+
 **The Retail Agent holds the reader directory, and refuses to use it unproven.**
 `src/asp-agent/pairwise.py` inverts the derivation into `networkUserId` → the
 home base's own user, scoped to its own realm — HB001's agent returns 404 for an

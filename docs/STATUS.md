@@ -59,6 +59,42 @@ still read ITEGA), and the baker analogy moved from pounds to dollars, both at
 Bill's request. 51 demonstration accounts exist for 17 people across all three
 home bases.
 
+## 2026-08-19 — Bill's threshold, thirty years on
+
+**#29 built.** A reader names a figure; anything above it waits for them. Proved
+live, in order: a 4¢ limit set on a real account; a 5¢ article quoted at 5.5¢
+retail returns `confirm` rather than buying; the reader approves on the home
+base's own page; the same article then completes; a *different* article above the
+limit asks again.
+
+Three points of design worth keeping:
+
+- **The limit is measured against retail, not the asking price.** What the reader
+  is billed is `wholesale × markup`, so a threshold enforced at the publisher
+  would be measured against a number that is not the reader's. That is the
+  substantive answer to why this belongs at the home base.
+- **The approval screen is the home base's**, because it is the only place in the
+  exchange where a reader agrees to spend, and it names their retail price — the
+  figure the publisher is never told and could not display.
+- **Approval is narrow**: this reader, this article, this price, ten minutes, in
+  memory. Forgetting one costs a click; remembering one that was never given
+  spends somebody's money.
+
+Two Keycloak obstacles, both worth recording. Unmanaged attributes are refused by
+default from Keycloak 24, so `newshare_threshold` was rejected outright until the
+realms' user-profile policy was set to ENABLED. And a *partial* user update is
+validated as though it were the whole user, so setting one attribute returned
+`{"field":"email","errorMessage":"error-user-attribute-required"}` — a 400 naming
+a field nobody had touched.
+
+The test limit was cleared afterwards, so no demonstration account carries one.
+
+**Filed, not built:** #57 help pages with screenshots for every user-facing
+screen; #58 the reader has no way to set a threshold and only one kind of limit
+exists — per-source looks like the best value, a period cap the most asked for;
+#59 periodic reports for readers and publishers, where the split matters (ITEGA
+reports money, the home base reports people, and neither can do the other's job).
+
 ## 2026-08-19 (early hours) — Bill's dashboard, working
 
 **#53 built and #28 with it.** The Retail Agent now holds a directory of its own
@@ -456,7 +492,7 @@ Name the client and say "needs rotating".
 *Living handoff document. Anyone — or any session — picking this up cold should be
 able to read this file and continue without reconstructing context.*
 
-**Last updated:** 2026-08-19 — the reader's cross-publisher history works
+**Last updated:** 2026-08-19 — both of Bill's suggestions built
 **Deadline:** Aug 25, 2026 — RJI/ITEGA roundtable, 2 p.m. EDT
 
 ---
