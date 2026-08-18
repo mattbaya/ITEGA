@@ -103,6 +103,12 @@ services:
       # authorises, so the ALS record can be audited against it.
       LOGGING_SERVICE_URL: ${LOGGING_SERVICE_URL}
       LOGGING_API_KEY: ${LOGGING_API_KEY}
+      # The home base's own directory, for resolving its readers'
+      # pairwise identifiers back to the reader. Only this party may.
+      KEYCLOAK_URL: ${KEYCLOAK_INTERNAL_URL:-http://newshare-keycloak:8080}
+      KEYCLOAK_REALM: publisher-c
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
     ports:
       - "127.0.0.1:8003:8003"
     networks:
@@ -133,6 +139,12 @@ services:
       COUNTER_FRACTION: ${AGENT_WESMC_COUNTER_FRACTION:-0.75}
       LOGGING_SERVICE_URL: ${LOGGING_SERVICE_URL}
       LOGGING_API_KEY: ${LOGGING_API_KEY}
+      # The home base's own directory, for resolving its readers'
+      # pairwise identifiers back to the reader. Only this party may.
+      KEYCLOAK_URL: ${KEYCLOAK_INTERNAL_URL:-http://newshare-keycloak:8080}
+      KEYCLOAK_REALM: wesmc
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
     ports:
       - "127.0.0.1:8005:8003"
     networks:
@@ -157,6 +169,12 @@ services:
       COUNTER_FRACTION: ${AGENT_DEMO_COUNTER_FRACTION:-0.75}
       LOGGING_SERVICE_URL: ${LOGGING_SERVICE_URL}
       LOGGING_API_KEY: ${LOGGING_API_KEY}
+      # The home base's own directory, for resolving its readers'
+      # pairwise identifiers back to the reader. Only this party may.
+      KEYCLOAK_URL: ${KEYCLOAK_INTERNAL_URL:-http://newshare-keycloak:8080}
+      KEYCLOAK_REALM: newshare
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
     ports:
       - "127.0.0.1:8004:8003"
     networks:

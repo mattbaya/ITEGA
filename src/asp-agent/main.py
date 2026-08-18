@@ -25,15 +25,17 @@ from __future__ import annotations
 
 import logging
 import secrets
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Any
 
 import httpx
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 
 from config import settings
 from models import AgentPolicy, QuoteRequest, QuoteResponse  # noqa: F401
+from pairwise import PairwiseIndex
 
 logging.basicConfig(
     level=logging.INFO,
@@ -65,6 +67,23 @@ app.add_middleware(
 )
 
 CENTS = Decimal("0.0001")
+
+# The home base's own map from a pairwise identifier back to its reader.
+#
+# Configured only where Keycloak details are supplied; where they are not, the
+# agent behaves exactly as it did and the reader-facing history is simply not
+# offered. It is never built at import time -- a home base whose directory is
+# briefly unreachable should still be able to buy content for its readers.
+_index: PairwiseIndex | None = (
+    PairwiseIndex(
+        settings.keycloak_url,
+        settings.keycloak_realm,
+        settings.keycloak_admin,
+        settings.keycloak_admin_password,
+    )
+    if settings.keycloak_url and settings.keycloak_realm and settings.keycloak_admin
+    else None
+)
 
 
 def _policy() -> AgentPolicy:
@@ -100,6 +119,89 @@ async def get_policy() -> AgentPolicy:
     return _policy()
 
 
+@app.get("/agent/reader/{network_user_id}/history")
+async def reader_history(network_user_id: str, days: int = 30) -> dict[str, Any]:
+    """Where one reader has been, assembled by the only party that can.
+
+    Bill Densmore, 18 Aug 2026: *"the end user should be able to [...] get a
+    consolidated report of all of this activity across the ITEGA network [...]
+    just so that people know where they've been -- they kind of have a right to
+    know that."* And: *"it probably has to be generated with logger data by the
+    home base."* That last sentence is why this endpoint is here and not at the
+    exchange.
+
+    The exchange holds every event, but split across identifiers it cannot
+    connect. Assembling this centrally would mean teaching it the mapping, which
+    is the single thing the design exists to prevent. Here, the home base
+    resolves the reader to its own user, recomputes the identifier that reader
+    carries at each publisher, and asks the log about each -- learning nothing it
+    did not already know, and telling the exchange nothing either.
+
+    Cost is deliberately absent. What the reader was charged lives in this home
+    base's own billing, not in the exchange's log; the log knows the wholesale
+    price, which is the publisher's business rather than the reader's.
+
+    Refuses while the index is unproven. An empty history and a broken
+    derivation look identical from here, and answering "you have read nothing"
+    to a reader who has read plenty is worse than declining to answer.
+    """
+    if _index is None:
+        raise HTTPException(status_code=501, detail="This home base has no reader directory configured")
+
+    local_sub = await _index.resolve(network_user_id)
+    if local_sub is None:
+        raise HTTPException(status_code=404, detail="Not a reader of this home base")
+
+    if not _index.trustworthy():
+        raise HTTPException(
+            status_code=503,
+            detail="The reader directory has not yet been confirmed against live traffic",
+        )
+
+    identifiers = await _index.identifiers_for(local_sub)
+    since = datetime.now(timezone.utc) - timedelta(days=days)
+    until = datetime.now(timezone.utc)
+
+    wanted = {v: k for k, v in identifiers.items()}
+    visits: list[dict[str, Any]] = []
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        resp = await client.get(
+            f"{settings.logging_service_url.rstrip('/')}/log/report/home-base/{settings.home_base_id}",
+            headers={"X-API-Key": settings.logging_api_key},
+            params={"period_start": since.isoformat(), "period_end": until.isoformat()},
+        )
+        resp.raise_for_status()
+        for event in resp.json().get("events", []):
+            nuid = str(event.get("network_user_id", ""))
+            if nuid not in wanted:
+                continue
+            visits.append({
+                "publisher": event.get("pub_mbr_id"),
+                "resource": event.get("resource_id"),
+                "at": event.get("time") or event.get("timestamp"),
+                "event": event.get("event_type"),
+            })
+
+    return {
+        "homeBaseId": settings.home_base_id,
+        "publishersVisited": len({v["publisher"] for v in visits}),
+        "visits": sorted(visits, key=lambda v: str(v["at"]), reverse=True),
+        "note": (
+            "Assembled by your home base from the exchange's log. No publisher "
+            "can produce this, and neither can the exchange: each of them knows "
+            "you by a different identifier and none of them holds the map."
+        ),
+    }
+
+
+@app.get("/agent/directory-status")
+async def directory_status() -> dict[str, Any]:
+    """Whether this agent can resolve its own readers, and on what evidence."""
+    if _index is None:
+        return {"configured": False}
+    return {"configured": True, **_index.status()}
+
+
 @app.post("/agent/quote", response_model=QuoteResponse)
 async def quote(req: QuoteRequest) -> QuoteResponse:
     """
@@ -119,6 +221,17 @@ async def quote(req: QuoteRequest) -> QuoteResponse:
     openly and was asked to negotiate may re-post the same price as final; the
     agent then gets exactly one more turn.
     """
+    # Every quote carries a real identifier that Keycloak minted. Whether this
+    # agent can account for it is the only evidence that its derivation is
+    # right, so it is recorded here -- on the buying path, where the traffic
+    # actually is, and costing nothing but a dictionary lookup.
+    if _index is not None and req.networkUserId:
+        try:
+            await _index.resolve(req.networkUserId)
+            _index.observe(req.networkUserId)
+        except Exception as exc:            # never let bookkeeping refuse a purchase
+            logger.debug("pairwise index unavailable: %s", exc)
+
     policy = _policy()
     ask = Decimal(str(req.wholesalePrice))
     ceiling = Decimal(str(policy.declineAbove))

@@ -36,6 +36,19 @@ class Settings(BaseSettings):
     logging_service_url: str = "http://localhost:8001"
     logging_api_key: str = ""
 
+    # ── The home base's own directory ─────────────────────────────────
+    # Used to resolve a reader's pairwise identifiers back to the reader, which
+    # only this party may do. Left empty, the agent runs exactly as before and
+    # the reader-facing history simply is not offered.
+    #
+    # Admin credentials are the wrong grant for this and are used because they
+    # are what exists today. Before a pilot: a dedicated client with a service
+    # account holding view-users and view-clients, and nothing else. #53.
+    keycloak_url: str = ""
+    keycloak_realm: str = ""
+    keycloak_admin: str = ""
+    keycloak_admin_password: str = ""
+
     # ── CORS ──────────────────────────────────────────────────────────
     # Browser origins permitted to call this service directly. The
     # demonstration dashboard is served from a different host than the
