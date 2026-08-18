@@ -59,6 +59,36 @@ still read ITEGA), and the baker analogy moved from pounds to dollars, both at
 Bill's request. 51 demonstration accounts exist for 17 people across all three
 home bases.
 
+## 2026-08-18 (evening) — Bill calls a freeze, and settles the reader dashboard
+
+**No more changes before Aug 25 other than fixing something that breaks.** Bill's
+call, and a correct one: nothing has been promised to anyone, and polish four
+days out risks more than it gains. Tests, docs and issue-writing continue, since
+they change nothing that runs on the day.
+
+Two things were settled rather than built.
+
+**The reader's cross-publisher history (#28) has an answer, and Bill found it.**
+He proposed that the home base assemble it from logging-service data. That is
+right, and it costs the architecture nothing: the home base mints the pairwise
+identifier for its user at each publisher, so it alone holds the map from one
+person to their several PPIDs, and it can query the log once per PPID and join
+the results. No other party can, and no collusion between publishers reproduces
+it. Built at the home base, never at the ALS — assembling it centrally would
+require the ALS to learn the mapping, which is the one thing the design exists to
+prevent. Where the reader has been is free; what they were charged lives in the
+home base's own billing.
+
+**Publishers have an API but no dashboard (#44).** The party being asked to
+install a plugin and trust a settlement figure cannot see their own weekly totals
+without writing a curl command. Aggregates only when it is built — never retail
+prices or markup.
+
+**barharbor.info's public notices are now free.** Twenty-one road closures,
+meeting listings and hearing notices from 2025 and 2026. Public notices outside
+the paywall, reporting behind it. The archive stays priced at any age; the meter
+still closes sixty articles deep on all three sites.
+
 ## 2026-08-18 — Greylock Glass installed it, and read the paywall properly
 
 Jason Velazquez put the plugin on greylockglass.com — the first install by
@@ -258,7 +288,7 @@ Name the client and say "needs rotating".
 *Living handoff document. Anyone — or any session — picking this up cold should be
 able to read this file and continue without reconstructing context.*
 
-**Last updated:** 2026-08-18 — first outside install; gate copy corrected to wholesale/retail truth
+**Last updated:** 2026-08-18 — change freeze until the 25th; #28 settled by Bill
 **Deadline:** Aug 25, 2026 — RJI/ITEGA roundtable, 2 p.m. EDT
 
 ---

@@ -53,6 +53,28 @@ Each article carries two pieces of post meta the plugin reads:
 | `newshare_page_class` | `0.05`, or `0.20` on one piece per site | The publisher's asking price. The dearer article is what gives the price negotiation something to actually negotiate over — at $0.05 a home base simply accepts. |
 | `newshare_required_bits` | `4096` | Paid-subscriber tier, so the article is gated rather than free. |
 
+## What is priced, and what is not
+
+Every published article carries an explicit price rather than relying on the site
+default — that omission is what hid issue #18, where 9,770 of 9,782 articles were
+free to anyone for weeks while a test passed.
+
+**barharbor.info is the one deliberate exception.** Its twenty-one public notices
+from 2025 and 2026 — road closures, meeting listings, hearing notices, the
+"PLANNING DEPARTMENT RESERVED" placeholders — carry `newshare_required_bits = 0`
+and `newshare_page_class = 0`. Public notices sit outside the paywall; reporting
+sits behind it. That is what a newspaper would do, and it stops a demonstration
+landing on a road-closure notice whose dates have passed.
+
+The line is type, not age. The archive stays priced however old it is: a reader
+arriving from a search result onto a five-year-old story is a read the publisher
+is owed for, and `archive_is_metered` asserts the meter still closes sixty
+articles deep on all three sites. Freeing old content because it is old is the
+mistake that produced #18.
+
+Verified as a reader: five public notices read in a row with no gate and no
+change to the meter, then three reporting reads, then the gate on the fourth.
+
 ## Configuration applied
 
 - **`siteurl` and `home` on `barharbor.info` were changed from `http://` to

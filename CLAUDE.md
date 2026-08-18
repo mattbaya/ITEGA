@@ -110,9 +110,17 @@ act as ASP, CMS or both, and a demonstration with five organisations in it is
 harder to follow than one with three. See `docs/publisher-sites.md`.
 
 Markups differ per home base — 1.10, 1.40 and 1.25 — so one wholesale nickel
-produces three retail prices. Every published article on all three sites carries
-an explicit price; do not rely on the site default alone, which is what hid
-issue #18.
+produces three retail prices. Every published article carries an explicit price;
+do not rely on the site default alone, which is what hid issue #18.
+
+The one deliberate exception: **barharbor.info's public notices are free** —
+road closures, meeting listings, hearing notices, the twenty-one such items from
+2025 and 2026. Public notices sit outside the paywall and reporting sits behind
+it, which is what a newspaper would actually do, and it stops the meter landing
+a demonstration on an expired road-closure notice. The archive stays priced, at
+any age: a reader arriving from a search result onto a five-year-old story is a
+read the publisher is owed for, `archive_is_metered` asserts it sixty articles
+deep on every site, and forgetting that is what produced issue #18.
 Settlement is **simulated only** — reports generated, no real money moves.
 
 **wesmc.org's articles are about real, verifiable events**, written originally
@@ -174,6 +182,24 @@ cheaper alternative". Those were DigitalOcean figures from the planning phase an
 never described anything that was actually bought. If a cost question comes up,
 the real numbers are above and in `docs/server-specs.md`; Hetzner's US regions
 cost roughly 3.4x the EU ones for identical hardware.
+
+## Change freeze until Aug 25
+
+**Bill Densmore, 18 Aug 2026: no more changes before the roundtable other than
+fixing something that breaks.** He is right that nothing has been promised to
+anyone and that polish has diminishing returns against the risk of breaking a
+working system four days out.
+
+What this does and does not cover:
+
+- **Fixes for breakage: yes.** Something a person cannot get through is still a
+  fix, not a change.
+- **Tests, documentation and issue-writing: yes.** They alter nothing that runs
+  on the day, and a check is how breakage gets found before Bill's audience
+  finds it.
+- **Features, copy improvements, refactors: no.** File them as issues with the
+  reasoning intact and build them after the 25th. #28 and #44 are both parked
+  this way.
 
 ## Technology Stack (for code)
 
