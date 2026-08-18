@@ -14,7 +14,9 @@
       "certification_tier": "idsp",
       "agent_url": "https://agent-c.itega.org",
       "signup_url": "https://auth.itega.org/realms/publisher-c/protocol/openid-connect/registrations",
-      "ip_hints": []
+      "ip_hints": [],
+      "account_url": "https://auth.itega.org/realms/publisher-c/account/",
+      "support_url": ""
     },
     {
       "id": "HB002",
@@ -27,7 +29,9 @@
       "certification_tier": "idsp",
       "agent_url": "https://agent-demo.itega.org",
       "signup_url": "https://auth.itega.org/realms/newshare/protocol/openid-connect/registrations",
-      "ip_hints": []
+      "ip_hints": [],
+      "account_url": "https://auth.itega.org/realms/newshare/account/",
+      "support_url": ""
     },
     {
       "id": "HB003",
@@ -40,7 +44,9 @@
       "certification_tier": "idsp",
       "agent_url": "https://auth.itega.org/agent-wesmc",
       "signup_url": "https://auth.itega.org/realms/wesmc/protocol/openid-connect/registrations",
-      "ip_hints": []
+      "ip_hints": [],
+      "account_url": "https://auth.itega.org/realms/wesmc/account/",
+      "support_url": ""
     }
   ],
   "publishers": [

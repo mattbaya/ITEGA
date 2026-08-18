@@ -90,7 +90,19 @@ class Newshare_Pricing {
 
 		// Kept so a refusal can point the reader back to the party that made
 		// the decision, per the specified copy.
-		$home_base_url = (string) ( $home_base['oidc_issuer'] ?? '' );
+		// Where a person can go, not where software goes.
+		//
+		// This used to be the OIDC issuer, which meant a reader refused a
+		// purchase was sent to an identity endpoint -- infrastructure, with
+		// nothing on it they could read or act on. The registry now carries an
+		// account_url for exactly this, and falls back to the realm's own
+		// account console, which is at least a page built for a human.
+		$home_base_url  = (string) ( $home_base['account_url'] ?? '' );
+		if ( '' === $home_base_url ) {
+			$issuer        = (string) ( $home_base['oidc_issuer'] ?? '' );
+			$home_base_url = '' === $issuer ? '' : untrailingslashit( $issuer ) . '/account/';
+		}
+		$home_base_name = (string) ( $home_base['name'] ?? '' );
 
 		$wholesale = $this->get_page_class( $post_id );
 
@@ -113,7 +125,8 @@ class Newshare_Pricing {
 		if ( null === $offer ) {
 			return $this->unavailable(
 				__( 'The reader\'s home base could not be reached.', 'newshare-network' ),
-				$home_base_url
+				$home_base_url,
+				$home_base_name
 			);
 		}
 
@@ -159,6 +172,7 @@ class Newshare_Pricing {
 				'retail_price'  => (float) ( $offer['retailPrice'] ?? 0 ),
 				'reason'        => (string) ( $offer['reason'] ?? '' ),
 				'home_base_url' => $home_base_url,
+			'home_base_name' => $home_base_name,
 			);
 		}
 
@@ -166,6 +180,7 @@ class Newshare_Pricing {
 			'decision'      => 'decline',
 			'reason'        => (string) ( $offer['reason'] ?? '' ),
 			'home_base_url' => $home_base_url,
+			'home_base_name' => $home_base_name,
 		);
 	}
 
@@ -285,15 +300,17 @@ class Newshare_Pricing {
 	 * not complete the exchange. Both withhold content, but only a decline
 	 * reflects a decision the home base actually made.
 	 *
-	 * @param string $reason        Explanation for logs.
-	 * @param string $home_base_url Reader's home base, when known.
+	 * @param string $reason         Explanation for logs.
+	 * @param string $home_base_url  Reader's home base, when known.
+	 * @param string $home_base_name Its name, for copy that addresses a person.
 	 * @return array Result array.
 	 */
-	private function unavailable( string $reason, string $home_base_url = '' ): array {
+	private function unavailable( string $reason, string $home_base_url = '', string $home_base_name = '' ): array {
 		return array(
-			'decision'      => 'unavailable',
-			'reason'        => $reason,
-			'home_base_url' => $home_base_url,
+			'decision'       => 'unavailable',
+			'reason'         => $reason,
+			'home_base_url'  => $home_base_url,
+			'home_base_name' => $home_base_name,
 		);
 	}
 }

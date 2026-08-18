@@ -34,6 +34,20 @@ class HomeBase(BaseModel):
     # Optional signup URL, used when offering an unmatched visitor a place
     # to establish an account (demo script step 24).
     signup_url: str = ""
+    # Where a *person* goes, as distinct from where software goes.
+    #
+    # Everything above is machine infrastructure: an issuer, a JWKS document, an
+    # agent endpoint. A publisher that needs to send a reader to their own home
+    # base -- because the purchase was refused, or their account needs attention
+    # -- has to link somewhere a human can act, and the OIDC issuer is not that
+    # place. It used to be used for exactly that, which meant a declined reader
+    # was pointed at an identity endpoint.
+    #
+    # account_url defaults to the realm's own account console when unset, which
+    # is a real page a reader can use. A home base with its own site should set
+    # both of these to it.
+    account_url: str = ""
+    support_url: str = ""
     # Optional IP prefixes hinting that a visitor is likely served by this
     # home base. Demo-grade heuristic only -- see resolve_by_ip() in main.py.
     ip_hints: list[str] = Field(default_factory=list)
