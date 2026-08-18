@@ -298,6 +298,12 @@ async def provision(payload: dict, request: Request) -> JSONResponse:
         "discovery_endpoint": settings.discovery_base_url,
         "als_public_key_url": entry.get(
             "als_public_key_url", "https://als.itega.org/.well-known/jwks.json"),
+        # Issued with the credentials so a publisher has nothing to invent and
+        # nothing to type. Demo mode stays on; this is the key that opts a
+        # demonstrator in, and without it nobody can see the plugin work --
+        # including the publisher, which is why leaving it blank meant a
+        # setup step we had promised there would not be.
+        "demo_key": entry.get("demo_key", ""),
     })
 
 

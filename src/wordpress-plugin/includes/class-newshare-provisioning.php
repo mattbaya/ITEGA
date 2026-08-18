@@ -178,6 +178,15 @@ class Newshare_Provisioning {
 		update_option( 'newshare_pub_mbr_id', sanitize_text_field( $body['pub_mbr_id'] ) );
 		update_option( 'newshare_als_api_key', sanitize_text_field( $body['api_key'] ) );
 
+		// The demonstration key, issued rather than invented. Demo mode stays
+		// on: this is what lets the publisher (and only whoever they give it
+		// to) see the plugin working, while ordinary readers still cannot.
+		// Set with add_option semantics -- a publisher who has chosen their
+		// own key keeps it.
+		if ( ! empty( $body['demo_key'] ) && '' === trim( (string) get_option( 'newshare_demo_key', '' ) ) ) {
+			update_option( 'newshare_demo_key', sanitize_text_field( $body['demo_key'] ) );
+		}
+
 		foreach ( array(
 			'als_auth_endpoint'    => 'newshare_als_auth_endpoint',
 			'als_logging_endpoint' => 'newshare_als_logging_endpoint',
