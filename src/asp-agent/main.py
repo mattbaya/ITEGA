@@ -23,6 +23,7 @@ GET  /healthz       -- Health check
 
 from __future__ import annotations
 
+import html
 import logging
 import secrets
 from datetime import datetime, timedelta, timezone
@@ -227,6 +228,21 @@ async def reader_history(
     }
 
 
+def _safe_link(url: str) -> str:
+    """A publisher-supplied URL, fit to put in an href.
+
+    resourceId arrives from whichever publisher asked for the quote and is
+    echoed back on the approval page. Unescaped it is an injection point in the
+    home base's own page, and a javascript: scheme there would run in the
+    context of the party that holds the reader's session -- so a publisher could
+    attack its own readers' home base. Scheme allow-listed, then escaped.
+    """
+    cleaned = (url or "").strip()
+    if not cleaned.lower().startswith(("https://", "http://")):
+        return "/"
+    return html.escape(cleaned, quote=True)
+
+
 @app.get("/agent/confirm", response_class=HTMLResponse)
 async def confirm(t: str) -> HTMLResponse:
     """The reader approves, or does not, a purchase above the limit they set.
@@ -275,7 +291,7 @@ async def confirm(t: str) -> HTMLResponse:
 <p class="price">{_money(Decimal(str(price))):.4f}</p>
 <p>{settings.home_base_name} will buy this story for you and add it to your
 account. You set a limit, so we asked first.</p>
-<p><a href="{resource}">Back to the story</a></p>
+<p><a href="{_safe_link(resource)}">Back to the story</a></p>
 <p class="small">This approval covers this story at this price, for the next few
 minutes. Anything else above your limit will ask you again.</p>
 """)

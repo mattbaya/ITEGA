@@ -141,6 +141,23 @@ def main() -> int:
         else:
             ok(f"{realm}: every client gets a pairwise subject", f"{len(live)} clients")
 
+        # Redirect URIs are an allow-list of where an authorization code may be
+        # sent. #65 put barharbor.info on the dashboard client in two realms by
+        # copy-paste, and nothing here would have noticed.
+        wrong = []
+        for c in declared.get("clients", []):
+            cid = c["clientId"]
+            for uri in c.get("redirectUris", []):
+                host = uri.split("/")[2] if "://" in uri else ""
+                expected = {"pub-a": "barharbor.info", "pub-b": "northberkshire.org",
+                            "pub-c": "wesmc.org", "dashboard": "dashboard.itega.org"}.get(cid)
+                if host and host != "als.itega.org" and expected and host != expected:
+                    wrong.append(f"{cid} -> {host}")
+        if wrong:
+            bad(f"{realm}: redirect URIs belong to their own client", ", ".join(wrong))
+        else:
+            ok(f"{realm}: redirect URIs belong to their own client")
+
         profile = kcadm(f"get users/profile -r {realm}")
         if re.search(r'"unmanagedAttributePolicy"\s*:\s*"ENABLED"', profile):
             ok(f"{realm}: unmanaged attributes enabled", "reader thresholds can be stored")

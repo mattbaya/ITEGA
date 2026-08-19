@@ -20,7 +20,8 @@
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": false,
       "redirectUris": [
-        "https://als.itega.org/auth/callback"
+        "https://als.itega.org/auth/callback",
+        "https://barharbor.info/wp-json/newshare/v1/callback"
       ],
       "webOrigins": [
         "https://als.itega.org"
@@ -64,7 +65,8 @@
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": false,
       "redirectUris": [
-        "https://als.itega.org/auth/callback"
+        "https://als.itega.org/auth/callback",
+        "https://northberkshire.org/wp-json/newshare/v1/callback"
       ],
       "webOrigins": [
         "https://als.itega.org"
@@ -108,7 +110,8 @@
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": false,
       "redirectUris": [
-        "https://als.itega.org/auth/callback"
+        "https://als.itega.org/auth/callback",
+        "https://wesmc.org/wp-json/newshare/v1/callback"
       ],
       "webOrigins": [
         "https://als.itega.org"
@@ -152,7 +155,8 @@
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": true,
       "redirectUris": [
-        "https://als.itega.org/auth/callback"
+        "https://als.itega.org/auth/callback",
+        "https://dashboard.itega.org/"
       ],
       "webOrigins": [
         "https://als.itega.org"

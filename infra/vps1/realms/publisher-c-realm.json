@@ -24,8 +24,7 @@
         "https://barharbor.info/wp-json/newshare/v1/callback"
       ],
       "webOrigins": [
-        "https://als.itega.org",
-        "https://barharbor.info"
+        "https://als.itega.org"
       ],
       "attributes": {
         "pubMbrId": "ITEGA-PA-0001",
@@ -69,8 +68,7 @@
         "https://northberkshire.org/wp-json/newshare/v1/callback"
       ],
       "webOrigins": [
-        "https://als.itega.org",
-        "https://northberkshire.org"
+        "https://als.itega.org"
       ],
       "attributes": {
         "pubMbrId": "ITEGA-PB-0001",
@@ -111,11 +109,10 @@
       "directAccessGrantsEnabled": false,
       "redirectUris": [
         "https://als.itega.org/auth/callback",
-        "https://barharbor.info/wp-json/newshare/v1/callback"
+        "https://wesmc.org/wp-json/newshare/v1/callback"
       ],
       "webOrigins": [
-        "https://als.itega.org",
-        "https://barharbor.info"
+        "https://als.itega.org"
       ],
       "attributes": {
         "pubMbrId": "ITEGA-WESMC-0003",
@@ -156,11 +153,10 @@
       "directAccessGrantsEnabled": true,
       "redirectUris": [
         "https://als.itega.org/auth/callback",
-        "https://barharbor.info/wp-json/newshare/v1/callback"
+        "https://dashboard.itega.org/"
       ],
       "webOrigins": [
-        "https://als.itega.org",
-        "https://barharbor.info"
+        "https://als.itega.org"
       ],
       "attributes": {
         "pkce.code.challenge.method": "S256"
