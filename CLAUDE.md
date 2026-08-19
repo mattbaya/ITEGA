@@ -316,6 +316,16 @@ reader goes — every publisher stores its readers' identifiers in `wp_usermeta`
 which is the one join the architecture exists to prevent. Issue #62; the reader's
 own page is `/agent/settings`, which holds no privilege of its own.
 
+**A reader has three limits, and any of them asks rather than refuses.** Per
+story, per period, and per publication — the last one being how a reader says
+"never ask me about my own paper", stored as an explicit null because absent
+means "use my general figure". All are measured against **retail**, so they
+cannot live at the publisher, which is never told that number. The period tally
+is kept on the reader's Keycloak account, not in the agent: a cap that resets
+when a container restarts is a suggestion. Spend is recorded *after*
+authorisation, so nobody is charged for an article they were not given. Issues
+#29, #58; the reader sets them at `/agent/settings`.
+
 **A reader's spending limit is measured against retail, and lives at their home
 base.** `src/asp-agent/thresholds.py` holds it as a Keycloak user attribute; a
 quote above it returns decision **`confirm`** with a `confirmUrl`, and the reader

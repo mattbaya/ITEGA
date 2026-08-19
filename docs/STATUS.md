@@ -59,6 +59,33 @@ still read ITEGA), and the baker analogy moved from pounds to dollars, both at
 Bill's request. 51 demonstration accounts exist for 17 people across all three
 home bases.
 
+## 2026-08-19 — #58 done: three limits, and a page to set them
+
+Matt asked what other shapes of limit there should be. Two were worth building
+and both are live.
+
+**Per publication** is the cheapest and most useful: the agent already receives
+`pubMbrId` on every quote. Proved on the same article at the same price — bought
+silently at the reader's own paper, held for approval at another. An entry of
+null is meaningful and distinct from absent, so "never ask me about this one"
+reads as the instruction it is rather than as a very large number.
+
+**A period cap** needed somewhere durable for the tally, so it lives on the
+reader's own account. Proved by buying 5.5¢ articles against a 12¢ weekly
+ceiling: two accepted, the third held, and the screen says *why* — that it would
+take them past the limit they set — rather than implying the article was dear.
+
+**`/agent/settings`** now shows and sets all three, including how much of the
+period has been spent, which is the number a reader actually wants.
+
+Two faults found by using it. `cap=0` set a cap of zero — holding every purchase
+forever — which nobody means and which is indistinguishable from a slip; it now
+removes the cap. And a demonstration account sat in exactly that state for about
+a minute, which is how it was noticed.
+
+Test state cleared afterwards; the account buys normally. Suites: journey 18,
+smoke 30, realm-config 12.
+
 ## 2026-08-19 — A hole I opened, and the page that found it
 
 **#62.** The four reader-facing endpoints built last night authenticated nobody.
@@ -553,7 +580,7 @@ Name the client and say "needs rotating".
 *Living handoff document. Anyone — or any session — picking this up cold should be
 able to read this file and continue without reconstructing context.*
 
-**Last updated:** 2026-08-19 — reader endpoints authenticated (#62)
+**Last updated:** 2026-08-19 — three kinds of reader limit, and a page for them
 **Deadline:** Aug 25, 2026 — RJI/ITEGA roundtable, 2 p.m. EDT
 
 ---
