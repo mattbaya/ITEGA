@@ -59,6 +59,33 @@ still read ITEGA), and the baker analogy moved from pounds to dollars, both at
 Bill's request. 51 demonstration accounts exist for 17 people across all three
 home bases.
 
+## 2026-08-19 — #68, and the master key one publisher was holding
+
+**#68 closed.** `/agent/quote` answered anyone, and its reply carries the retail
+price — so any caller could hand a home base a wholesale figure and read the
+markup straight back. It now requires the asking publisher's own ITEGA key,
+checked with the exchange through the `whoami` endpoint rather than held at the
+home base, and the request must name the publisher that key belongs to. Every
+case tested: no key 401, made-up key 401, Bar Harbor asking as North Berkshire
+403, Bar Harbor asking as itself 200.
+
+**#75, found because that fix refused a site that should have passed.**
+northberkshire.org was holding the *exchange's* internal key rather than its
+own. That key is the `INTERNAL` sentinel, which legitimately may file as any
+publisher and read anything — so it sailed through #31's filing check and #63's
+reading check while having the run of the network. Confirmed before fixing: with
+that key the site could read any home base's clickstream and any publisher's
+revenue.
+
+It predates self-provisioning and was configured by hand. Re-provisioned, and it
+now resolves to `ITEGA-PB-0001`; the same two requests return 403.
+
+**The pattern, for the third time tonight:** the rule was right and the data was
+wrong. Same shape as the realm files describing clients that were not there
+(#60) and the registry serving a publisher that did not exist (#47). Rules get
+tested; the data they operate on does not. `smoke-test.sh` now asks what each
+site's key actually resolves to.
+
 ## 2026-08-19 — Working down the audit
 
 Three closed, each proved rather than reasoned about.
@@ -687,7 +714,7 @@ Name the client and say "needs rotating".
 *Living handoff document. Anyone — or any session — picking this up cold should be
 able to read this file and continue without reconstructing context.*
 
-**Last updated:** 2026-08-19 — audit hardening: #69, #70, #72 closed
+**Last updated:** 2026-08-19 — #68 closed; a publisher was holding the master key (#75)
 **Deadline:** Aug 25, 2026 — RJI/ITEGA roundtable, 2 p.m. EDT
 
 ---

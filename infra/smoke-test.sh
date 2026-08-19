@@ -197,6 +197,28 @@ else
       "https://agent-c.itega.org/agent/reader/948afc06-d2ed-340c-b45b-b13c178323b5/history")
   [ "$C" = "401" ] && ok "a reader's history needs that reader's token" "401" \
                    || bad "a reader's history needs that reader's token" "got $C"
+
+  # No publisher may hold the exchange's own key. #31 checks a key may only
+  # file as itself, and #63 that it may only read its own -- both pass for an
+  # internal key, because an internal key legitimately may do those things. The
+  # fault they cannot see is a site being handed the wrong credential, which is
+  # exactly what had happened to one of the three. #75.
+  for site in "barharbor|public_html" "northberkshire|public_html" "northberkshire|wesmc.org"; do
+    acct=${site%%|*}; root=${site##*|}
+    K=$(ssh -o BatchMode=yes -o ConnectTimeout=15 "$acct@svaha.com" \
+        "export PATH=\$HOME/bin:\$PATH; cd \$HOME/$root; wp option get newshare_als_api_key" \
+        2>/dev/null | tr -d '\r')
+    if [ -z "$K" ]; then
+      bad "$root holds a key of its own" "no key set"
+      continue
+    fi
+    WHO=$(curl -s --max-time 15 -H "X-API-Key: $K" https://als.itega.org/log/whoami \
+          | python3 -c 'import sys,json; d=json.load(sys.stdin); print("internal" if d.get("internal")=="true" else d.get("pub_mbr_id",""))' 2>/dev/null)
+    case "$WHO" in
+      internal|"") bad "$root holds its own key, not the exchange's" "resolves to ${WHO:-nothing}" ;;
+      *)           ok  "$root holds its own key" "$WHO" ;;
+    esac
+  done
 fi
 
 echo

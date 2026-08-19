@@ -450,6 +450,18 @@ on an unseen `kid`. It was decode-only by a defensible argument (claims are
 display-only, services verify for themselves) that nonetheless took fifteen
 lines to make. Issue #70.
 
+**No publisher may hold the exchange's own key.** `INTERNAL` is a sentinel that
+legitimately may file as anyone and read anything, so a site given it passes
+both #31's filing check and #63's reading check while having the run of the
+network. northberkshire.org was in exactly that state — configured by hand
+before self-provisioning existed. `smoke-test.sh` now asks `/log/whoami` what
+each site's key resolves to and fails if the answer is `internal`. Issue #75.
+
+**A quote requires the asking publisher's ITEGA key** (`X-API-Key`), verified
+with the exchange rather than held by the agent, and the request must name the
+publisher that key belongs to. Unauthenticated, the reply's `retailPrice` handed
+anyone the markup for a wholesale price of their choosing. Issue #68.
+
 **A credential is defined by what it may reach, not by whether it works.** #31
 stopped a key filing under another publisher's member id; #63 found that both
 report endpoints took the same dependency and discarded the answer, so any
