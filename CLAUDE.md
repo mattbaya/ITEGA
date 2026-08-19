@@ -431,6 +431,16 @@ identifier before and after. Issue #43, found by Jason Velazquez's AI reviewer
 reading the repository and spotting that the comment above the string
 contradicted the string.
 
+**A credential is defined by what it may reach, not by whether it works.** #31
+stopped a key filing under another publisher's member id; #63 found that both
+report endpoints took the same dependency and discarded the answer, so any
+publisher key could read a competitor's revenue and a home base's entire
+per-reader clickstream. `smoke-test.sh` now asks what a real publisher key can
+reach — another's revenue, a home base's clickstream, its own figures, a
+reader's history — because every other check in this project asks whether a
+credential works, and none asked what it could touch. Found by an outside audit,
+not by us.
+
 **A publisher's own signed-in readers are never gated, metered or quoted.**
 Subscribers, members, monthly contributors and staff read everything on their
 own newspaper's site; the network is for visitors from elsewhere, and a plugin

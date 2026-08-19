@@ -151,6 +151,41 @@ else
 fi
 
 echo
+echo "WHAT A CREDENTIAL MAY NOT DO"
+# Nothing here checked that one party cannot read another's data, which is how
+# #63 lived: any publisher key could read a competitor's revenue and a home
+# base's entire per-reader clickstream. Every other check asked whether a
+# credential works. These ask what it can reach.
+PUB_KEY=$(ssh -o BatchMode=yes -o ConnectTimeout=15 barharbor@svaha.com \
+    "export PATH=\$HOME/bin:\$PATH; cd \$HOME/public_html; wp option get newshare_als_api_key" \
+    2>/dev/null | tr -d '\r')
+if [ -z "$PUB_KEY" ]; then
+  ok "cross-party access" "no publisher key to hand — skipped"
+else
+  P1="period_start=2026-08-01T00:00:00Z&period_end=2026-12-31T00:00:00Z"
+  C=$(curl -s -o /dev/null -w '%{http_code}' -H "X-API-Key: $PUB_KEY" \
+      "https://als.itega.org/log/report/publisher/ITEGA-PB-0001?$P1")
+  [ "$C" = "403" ] && ok "a publisher cannot read another's revenue" "403" \
+                   || bad "a publisher cannot read another's revenue" "got $C"
+
+  C=$(curl -s -o /dev/null -w '%{http_code}' -H "X-API-Key: $PUB_KEY" \
+      "https://als.itega.org/log/report/home-base/HB001?$P1")
+  [ "$C" = "403" ] && ok "a publisher cannot read a home base's clickstream" "403" \
+                   || bad "a publisher cannot read a home base's clickstream" "got $C"
+
+  C=$(curl -s -o /dev/null -w '%{http_code}' -H "X-API-Key: $PUB_KEY" \
+      "https://als.itega.org/log/report/publisher/ITEGA-PA-0001?$P1")
+  [ "$C" = "200" ] && ok "a publisher can still read its own" "200" \
+                   || bad "a publisher can still read its own" "got $C"
+
+  # And the reader endpoints, which #62 closed the same way.
+  C=$(curl -s -o /dev/null -w '%{http_code}' \
+      "https://agent-c.itega.org/agent/reader/948afc06-d2ed-340c-b45b-b13c178323b5/history")
+  [ "$C" = "401" ] && ok "a reader's history needs that reader's token" "401" \
+                   || bad "a reader's history needs that reader's token" "got $C"
+fi
+
+echo
 echo "DEPLOYED CODE"
 # Is the code answering on these hosts the code in the repository?
 #

@@ -59,6 +59,43 @@ still read ITEGA), and the baker analogy moved from pounds to dollars, both at
 Bill's request. 51 demonstration accounts exist for 17 people across all three
 home bases.
 
+## 2026-08-19 — An outside audit, and the worst defect the project has had
+
+Kimi (svaha42) audited the public repository and sent a full report. Most of it
+is fair; one finding was critical and is fixed.
+
+**#63.** Any publisher's API key could read **any other publisher's revenue**
+and **any home base's entire clickstream** — 266 events, per reader, per
+article, including a `markup_ratio` column that #6 established must never reach
+a publisher. Proved with barharbor.info's own production key before fixing, and
+now refused:
+
+```
+another publisher's report   403
+a home base clickstream      403
+its own report               200   (still works)
+```
+
+The cause is one character. `verify_api_key` has always returned *which*
+publisher a key belongs to, and #31 used it to stop a key filing as somebody
+else. Both report endpoints took the same dependency and named it `_api_key` —
+the underscore meaning "not used". Filing was locked down; reading was never
+revisited.
+
+**The lesson is about our tests, not the code.** Every suite here asks whether a
+credential works. None asked what one could reach. `smoke-test.sh` now does, and
+it is the check that would have caught this in five minutes at any point in the
+last week.
+
+Also verified after the fix: the publisher earnings page still shows $9.75, the
+Retail Agent still assembles a reader's 583 visits, journey 18, smoke 34.
+
+**Still to triage from the audit:** the default `change-me-in-production` key,
+dashboard JWT verification, python-jose being unmaintained, redirect_uri
+matching, the SPI mapper's raw-UUID guard, XSS via `resourceId` on the confirm
+page, `/agent/quote` being unauthenticated, and realm redirect URIs. Each needs
+checking before it is believed — but the one that was checked first was real.
+
 ## 2026-08-19 — Reports, and a list of what a real pilot would need
 
 **#59 built and proved.** `src/reports/send_reports.py` sends both kinds on
@@ -609,7 +646,7 @@ Name the client and say "needs rotating".
 *Living handoff document. Anyone — or any session — picking this up cold should be
 able to read this file and continue without reconstructing context.*
 
-**Last updated:** 2026-08-19 — reports sending; future work moved out of the tracker
+**Last updated:** 2026-08-19 — outside audit; cross-party read access closed (#63)
 **Deadline:** Aug 25, 2026 — RJI/ITEGA roundtable, 2 p.m. EDT
 
 ---
