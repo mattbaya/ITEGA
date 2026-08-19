@@ -295,15 +295,28 @@ async def get_limit(
     local_sub = await _index.resolve(network_user_id)
     if local_sub is None:
         raise HTTPException(status_code=404, detail="Not a reader of this home base")
-    limit = await _limits.limit_for(local_sub)
-    return {"limit": None if limit is None else float(limit),
-            "note": "Above this, your home base asks you before buying."}
+    rules = await _limits.rules_for(local_sub)
+    return {
+        "limit": None if rules["limit"] is None else float(rules["limit"]),
+        "bySource": {k: (None if v is None else float(v))
+                     for k, v in (rules.get("by_source") or {}).items()},
+        "cap": None if rules["cap"] is None else float(rules["cap"]),
+        "period": rules["period"],
+        "spent": float(rules.get("spent") or 0),
+        "note": "Above any of these, your home base asks you before buying.",
+    }
 
 
 @app.put("/agent/reader/{network_user_id}/limit")
 async def put_limit(
     network_user_id: str,
     amount: float | None = None,
+    source: str | None = None,
+    source_amount: float | None = None,
+    source_never_ask: bool = False,
+    source_clear: bool = False,
+    cap: float | None = None,
+    period: str | None = None,
     authorization: str | None = Header(default=None),
 ) -> dict[str, Any]:
     """Set or clear it. The reader's own figure, held by their own home base."""
@@ -317,8 +330,33 @@ async def put_limit(
     local_sub = await _index.resolve(network_user_id)
     if local_sub is None:
         raise HTTPException(status_code=404, detail="Not a reader of this home base")
-    await _limits.set_limit(local_sub, None if amount is None else Decimal(str(amount)))
-    return {"limit": amount}
+    if source:
+        # Per publication. "Never ask me about my own paper" is the case this
+        # exists for, and it is stored as an explicit null rather than a very
+        # large number, so it reads as the instruction it is.
+        await _limits.set_source_limit(
+            local_sub, source,
+            None if (source_never_ask or source_amount is None) else Decimal(str(source_amount)),
+            clear=source_clear,
+        )
+    elif cap is not None or period is not None:
+        await _limits.set_cap(
+            local_sub,
+            None if cap is None else Decimal(str(cap)),
+            period or "week",
+        )
+    else:
+        await _limits.set_limit(local_sub, None if amount is None else Decimal(str(amount)))
+
+    rules = await _limits.rules_for(local_sub)
+    return {
+        "limit": None if rules["limit"] is None else float(rules["limit"]),
+        "bySource": {k: (None if v is None else float(v))
+                     for k, v in (rules.get("by_source") or {}).items()},
+        "cap": None if rules["cap"] is None else float(rules["cap"]),
+        "period": rules["period"],
+        "spent": float(rules.get("spent") or 0),
+    }
 
 
 @app.get("/agent/settings", response_class=HTMLResponse)
@@ -488,20 +526,34 @@ async def quote(req: QuoteRequest) -> QuoteResponse:
         try:
             reader = await _index.resolve(req.networkUserId)
             if reader is not None:
-                limit = await _limits.limit_for(reader)
-                if limit is not None:
-                    retail = ask * Decimal(str(policy.markupRatio))
-                    if retail > limit and not _limits.approved(reader, req.resourceId, retail):
+                rules = await _limits.rules_for(reader)
+                retail = ask * Decimal(str(policy.markupRatio))
+
+                # Three questions, in the order a reader would ask them. Is this
+                # a publication I said not to bother me about; is this article
+                # dearer than my figure; and have I spent more this week than I
+                # meant to. Any of them asks; none of them refuses, because the
+                # reader set these to be consulted, not to be overruled by.
+                limit = _limits.effective_limit(rules, req.pubMbrId)
+                over_article = limit is not None and retail > limit
+
+                cap = rules.get("cap")
+                over_cap = cap is not None and (rules.get("spent") or Decimal(0)) + retail > cap
+
+                if (over_article or over_cap) and not _limits.approved(reader, req.resourceId, retail):
                         logger.info(
-                            "quote %s: CONFIRM %s — retail %s above the reader's limit %s",
-                            negotiation_id, req.resourceId, _money(retail), limit,
+                            "quote %s: CONFIRM %s — retail %s (limit %s, cap %s, spent %s)",
+                            negotiation_id, req.resourceId, _money(retail),
+                            limit, cap, rules.get("spent"),
                         )
                         return QuoteResponse(
                             decision="confirm",
                             negotiationId=negotiation_id,
                             reason=(
                                 f"{settings.home_base_name} is holding this purchase "
-                                "for your approval, at your request."
+                                + ("because it would take you past the limit you set "
+                                   "for this period." if over_cap and not over_article
+                                   else "for your approval, at your request.")
                             ),
                             # A one-shot nonce, not the reader's identifier.
                             # This link travels through a publisher's page and
@@ -583,6 +635,17 @@ async def _authorise(
         "quote %s: ACCEPT %s at %s (retail %s)",
         negotiation_id, req.resourceId, wholesale, retail,
     )
+
+    # A period cap only means anything if what has been spent is remembered.
+    # Recorded after the decision, never before it: a reader must not be charged
+    # against their cap for an article they were then not given.
+    if _index is not None and _limits is not None and req.networkUserId:
+        try:
+            reader = await _index.resolve(req.networkUserId)
+            if reader is not None:
+                await _limits.record_spend(reader, retail)
+        except Exception as exc:
+            logger.warning("could not record spend: %s", exc)
     await _log_agent_report(req, wholesale=wholesale, markup=policy.markupRatio)
     return QuoteResponse(
         decision="accept",
