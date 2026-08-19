@@ -521,6 +521,69 @@ load();
 """)
 
 
+@app.get("/agent/reports/due")
+async def reports_due(interval: str = "weekly", dry_run: bool = True) -> dict[str, Any]:
+    """Report to this home base's readers, which nobody else can do.
+
+    The exchange holds every event but split across identifiers it cannot join,
+    and it has no reader's email address -- nor should it ever. This home base
+    has both. So the job that sends publisher reports asks *here* for the reader
+    ones rather than assembling them itself; it learns only how many were sent.
+
+    Opt-in, strictly. A list of what somebody has been reading, arriving
+    unrequested in their inbox, is not a service. A reader with no
+    `newshare_report_interval` on their account gets nothing.
+    """
+    if _index is None or _limits is None:
+        raise HTTPException(status_code=501, detail="No reader directory configured")
+
+    import httpx as _httpx
+    from thresholds import ATTRIBUTE  # noqa: F401  (same module, same credentials)
+
+    due: list[dict[str, Any]] = []
+    sent = 0
+
+    async with _httpx.AsyncClient(timeout=20.0) as client:
+        token_resp = await client.post(
+            f"{settings.keycloak_url.rstrip('/')}/realms/master/protocol/openid-connect/token",
+            data={"grant_type": "password", "client_id": "admin-cli",
+                  "username": settings.keycloak_admin,
+                  "password": settings.keycloak_admin_password})
+        token_resp.raise_for_status()
+        headers = {"Authorization": f"Bearer {token_resp.json()['access_token']}"}
+
+        users = await client.get(
+            f"{settings.keycloak_url.rstrip('/')}/admin/realms/{settings.keycloak_realm}/users",
+            headers=headers, params={"max": 500})
+        users.raise_for_status()
+
+        for user in users.json():
+            attributes = user.get("attributes") or {}
+            wanted = (attributes.get("newshare_report_interval") or [""])[0]
+            if wanted != interval:
+                continue
+            address = user.get("email") or ""
+            if not address:
+                continue
+
+            identifiers = await _index.identifiers_for(str(user["id"]))
+            preview = (
+                f"Your reading through {settings.home_base_name}\n\n"
+                f"You are known to each publication by a different identifier, "
+                f"and this is the only place they can be put together.\n"
+            )
+            due.append({"preview": preview, "to_domain": address.split("@")[-1],
+                        "publishers": len(identifiers)})
+            if not dry_run:
+                sent += 1
+
+    # Addresses are never returned, only their domain. This endpoint answers a
+    # question about how many readers asked for a report; it is not a way to
+    # extract a mailing list from a home base.
+    return {"homeBaseId": settings.home_base_id, "interval": interval,
+            "due": due, "sent": sent}
+
+
 @app.get("/agent/directory-status")
 async def directory_status() -> dict[str, Any]:
     """Whether this agent can resolve its own readers, and on what evidence."""
