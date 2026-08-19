@@ -486,7 +486,7 @@ async def report_home_base(
     period_start: datetime = Query(..., description="ISO-8601 start of period"),
     period_end: datetime = Query(..., description="ISO-8601 end of period"),
     pool: asyncpg.Pool = Depends(_get_pool),
-    _api_key: str = Depends(verify_api_key),
+    authorised_for: str = Depends(verify_api_key),
 ) -> HomeBaseReport:
     """
     Full clickstream for a home base's users during the specified period.
@@ -495,6 +495,21 @@ async def report_home_base(
     legitimate operational need to see its own users' activity (they are
     the identity provider and billing counterpart).
     """
+    # Not a publisher's to read, at all. This returns a home base's entire
+    # clickstream -- every reader, every article, and a markup_ratio column
+    # that must never reach a publisher (#6). Any publisher key could fetch it,
+    # which handed one party reader-level records belonging to another.
+    #
+    # Restricted to the exchange's own key, which is what the home bases' Retail
+    # Agents use. Per-home-base keys are the right end state; this is the
+    # correct boundary in the meantime rather than an open door.
+    if authorised_for != INTERNAL:
+        logger.warning("home base report refused for key belonging to %s", authorised_for)
+        raise HTTPException(
+            status_code=403,
+            detail="Home base reports are not available to publisher keys",
+        )
+
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             """
@@ -551,7 +566,7 @@ async def report_publisher(
     period_start: datetime = Query(..., description="ISO-8601 start of period"),
     period_end: datetime = Query(..., description="ISO-8601 end of period"),
     pool: asyncpg.Pool = Depends(_get_pool),
-    _api_key: str = Depends(verify_api_key),
+    authorised_for: str = Depends(verify_api_key),
 ) -> PublisherReport:
     """
     Aggregated report for a publisher during the specified period.
@@ -560,6 +575,16 @@ async def report_publisher(
     totals grouped by home_base_id.  NO individual user identifiers or
     per-user event rows are ever exposed to publishers.
     """
+    # A key may only read its own publisher's figures. #31 established that a
+    # key may only *file* under its own member id; reading was left open, so
+    # any publisher could pull a competitor's revenue with its own credentials.
+    if authorised_for != INTERNAL and authorised_for != pub_mbr_id:
+        logger.warning("report refused: %s asked for %s", authorised_for, pub_mbr_id)
+        raise HTTPException(
+            status_code=403,
+            detail="This key may not read reports for that Publishing Member ID",
+        )
+
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             """
