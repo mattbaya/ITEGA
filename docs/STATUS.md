@@ -59,6 +59,38 @@ still read ITEGA), and the baker analogy moved from pounds to dollars, both at
 Bill's request. 51 demonstration accounts exist for 17 people across all three
 home bases.
 
+## 2026-08-19 — A hole I opened, and the page that found it
+
+**#62.** The four reader-facing endpoints built last night authenticated nobody.
+Anyone holding a `networkUserId` could read that reader's cross-publisher
+history, set or clear their spending limit, or approve purchases as them.
+
+The history one was serious rather than untidy. The plugin writes every network
+reader's identifier into `wp_usermeta`, so **any publisher could take one it
+legitimately holds and ask that reader's home base where else they read** — the
+single join pairwise identifiers exist to prevent, answered by the only party
+able to compute it.
+
+It was found by starting #58 and asking what a settings page would have to
+authenticate. That question should have been asked when the endpoints were
+written; instead they were tested by passing an identifier that happened to be
+to hand, which is precisely what an attacker has, so the testing could not tell
+"it works" from "it works for anyone who asks".
+
+Fixed: history and limits require the exchange's own sessionToken as a bearer,
+verified against its published keys with the claim matching the path. The
+approval link carries a single-use nonce instead of the reader's identifier,
+because that link travels through a publisher's page and a browser history.
+Used, expired and never-minted return the same answer.
+
+**#58, in part.** `/agent/settings` is a plain page where a reader sets the
+limit that was already theirs — served by the home base, since the figure is
+what the reader pays and their publisher is never told it. It holds no privilege
+of its own: it reads and writes through the guarded endpoints with the reader's
+token. The other shapes of limit (per source, per period) are still open.
+
+Suites: smoke 30, journey 18, realm-config 12, derivation 3.
+
 ## 2026-08-19 — Gigi's third round, and what watches the watchers
 
 **#56 closed.** The dashboard client had no pairwise mapper, so its tokens
@@ -521,7 +553,7 @@ Name the client and say "needs rotating".
 *Living handoff document. Anyone — or any session — picking this up cold should be
 able to read this file and continue without reconstructing context.*
 
-**Last updated:** 2026-08-19 — dashboard identifiers pairwise; both hosts watched
+**Last updated:** 2026-08-19 — reader endpoints authenticated (#62)
 **Deadline:** Aug 25, 2026 — RJI/ITEGA roundtable, 2 p.m. EDT
 
 ---

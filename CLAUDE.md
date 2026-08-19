@@ -307,6 +307,15 @@ Network readers get the **`newshare_guest`** role ("ITEGA Guest"), holding only
 `read` — never `subscriber`, which is the publisher's own and which plugins
 routinely add capabilities to.
 
+**Anything the agent will say about a reader requires that reader's own session
+token.** `GET/PUT /agent/reader/{id}/limit` and `/history` verify the exchange's
+`sessionToken` against its published keys and match the `networkUserId` claim
+against the path; `/agent/confirm` takes a single-use nonce rather than an
+identifier. Without this any publisher could ask a home base where else its
+reader goes — every publisher stores its readers' identifiers in `wp_usermeta` —
+which is the one join the architecture exists to prevent. Issue #62; the reader's
+own page is `/agent/settings`, which holds no privilege of its own.
+
 **A reader's spending limit is measured against retail, and lives at their home
 base.** `src/asp-agent/thresholds.py` holds it as a Keycloak user attribute; a
 quote above it returns decision **`confirm`** with a `confirmUrl`, and the reader
