@@ -321,6 +321,109 @@ async def put_limit(
     return {"limit": amount}
 
 
+@app.get("/agent/settings", response_class=HTMLResponse)
+async def settings_page() -> HTMLResponse:
+    """Where a reader actually sets their limit.
+
+    #29 shipped the mechanism with no way for its owner to reach it: the only
+    route was a PUT that no reader will ever make. A control a person cannot
+    find is not a feature they have.
+
+    The page belongs to the home base, like the approval screen, and for the
+    same reason — the figure is denominated in what the reader pays, which their
+    publisher is never told. It reads and writes through the guarded endpoints
+    using the reader's own session token, so this page has no privilege of its
+    own and cannot be used to look at anybody else.
+
+    Deliberately plain, and deliberately not part of the React dashboard: that
+    is ITEGA's, and a reader's spending limit is a matter between them and their
+    home base. A library or a co-operative running this needs a page that works
+    without a front-end team.
+    """
+    return HTMLResponse(f"""<!doctype html>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Your spending limit</title>
+<style>
+ body {{ font: 16px/1.6 system-ui, sans-serif; max-width: 34em; margin: 8vh auto; padding: 0 1.2em; color: #1a1a1a; }}
+ h1 {{ font-size: 1.5em; }}
+ input {{ font: inherit; padding: .45em .6em; width: 7em; }}
+ button {{ font: inherit; padding: .5em 1.1em; background: #14507a; color: #fff; border: 0; cursor: pointer; }}
+ button.plain {{ background: #eee; color: #333; }}
+ p.small {{ color: #555; font-size: .9em; }}
+ #state {{ margin: 1em 0; padding: .8em 1em; background: #f4f6f8; }}
+ .err {{ background: #fdf0ef; }}
+</style>
+<h1>Your spending limit at {settings.home_base_name}</h1>
+
+<p>Set a figure and we will ask you before buying anything above it. Below it we
+just buy, so you are not interrupted for a nickel.</p>
+
+<p class="small">This is what <em>you</em> pay, including our margin — not what
+the publication asks for the story. Publications are never told either number.</p>
+
+<div id="state">Checking&hellip;</div>
+
+<p>
+  <label>Ask me above <input id="amount" type="number" step="0.01" min="0" placeholder="0.25"></label>
+  <button onclick="save()">Save</button>
+  <button class="plain" onclick="clearLimit()">Remove limit</button>
+</p>
+
+<p class="small">With no limit set, {settings.home_base_name} buys on your behalf
+under its own policy and does not ask. That is how this works until you say
+otherwise.</p>
+
+<script>
+// The reader's own session token, handed in by whatever sent them here. This
+// page holds no privilege of its own -- it can only ask about the reader whose
+// token it was given, which is the same rule the endpoints enforce.
+const params = new URLSearchParams(location.hash.slice(1) || location.search);
+const token = params.get('token') || '';
+const reader = params.get('reader') || '';
+const box = document.getElementById('state');
+const field = document.getElementById('amount');
+
+function headers() {{ return {{ 'Authorization': 'Bearer ' + token }}; }}
+
+async function load() {{
+  if (!token || !reader) {{
+    box.className = 'err';
+    box.textContent = 'Open this page from your account or from a story, so it knows who you are.';
+    return;
+  }}
+  const r = await fetch('/agent/reader/' + encodeURIComponent(reader) + '/limit', {{ headers: headers() }});
+  if (!r.ok) {{
+    box.className = 'err';
+    box.textContent = 'Your session has expired. Sign in again and reopen this page.';
+    return;
+  }}
+  const d = await r.json();
+  box.className = '';
+  box.textContent = d.limit === null
+    ? 'No limit set. Purchases are made without asking you.'
+    : 'Asking you above $' + Number(d.limit).toFixed(2) + '.';
+  if (d.limit !== null) field.value = Number(d.limit).toFixed(2);
+}}
+
+async function put(qs) {{
+  const r = await fetch('/agent/reader/' + encodeURIComponent(reader) + '/limit' + qs,
+                        {{ method: 'PUT', headers: headers() }});
+  if (!r.ok) {{ box.className = 'err'; box.textContent = 'That did not save. Try again.'; return; }}
+  await load();
+}}
+
+const save = () => {{
+  const v = parseFloat(field.value);
+  if (isNaN(v) || v < 0) {{ box.className = 'err'; box.textContent = 'Enter an amount, like 0.25.'; return; }}
+  put('?amount=' + encodeURIComponent(v));
+}};
+const clearLimit = () => {{ field.value = ''; put(''); }};
+
+load();
+</script>
+""")
+
+
 @app.get("/agent/directory-status")
 async def directory_status() -> dict[str, Any]:
     """Whether this agent can resolve its own readers, and on what evidence."""
