@@ -59,3 +59,9 @@ claude-ai-logo-*.png
 # Per-publisher API keys. Never committed.
 infra/vps2/data/provisioning.json
 infra/screenshots/
+
+# Client secrets and pairwise salts live on the hosts, never here.
+# This repository is public: a committed salt lets anyone who ever learns a
+# reader's local subject compute their identifier at that publisher.
+infra/vps1/secrets/
+infra/vps2/secrets/
