@@ -39,7 +39,7 @@
           "consentRequired": false,
           "config": {
             "sectorIdentifierUri": "",
-            "pairwiseSubAlgorithmSalt": "REPLACE-ME-SALT-A"
+            "pairwiseSubAlgorithmSalt": "GENERATE-AT-IMPORT-AND-BACK-UP"
           }
         },
         {
@@ -84,7 +84,96 @@
           "consentRequired": false,
           "config": {
             "sectorIdentifierUri": "",
-            "pairwiseSubAlgorithmSalt": "REPLACE-ME-SALT-B"
+            "pairwiseSubAlgorithmSalt": "GENERATE-AT-IMPORT-AND-BACK-UP"
+          }
+        },
+        {
+          "name": "newshare network claims",
+          "protocol": "openid-connect",
+          "protocolMapper": "newshare-network-userid-mapper",
+          "consentRequired": false,
+          "config": {
+            "homeBaseId": "HB001",
+            "id.token.claim": "true",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "pub-c",
+      "name": "West End Sentinel",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "REPLACE-ME-PUB-C",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": [
+        "https://als.itega.org/auth/callback",
+        "https://barharbor.info/wp-json/newshare/v1/callback"
+      ],
+      "webOrigins": [
+        "https://als.itega.org",
+        "https://barharbor.info"
+      ],
+      "attributes": {
+        "pubMbrId": "ITEGA-WESMC-0003",
+        "pkce.code.challenge.method": "S256"
+      },
+      "protocolMappers": [
+        {
+          "name": "pairwise subject",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-sha256-pairwise-sub-mapper",
+          "consentRequired": false,
+          "config": {
+            "sectorIdentifierUri": "",
+            "pairwiseSubAlgorithmSalt": "GENERATE-AT-IMPORT-AND-BACK-UP"
+          }
+        },
+        {
+          "name": "newshare network claims",
+          "protocol": "openid-connect",
+          "protocolMapper": "newshare-network-userid-mapper",
+          "consentRequired": false,
+          "config": {
+            "homeBaseId": "HB001",
+            "id.token.claim": "true",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "dashboard",
+      "name": "Newshare Reader Dashboard",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "REPLACE-ME-DASHBOARD",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": [
+        "https://als.itega.org/auth/callback",
+        "https://barharbor.info/wp-json/newshare/v1/callback"
+      ],
+      "webOrigins": [
+        "https://als.itega.org",
+        "https://barharbor.info"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "protocolMappers": [
+        {
+          "name": "pairwise subject",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-sha256-pairwise-sub-mapper",
+          "consentRequired": false,
+          "config": {
+            "sectorIdentifierUri": "",
+            "pairwiseSubAlgorithmSalt": "GENERATE-AT-IMPORT-AND-BACK-UP"
           }
         },
         {
@@ -142,5 +231,6 @@
         }
       ]
     }
-  ]
+  ],
+  "unmanagedAttributePolicy": "ENABLED"
 }

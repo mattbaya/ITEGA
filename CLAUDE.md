@@ -394,13 +394,17 @@ than no plugin. The check reads the role as well as the link meta, so an account
 whose meta is lost fails towards the gate rather than into the publisher's
 audience. Issue #41, and Jason Velazquez's condition for installing it.
 
-**Keycloak realm configuration made with `kcadm` is not in the repository.** Two
-live changes exist only on the server: `unmanagedAttributePolicy: ENABLED` on all
-three realms (without it a reader's threshold cannot be stored at all), and the
-`dashboard` client's pairwise mapper with its generated salt. Rebuild a host from
-`infra/vps1/realms/*.json` and both silently revert — the second reintroducing
-#56. The salts especially want backing up: losing one does not lose the readers,
-but it makes every publisher see every reader as a stranger. Issue #61.
+**The realm files must describe what is running, and `infra/realm-config-test.py`
+checks that they do.** They declared two clients while four ran; `pub-c` and
+`dashboard` had been added by hand and never written back, which is the whole of
+#60 — wesmc simply missed the by-hand step. The check also enforces #56's rule
+(every client that sees a reader gets a pairwise subject) and that unmanaged
+attributes are enabled, without which a reader's threshold cannot be stored.
+**Secrets and salts never go in this repository** — it is public, and a committed
+salt lets anyone who learns a reader's local subject compute their identifier at
+that publisher. They live in `infra/vps*/secrets/` on the hosts, gitignored, and
+want backing up: losing one costs no reader and no settlement, but every
+publisher would meet every reader as a stranger. Issues #60, #61.
 
 **Deploy the services, then prove it.** VPS 2 is a git checkout at
 `/opt/newshare`; ship with `git pull` there and
