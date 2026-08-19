@@ -226,3 +226,28 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+# ── Refuse to run on a placeholder ────────────────────────────────────
+#
+# A service that starts happily on "change-me-in-production" will one day be
+# deployed with it, and nothing would say so: every endpoint answers normally,
+# every health check passes, and the only signal is that a secret everyone can
+# read from the public repository is the one protecting the system. Better to
+# fail at startup, naming the variable, than to run in that state quietly. #69.
+PLACEHOLDERS = {"", "change-me-in-production", "changeme", "secret", "test"}
+
+
+def _refuse_placeholders(**named: str) -> None:
+    bad = sorted(name for name, value in named.items()
+                 if str(value).strip().lower() in PLACEHOLDERS)
+    if bad:
+        raise RuntimeError(
+            "refusing to start: "
+            + ", ".join(bad)
+            + " still hold placeholder values. Set them in the environment."
+        )
+
+
+_refuse_placeholders(SESSION_SECRET=settings.session_secret)
+

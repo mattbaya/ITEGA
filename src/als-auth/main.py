@@ -350,15 +350,25 @@ async def authorize(
     publisher = _publishers[client_id]
 
     # 2. Validate redirect_uri against the publisher's registered URI.
-    #    This prevents open-redirect attacks where an attacker substitutes
-    #    a malicious redirect_uri to steal session tokens.  We check that
-    #    the provided URI shares the same scheme+host as the registered one.
-    registered_origin = urllib.parse.urlparse(publisher.redirect_uri)
-    requested_origin = urllib.parse.urlparse(redirect_uri)
-    if (
-        registered_origin.scheme != requested_origin.scheme
-        or registered_origin.netloc != requested_origin.netloc
-    ):
+    #
+    #    Exactly, not by origin. Matching scheme and host only meant every path
+    #    on a registered domain was an acceptable place to deliver a session
+    #    token -- so any open redirect anywhere on a member's site became a
+    #    token-delivery route. Our members are WordPress installations carrying
+    #    other people's plugins, which is precisely the population where a stray
+    #    open redirect is likely. #72.
+    #
+    #    Compared after normalising a trailing slash, since that difference is
+    #    invisible to a publisher writing their callback down and is not a
+    #    security distinction.
+    def _canonical(uri: str) -> str:
+        parsed = urllib.parse.urlparse(uri.strip())
+        path = parsed.path.rstrip("/")
+        return urllib.parse.urlunparse(
+            (parsed.scheme.lower(), parsed.netloc.lower(), path, "", parsed.query, "")
+        )
+
+    if _canonical(redirect_uri) != _canonical(publisher.redirect_uri):
         logger.warning(
             "authorize: redirect_uri rejected — registered=%s, requested=%s",
             publisher.redirect_uri,
