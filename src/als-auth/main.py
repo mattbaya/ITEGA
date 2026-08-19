@@ -478,12 +478,24 @@ async def _redirect_to_home_base(
     ).decode("ascii").rstrip("=")
     session["code_verifier"] = verifier
 
+    # A nonce, alongside the PKCE verifier and doing a different job.
+    #
+    # PKCE binds the authorization *code* to whoever began the exchange, so an
+    # intercepted code cannot be redeemed by anyone else. The nonce binds the
+    # returned ID *token* to this particular request: the home base copies it
+    # into the token, and the callback refuses a token that does not carry the
+    # value this request sent. Without it, a token obtained for one request can
+    # be presented for another. OIDC requires it and we did not have it. #74.
+    nonce = secrets.token_urlsafe(32)
+    session["nonce"] = nonce
+
     params = {
         "client_id": client_id,
         "redirect_uri": f"{settings.als_base_url}/auth/callback",
         "response_type": "code",
         "scope": scope,
         "state": _encode_state(session_key),
+        "nonce": nonce,
         "code_challenge": challenge,
         "code_challenge_method": "S256",
     }
@@ -876,6 +888,19 @@ async def callback(
         )
     except JWTError as exc:
         logger.warning("ID-token validation failed: %s", exc)
+        raise HTTPException(status_code=401, detail="Invalid ID token from home base")
+
+    # The nonce this exchange sent must come back inside the token.
+    #
+    # Tolerant of its absence only when we did not send one -- a session begun
+    # before this existed, mid-deploy, must not strand a reader halfway through
+    # signing in. Once sent, it is required: a token that omits it or carries a
+    # different value belongs to some other request.
+    expected_nonce = session.get("nonce")
+    if expected_nonce and id_claims.get("nonce") != expected_nonce:
+        logger.warning(
+            "callback: nonce mismatch — the ID token belongs to a different request"
+        )
         raise HTTPException(status_code=401, detail="Invalid ID token from home base")
 
     # 4. Extract Newshare-specific custom claims from the Keycloak ID token.
