@@ -184,6 +184,31 @@ never described anything that was actually bought. If a cost question comes up,
 the real numbers are above and in `docs/server-specs.md`; Hetzner's US regions
 cost roughly 3.4x the EU ones for identical hardware.
 
+## Reports go out from the party that may send them
+
+`src/reports/send_reports.py`, from cron once a day:
+
+```bash
+src/reports/send_reports.py --kind publisher --interval weekly --api-key "$LOGGING_API_KEY"
+src/reports/send_reports.py --kind reader    --interval weekly --agent-url https://agent-c.itega.org
+--dry-run   # prints exactly what would be sent and to whom, and sends nothing
+```
+
+**Publisher reports come from the exchange**, aggregate only — no reader, no
+retail price, because neither is in the response they are built from. Contact
+addresses live in a private file beside the provisioning records, never in the
+registry, which is a public endpoint.
+
+**Reader reports come from the home base and can come from nowhere else**:
+assembling one joins pairwise identifiers, and sending it needs an address the
+exchange must never hold. `GET /agent/reports/due` returns only the *domain* of
+each address, so it cannot be used to lift a mailing list off a home base.
+**Opt-in strictly** — a reader with no `newshare_report_interval` gets nothing,
+because an unrequested list of what somebody has read is not a service.
+
+Mail credentials come from the environment, or a local `.env` that is never
+committed. Issue #59.
+
 ## Technology Stack (for code)
 
 When building components, use these technologies:

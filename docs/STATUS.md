@@ -59,6 +59,35 @@ still read ITEGA), and the baker analogy moved from pounds to dollars, both at
 Bill's request. 51 demonstration accounts exist for 17 people across all three
 home bases.
 
+## 2026-08-19 — Reports, and a list of what a real pilot would need
+
+**#59 built and proved.** `src/reports/send_reports.py` sends both kinds on
+whatever interval each party asked for. A live publisher report — Bar Harbor
+Info, $9.55 across 182 reads — was sent to the network's own mailbox and then
+**read back over IMAP**, because "sent" is not "delivered".
+
+The split is the architecture restated: publisher reports from the exchange
+(aggregate, no reader, no retail price), reader reports from the home base
+(which alone can join the identifiers and alone holds the address). The agent's
+endpoint returns only the *domain* of a reader's address, so it answers "how
+many asked for this" without becoming a way to lift a mailing list off a home
+base. Reader reports are opt-in and silent by default.
+
+One fault found doing it: the period was passed as `isoformat()`, which ends in
+`+00:00`, and a bare plus in a query string means a space — so the service
+received a timestamp with a hole in it and answered 422.
+
+Tested by opting one account in, confirming it became due, and removing the
+opt-in again: it is Bill's, and leaving state that could mail him unbidden is
+not something to do at midnight.
+
+**#54 is now `docs/future-tasks.md`** rather than an open issue. It was a future
+requirement filed as a defect, which made the tracker read as though the system
+had problems it does not. The document collects everything of that kind — a test
+environment, scoped and rotatable credentials, settlement that moves real money,
+backups and alerting, scale, and the governance questions engineering cannot
+answer.
+
 ## 2026-08-19 — #58 done: three limits, and a page to set them
 
 Matt asked what other shapes of limit there should be. Two were worth building
@@ -580,7 +609,7 @@ Name the client and say "needs rotating".
 *Living handoff document. Anyone — or any session — picking this up cold should be
 able to read this file and continue without reconstructing context.*
 
-**Last updated:** 2026-08-19 — three kinds of reader limit, and a page for them
+**Last updated:** 2026-08-19 — reports sending; future work moved out of the tracker
 **Deadline:** Aug 25, 2026 — RJI/ITEGA roundtable, 2 p.m. EDT
 
 ---
