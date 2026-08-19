@@ -102,12 +102,15 @@ wholesale` for every home base from ordinary traffic — contradicting a rule
 `CLAUDE.md` states plainly. Three ways out are written up; the choice is Bill's,
 not mine, four days from a demonstration.
 
-**#67 holds the rest**, each checked against current code rather than believed:
-`/agent/quote` unauthenticated, a `change-me-in-production` default, the
-dashboard decoding tokens without verification (deliberate, documented, still
-worth doing), python-jose unmaintained, `redirect_uri` matched on host only, the
-SPI mapper's raw-UUID guard, and a missing OIDC nonce. The audit is wrong that
-the plugin lacks PKCE.
+**The rest are #68 to #74, one each**, because seven findings batched into a
+single issue cannot be closed individually and nobody can see which are done.
+#67 is now the audit's record and index: what it found, where each lives, and
+the three things it got wrong — the plugin does have PKCE, the settlement tables
+it calls missing were never claimed to exist, and the dashboard's unverified
+token is argued rather than dismissed.
+
+Each was checked against current code before being written up, and #73 is marked
+unconfirmed because it needs reading Java rather than probing an endpoint.
 
 ## 2026-08-19 — Reports, and a list of what a real pilot would need
 
