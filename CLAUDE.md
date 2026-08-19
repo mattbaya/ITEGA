@@ -517,6 +517,17 @@ how #49 hid, where `wp plugin update` could never see an ITEGA release at all.
 `deploy-publisher-plugin.sh` remains the way back when an update goes wrong, and
 the bootstrap when installed code cannot yet update itself.
 
+**Help pages live at `dashboard.itega.org/help/`, and their screenshots are
+taken by script.** `infra/capture-help-screenshots.py` photographs each panel
+from the live sites, so refreshing them after a copy change is one command
+rather than an afternoon — which matters, because reader-facing wording changed
+five times on 18 Aug alone and hand-made screenshots would have been wrong by
+the evening. `deploy-dashboard.sh` ships `docs/help/` and checks `/help/` answers
+afterwards. Each screen is labelled with **who is speaking**, publication or home
+base, because that distinction is the architecture and no reader infers it.
+Publisher admin screens need one manual capture pass; they are behind a
+WordPress login that is the publisher's, not ours. Issue #57.
+
 **Publish the plugin with `infra/publish-plugin.sh` after every change.** It
 lints, packages, writes the update manifest, uploads, and then checks what is
 actually served against what was built. Installed copies learn about the new

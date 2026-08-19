@@ -1,0 +1,98 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Newshare — what each screen means</title>
+<style>
+ :root { --ink:#1a1a1a; --quiet:#5a5a5a; --rule:#e2e2e2; --link:#14507a; --bg:#fff; }
+ body { font:17px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+        color:var(--ink); background:var(--bg); margin:0; }
+ .wrap { max-width:46em; margin:0 auto; padding:4vh 1.3em 12vh; }
+ h1 { font-size:1.9em; line-height:1.2; margin:0 0 .3em; }
+ h2 { font-size:1.3em; margin:2.4em 0 .2em; padding-top:1.4em; border-top:1px solid var(--rule); }
+ h3 { font-size:1.05em; margin:1.8em 0 .3em; }
+ p.lede { font-size:1.12em; color:var(--quiet); margin:0 0 2em; }
+ p { margin:.7em 0; }
+ figure { margin:1.2em 0 1.6em; }
+ figure img { max-width:100%; border:1px solid var(--rule); border-radius:4px; display:block; }
+ figcaption { color:var(--quiet); font-size:.9em; margin-top:.5em; }
+ .who { display:inline-block; font-size:.75em; letter-spacing:.06em; text-transform:uppercase;
+        color:#fff; background:var(--link); padding:.15em .6em; border-radius:3px; vertical-align:.15em; }
+ .who.pub { background:#5a5a5a; }
+ a { color:var(--link); }
+ .note { background:#f4f6f8; padding:.9em 1.1em; margin:1.4em 0; font-size:.95em; }
+ footer { margin-top:4em; padding-top:1.4em; border-top:1px solid var(--rule);
+          color:var(--quiet); font-size:.9em; }
+ @media (prefers-color-scheme: dark) {
+   :root { --ink:#e8e8e8; --quiet:#a8a8a8; --rule:#333; --link:#7fb2d6; --bg:#151515; }
+   .note { background:#1e1e1e; }
+   figure img { border-color:#333; }
+ }
+</style>
+<div class="wrap">
+
+<h1>What each screen means</h1>
+<p class="lede">Newshare lets you read a story at one publication using an account you hold with another. These are the screens you may meet, what each one is telling you, and — because it is rarely obvious — which organisation is talking to you.</p>
+
+<div class="note"><strong>Who is speaking matters here.</strong> Some screens come from the publication you are reading. Others come from your own account provider, which the network calls your <em>home base</em>. They know different things, and only one of them knows who you are.</div>
+
+<h2>Reading a story</h2>
+
+<h3>The gate <span class="who">the publication</span></h3>
+<figure>
+  <img src="img/gate.png" alt="The Newshare access gate on a news article">
+  <figcaption>Shown when a story is not covered by anything you already hold.</figcaption>
+</figure>
+<p>The price named here is what <em>the publication</em> asks for the story. It is not necessarily what you pay: your own provider adds its margin, and this publication is never told what that margin is — so it cannot tell you your price, and does not pretend to.</p>
+<p>The button both signs you in and, if your provider agrees, buys the story. That is said before you press it rather than after, because it commits money.</p>
+<p>You are never revealed by continuing. The publication receives an opaque identifier that is different at every publication, so two newspapers cannot work out between them that you are the same person.</p>
+
+<h3>The badge <span class="who">the publication</span></h3>
+<figure>
+  <img src="img/status-badge.png" alt="A small badge reading Not signed in, with a sign-in link">
+  <figcaption>On every page, so you never have to guess.</figcaption>
+</figure>
+<p>It exists because reading several stories without being stopped looks exactly like a broken paywall. When you are signed in it shows the identifier that publication knows you by — which is not your name, and is not the one any other publication sees.</p>
+
+<h2>Paying for a story</h2>
+
+<h3>Your provider asks first <span class="who">your home base</span></h3>
+<p>If you have set a spending limit, anything above it waits for you. The screen that asks comes from <em>your provider</em>, not the publication, because it names the price you will actually pay — the figure the publication does not have.</p>
+<p>Approving covers that one story at that one price, for a few minutes. It does not raise your limit, and the next story above it asks again.</p>
+<figure>
+  <img src="img/approval-expired.png" alt="A page saying the approval link has been used or has expired">
+  <figcaption>What you see if you return to an approval link later. Reload the story to try again.</figcaption>
+</figure>
+
+<h3>Your provider says no <span class="who">your home base</span></h3>
+<p>Two different things can go wrong, and they are deliberately two different screens.</p>
+<p><strong>Your account did not authorise this purchase.</strong> Your provider was asked and declined — usually a price above what you or they allow. Nothing was charged. The decision is theirs, so the screen sends you to them.</p>
+<p><strong>We could not reach your account provider.</strong> Nobody decided anything; the network failed to ask. Nothing was charged, the fault is ours rather than yours or theirs, and trying again shortly is the remedy.</p>
+<div class="note">These used to be one screen. That told readers their provider had refused them when it had not, and sent them to argue about a decision nobody had made.</div>
+
+<h2>Setting a limit</h2>
+
+<h3>Your spending limit <span class="who">your home base</span></h3>
+<figure>
+  <img src="img/spending-limit.png" alt="A page for setting per-story, per-period, and per-publication spending limits">
+  <figcaption>Three kinds of limit, all measured in what you pay.</figcaption>
+</figure>
+<p><strong>Per story.</strong> Anything dearer than your figure asks you first.</p>
+<p><strong>Per period.</strong> A ceiling on a day, a week or a month. The page shows how much of it you have used.</p>
+<p><strong>Per publication.</strong> Somewhere you never want to be asked about — your own local paper, most likely. Anything from it is bought without interrupting you.</p>
+<p>With no limit set, your provider buys on your behalf under its own policy and does not ask. That is how it works until you say otherwise.</p>
+
+<h2>Signing out</h2>
+<p>You are asked how far you mean it. <strong>Sign out here</strong> leaves you recognised everywhere else in the network. <strong>Sign out everywhere</strong> ends the session at your provider too — the one that matters on a shared or library machine.</p>
+
+<h2 id="publishers">For publishers <span class="who pub">your own site</span></h2>
+<p>Two screens live in your own WordPress admin, under Settings.</p>
+<p><strong>Newshare Network</strong> — what the plugin is doing on your site. It needs no keys and no configuration: it certified itself when you activated it, by proving it controls your domain.</p>
+<p><strong>Newshare Earnings</strong> — what the network owes you, over 7, 30 or 90 days, grouped by which organisation each reader has their account with. These are wholesale figures: what you asked and are owed. What each reader paid includes their provider's margin, which is between them and it.</p>
+<p>No individual reader appears in those totals and none can. Your site receives a different opaque identifier for each reader at each publication, so there is nobody there to name.</p>
+<div class="note"><strong>Your own readers are never touched.</strong> Anyone signed in to your site who did not arrive through the network — subscribers, members, monthly contributors, staff — reads everything, with no meter, no gate, no price and nothing logged. The network carries visitors from elsewhere.</div>
+
+<footer>
+<p>Screens are photographed from the live sites by <code>infra/capture-help-screenshots.py</code>, so they can be refreshed with one command when copy changes — which it does.</p>
+<p>Newshare Network, governed by ITEGA. Questions to <a href="mailto:nexstep@itega.org">nexstep@itega.org</a>.</p>
+</footer>
+</div>

@@ -912,6 +912,11 @@ the full record — every fix and every feature request, with cause, fix and wha
 proved it — but these are the changes that alter what a reader or a publisher
 actually meets.
 
+**Help pages, with screenshots that can be refreshed by script (#57).**
+<https://dashboard.itega.org/help/> — what each screen means, and for each one,
+which party is speaking: the publication or the reader's own home base. Linked
+from the plugin download page, where a publisher will already be.
+
 **Three hardening fixes from an outside audit (#69, #70, #72).** Session tokens
 could be delivered to any path on a registered publisher's domain, not just its
 registered callback — so any open redirect on a member's site was a delivery

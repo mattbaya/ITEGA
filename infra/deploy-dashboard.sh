@@ -53,6 +53,19 @@ for keep in preview-f45033ceaf plugin robots.txt; do
     fi
 done
 
+# The help pages, shipped alongside the app rather than by hand. Copy changes
+# often enough that stale screenshots are the likely failure, so they travel
+# with every deploy and are re-captured by
+# infra/capture-help-screenshots.py.
+if [ -d "$REPO/docs/help" ]; then
+    bold "==> uploading help pages"
+    sshx "rm -rf /tmp/help-stage && mkdir -p /tmp/help-stage"
+    rsync -a --delete -e "ssh -o BatchMode=yes -i $KEY" \
+          "$REPO/docs/help/" "$HOST:/tmp/help-stage/"
+    sshx "sudo rm -rf $ROOT/help && sudo cp -a /tmp/help-stage $ROOT/help &&
+          sudo chown -R apache:apache $ROOT/help && sudo rm -rf /tmp/help-stage"
+fi
+
 bold "==> uploading"
 # Into a staging directory first, so a broken or interrupted transfer never
 # becomes the live index.html.
@@ -100,6 +113,7 @@ check "/"        200 "the dashboard itself"
 check "/demo"    200 "the walkthrough, which must survive a reload"
 check "/plugin/" 200 "the public plugin download"
 check "/preview-f45033ceaf/" 200 "the films"
+check "/help/" 200 "the help pages"
 
 # The build is only right if the page it serves is the one just built.
 asset=$(sed -n 's/.*assets\/\(index-[A-Za-z0-9]*\.js\).*/\1/p' "$SRC/dist/index.html" | head -1)

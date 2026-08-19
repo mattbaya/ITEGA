@@ -59,6 +59,27 @@ still read ITEGA), and the baker analogy moved from pounds to dollars, both at
 Bill's request. 51 demonstration accounts exist for 17 people across all three
 home bases.
 
+## 2026-08-19 — #57: help pages that can keep up
+
+Live at `dashboard.itega.org/help/`, linked from the plugin download page where
+a publisher will already be.
+
+The screenshots are taken by `infra/capture-help-screenshots.py` rather than by
+hand, which is the part that matters: reader-facing copy changed five times on
+18 August, so any screenshot taken that morning was wrong by the evening.
+Refreshing them is one command. `deploy-dashboard.sh` ships `docs/help/` and
+checks `/help/` answers afterwards, alongside the films and the plugin download.
+
+Every screen is labelled with **who is speaking** — the publication or the
+reader's home base — because that distinction is the whole architecture and no
+reader infers it unaided. It is also the honest explanation for why the gate
+cannot tell you your own price.
+
+Four screens captured: the gate, the signed-in badge, a used approval link, and
+the spending-limit page. The publisher's two admin screens need one manual pass;
+they sit behind a WordPress login that belongs to the publisher rather than to
+us, which the script says plainly rather than skipping.
+
 ## 2026-08-19 — #74: a nonce added, and half the finding refuted
 
 The sign-in flow sent no nonce. PKCE was there and does a different job — it
@@ -736,7 +757,7 @@ Name the client and say "needs rotating".
 *Living handoff document. Anyone — or any session — picking this up cold should be
 able to read this file and continue without reconstructing context.*
 
-**Last updated:** 2026-08-19 — nonce added (#74); four audit items remain closed out
+**Last updated:** 2026-08-19 — help pages live; audit closed out bar two
 **Deadline:** Aug 25, 2026 — RJI/ITEGA roundtable, 2 p.m. EDT
 
 ---
