@@ -59,6 +59,31 @@ still read ITEGA), and the baker analogy moved from pounds to dollars, both at
 Bill's request. 51 demonstration accounts exist for 17 people across all three
 home bases.
 
+## 2026-08-19 — Working down the audit
+
+Three closed, each proved rather than reasoned about.
+
+**#72, exact `redirect_uri`.** Host-only matching accepted any path on a
+registered domain, so an open redirect anywhere on a member's WordPress site was
+a token-delivery route. Checked all three sites publish exactly their registered
+callback *before* deploying, so exact matching could not lock anyone out. The
+attack it allowed now returns 400; the real callback still works; journey 18/18,
+logout 19/19.
+
+**#69, placeholder secrets.** Both services refuse to start on
+`change-me-in-production` or an empty value, naming the variable. Tested against
+four values including a case- and whitespace-padded variant.
+
+**#70, dashboard token verification.** `jwtVerify` against the exchange's keys.
+Proved with the same jose calls the app makes: a real token verifies, a forgery
+signed with an attacker's key and the correct `kid` is refused on the signature,
+and an hour-old token is refused as expired — which is how the first run of the
+check failed, correctly.
+
+**Still open from the audit:** #68 (`/agent/quote` unauthenticated, and its reply
+reveals the markup), #71 (python-jose), #73 (the SPI mapper's guard, unconfirmed
+and needing the Java read), #74 (no OIDC nonce; audience verification disabled).
+
 ## 2026-08-19 — An outside audit, and the worst defect the project has had
 
 Kimi (svaha42) audited the public repository and sent a full report. Most of it
@@ -662,7 +687,7 @@ Name the client and say "needs rotating".
 *Living handoff document. Anyone — or any session — picking this up cold should be
 able to read this file and continue without reconstructing context.*
 
-**Last updated:** 2026-08-19 — outside audit; cross-party read access closed (#63)
+**Last updated:** 2026-08-19 — audit hardening: #69, #70, #72 closed
 **Deadline:** Aug 25, 2026 — RJI/ITEGA roundtable, 2 p.m. EDT
 
 ---

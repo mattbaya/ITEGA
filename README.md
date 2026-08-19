@@ -912,6 +912,13 @@ the full record — every fix and every feature request, with cause, fix and wha
 proved it — but these are the changes that alter what a reader or a publisher
 actually meets.
 
+**Three hardening fixes from an outside audit (#69, #70, #72).** Session tokens
+could be delivered to any path on a registered publisher's domain, not just its
+registered callback — so any open redirect on a member's site was a delivery
+route. Services would start on a placeholder secret without complaint. And the
+reader dashboard decoded tokens without verifying them. All three are closed,
+each proved against the live system rather than by reading the diff.
+
 **A reader can cap what their home base spends without asking (#29).** Bill
 Densmore's idea from the 1990s Clickshare documentation, and it could not be
 built until the home base could identify its own readers. Live: with a 4¢ limit

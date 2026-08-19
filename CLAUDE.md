@@ -431,6 +431,25 @@ identifier before and after. Issue #43, found by Jason Velazquez's AI reviewer
 reading the repository and spotting that the comment above the string
 contradicted the string.
 
+**`redirect_uri` is matched exactly, not by origin.** Host-only matching meant
+every path on a registered domain was somewhere a session token could be
+delivered, and our members are WordPress sites carrying other people's plugins —
+the population most likely to have a stray open redirect. Compared after
+normalising trailing slash and case, which are not security distinctions. Check
+what a site actually publishes at `/wp-json/` before changing a registered
+value. Issue #72.
+
+**Services refuse to start on a placeholder secret.** `change-me-in-production`,
+empty, and similar values are rejected by name at startup, because a service
+that runs quietly on one will eventually be deployed with one and every health
+check would still pass. Issue #69.
+
+**The dashboard verifies tokens rather than decoding them** — `jwtVerify`
+against the exchange's JWKS with the issuer checked, keys cached and re-fetched
+on an unseen `kid`. It was decode-only by a defensible argument (claims are
+display-only, services verify for themselves) that nonetheless took fifteen
+lines to make. Issue #70.
+
 **A credential is defined by what it may reach, not by whether it works.** #31
 stopped a key filing under another publisher's member id; #63 found that both
 report endpoints took the same dependency and discarded the answer, so any
