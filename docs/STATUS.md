@@ -90,11 +90,24 @@ last week.
 Also verified after the fix: the publisher earnings page still shows $9.75, the
 Retail Agent still assembles a reader's 583 visits, journey 18, smoke 34.
 
-**Still to triage from the audit:** the default `change-me-in-production` key,
-dashboard JWT verification, python-jose being unmaintained, redirect_uri
-matching, the SPI mapper's raw-UUID guard, XSS via `resourceId` on the confirm
-page, `/agent/quote` being unauthenticated, and realm redirect URIs. Each needs
-checking before it is believed — but the one that was checked first was real.
+**Triaged, all of it.** Two more were mine from the same evening and are fixed:
+`resourceId` echoed unescaped into the home base's approval page (#64), and
+`pub-c` and `dashboard` listing barharbor.info as a valid redirect in the realm
+files I had just made authoritative (#65). `realm-config-test.py` now compares
+redirect URIs too.
+
+**#66 the audit did not find**, and it is the most awkward: the publisher
+receives `retailPrice` and displays it, so it can compute `markup = retail ÷
+wholesale` for every home base from ordinary traffic — contradicting a rule
+`CLAUDE.md` states plainly. Three ways out are written up; the choice is Bill's,
+not mine, four days from a demonstration.
+
+**#67 holds the rest**, each checked against current code rather than believed:
+`/agent/quote` unauthenticated, a `change-me-in-production` default, the
+dashboard decoding tokens without verification (deliberate, documented, still
+worth doing), python-jose unmaintained, `redirect_uri` matched on host only, the
+SPI mapper's raw-UUID guard, and a missing OIDC nonce. The audit is wrong that
+the plugin lacks PKCE.
 
 ## 2026-08-19 — Reports, and a list of what a real pilot would need
 
