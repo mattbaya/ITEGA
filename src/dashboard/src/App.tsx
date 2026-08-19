@@ -49,13 +49,25 @@ export default function App() {
     // ignored, and the reader was returned to the login screen.
     //
     // One place decides where the token lives, and it is handleCallback.
-    const result = handleCallback();
-    if (result) {
-      setSession(result);
-    } else if (isAuthenticated()) {
-      setSession(getSession());
-    }
-    setChecked(true);
+    // Verifying the token means fetching the exchange's keys, so this is async
+    // now. Cancelled on unmount so a slow network cannot set state on a
+    // component that has gone.
+    let live = true;
+    handleCallback()
+      .then((result) => {
+        if (!live) return;
+        if (result) {
+          setSession(result);
+        } else if (isAuthenticated()) {
+          setSession(getSession());
+        }
+      })
+      .finally(() => {
+        if (live) setChecked(true);
+      });
+    return () => {
+      live = false;
+    };
   }, []);
 
   if (!checked) {

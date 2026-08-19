@@ -18,7 +18,7 @@
  * via HTTP headers and signed JWT tokens, per the Newshare protocol spec.
  */
 
-import { decodeJwt } from 'jose';
+import { createRemoteJWKSet, jwtVerify } from 'jose';
 
 /** Base URL for the ALS authentication service. Falls back to a placeholder. */
 // The dashboard is itself a registered OIDC client of the ALS.
@@ -47,6 +47,12 @@ export interface SessionData {
  * The ALS will authenticate the user via their home base (Keycloak)
  * and redirect back with a session_token query parameter.
  */
+// The exchange's published signing keys. Fetched once and cached by jose, with
+// an automatic re-fetch when a token arrives carrying a key id it has not seen.
+const ALS_BASE = import.meta.env.VITE_ALS_BASE_URL ?? 'https://als.itega.org';
+const ALS_ISSUER = ALS_BASE;
+const JWKS = createRemoteJWKSet(new URL(`${ALS_BASE}/.well-known/jwks.json`));
+
 export function login(): void {
   const callbackUrl = `${window.location.origin}/dashboard`;
   // Authorization Code Flow (OIDC 1.0). The ALS exchanges the code with the
@@ -69,7 +75,7 @@ export function login(): void {
  * decode the JWT, and persist the session in localStorage.
  * Returns the decoded session data or null on failure.
  */
-export function handleCallback(): SessionData | null {
+export async function handleCallback(): Promise<SessionData | null> {
   // The token arrives in the URL fragment, not the query string.
   //
   // This page has no server behind it, so the exchange cannot hand the token
@@ -92,17 +98,22 @@ export function handleCallback(): SessionData | null {
   }
 
   try {
-    // NOTE: We use decodeJwt() (decode-only, no signature verification) here
-    // intentionally. This is acceptable for the prototype because:
-    //   1. The dashboard only uses the token claims to display user info in the
-    //      UI -- it does NOT make access-control decisions based on these claims.
-    //   2. The ALS Auth Service is the trusted token issuer; in a production
-    //      deployment, the dashboard SHOULD verify the JWT signature against
-    //      the ALS JWKS endpoint (e.g., https://als.newshare.example/auth/.well-known/jwks.json)
-    //      using jose.jwtVerify() before trusting the claims.
-    //   3. Adding JWKS verification would require an async fetch and caching of
-    //      the ALS public keys, which adds complexity beyond the pilot scope.
-    const claims = decodeJwt(token) as unknown as SessionData;
+    // Verified, not decoded.
+    //
+    // This used to decode without checking the signature, on the reasoning that
+    // the claims are only displayed and every service behind them verifies for
+    // itself. That reasoning holds -- a forged token here buys a name on a
+    // screen, not access to anything. But "the interface trusts nothing it has
+    // not verified" is a far easier sentence to defend than that paragraph was,
+    // and an outside auditor read the old code and called it critical, which is
+    // its own kind of answer. #70.
+    //
+    // createRemoteJWKSet caches the exchange's keys and re-fetches on a key it
+    // has not seen, so a rotation does not lock every reader out.
+    const { payload } = await jwtVerify(token, JWKS, {
+      issuer: ALS_ISSUER,
+    });
+    const claims = payload as unknown as SessionData;
     const session: SessionData = {
       networkUserId: claims.networkUserId,
       homeBaseId: claims.homeBaseId,
@@ -115,8 +126,11 @@ export function handleCallback(): SessionData | null {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
     localStorage.setItem(`${STORAGE_KEY}_raw`, token);
     return session;
-  } catch {
-    console.error('Failed to decode session token');
+  } catch (error) {
+    // Expired, forged, or signed by a key the exchange does not publish. The
+    // reader is simply not signed in; saying which it was helps nobody but a
+    // forger.
+    console.error('Session token rejected', error);
     return null;
   }
 }
