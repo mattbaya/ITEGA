@@ -329,6 +329,14 @@ history and a broken derivation are indistinguishable from outside. Keycloak
 admin credentials are the wrong grant and are what exists; a service account with
 `view-users` and `view-clients` is required before a pilot. Issues #53, #28.
 
+**Every client that sees a reader gets a pairwise mapper, including the
+dashboard.** It did not, so `sub` fell through to the reader's actual home base
+user id and the exchange held the seed value for every pairwise identifier that
+reader has. No join was possible without the salts, but as Gigi put it: privacy
+should come from what a party *cannot* know, not from its lacking one ingredient
+to exploit what it holds. Fixed in `publisher-c` and `newshare`; `wesmc` has no
+dashboard client at all (#60). Issue #56.
+
 **Only the home base can join a reader's pairwise identifiers, and it can.**
 Each publisher is a Keycloak client in the home base's realm with its own
 `pairwiseSubAlgorithmSalt`, and the identifier is
