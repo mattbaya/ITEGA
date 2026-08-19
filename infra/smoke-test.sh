@@ -166,23 +166,30 @@ DEPLOY_KEY="${NEWSHARE_DEPLOY_KEY:-$HOME/.ssh/newshare_deploy}"
 DEPLOY_HOST="${NEWSHARE_VPS2_HOST:-deploy@als.itega.org}"
 if [ -r "$DEPLOY_KEY" ]; then
   WANT=$(git -C "$(dirname "$0")/.." rev-parse origin/main 2>/dev/null || echo unknown)
-  GOT=$(ssh -o BatchMode=yes -o ConnectTimeout=15 -i "$DEPLOY_KEY" "$DEPLOY_HOST" \
-        "cd /opt/newshare && git rev-parse HEAD" 2>/dev/null || echo unreachable)
   # Compared over the paths this host actually runs, not the whole tree. A
   # plugin release or a documentation commit moves origin/main without changing
   # anything here, and a check that goes red for those teaches people to ignore
   # it -- which would cost more than the drift it was built to catch.
-  VPS2_PATHS="src/als-auth src/als-logging src/als-settlement src/network-discovery infra/vps2"
-  if [ "$WANT" = "unknown" ] || [ "$GOT" = "unreachable" ]; then
-    ok "deployed code" "could not compare — skipped"
-  elif [ "$GOT" = "$WANT" ]; then
-    ok "VPS 2 runs origin/main" "${GOT:0:8}"
-  elif git -C "$(dirname "$0")/.." diff --quiet "$GOT" "$WANT" -- $VPS2_PATHS 2>/dev/null; then
-    ok "VPS 2 runs current service code" "${GOT:0:8}, and nothing it serves has changed since"
-  else
-    bad "VPS 2 runs current service code" \
-        "serving ${GOT:0:8}; ${WANT:0:8} changes $(git -C "$(dirname "$0")/.." diff --name-only "$GOT" "$WANT" -- $VPS2_PATHS 2>/dev/null | wc -l | tr -d ' ') file(s) it runs"
-  fi
+  # Both hosts. VPS 1 runs Keycloak, the SPI mapper and all three Retail
+  # Agents, and until #61 nothing watched it at all -- the host holding the
+  # identity provider was the one host with no check on what it was running.
+  check_host () {
+      local label="$1" host="$2" paths="$3" got
+      got=$(ssh -o BatchMode=yes -o ConnectTimeout=15 -i "$DEPLOY_KEY" "$host" \
+            "cd /opt/newshare && git rev-parse HEAD" 2>/dev/null || echo unreachable)
+      if [ "$WANT" = "unknown" ] || [ "$got" = "unreachable" ]; then
+        ok "$label deployed code" "could not compare — skipped"
+      elif [ "$got" = "$WANT" ]; then
+        ok "$label runs origin/main" "${got:0:8}"
+      elif git -C "$(dirname "$0")/.." diff --quiet "$got" "$WANT" -- $paths 2>/dev/null; then
+        ok "$label runs current service code" "${got:0:8}, and nothing it serves has changed since"
+      else
+        bad "$label runs current service code" \
+            "serving ${got:0:8}; ${WANT:0:8} changes $(git -C "$(dirname "$0")/.." diff --name-only "$got" "$WANT" -- $paths 2>/dev/null | wc -l | tr -d ' ') file(s) it runs"
+      fi
+  }
+  check_host "VPS 2" "$DEPLOY_HOST" "src/als-auth src/als-logging src/als-settlement src/network-discovery infra/vps2"
+  check_host "VPS 1" "${NEWSHARE_VPS1_HOST:-deploy@auth.itega.org}" "src/asp-agent src/keycloak-spi infra/vps1"
 else
   ok "deployed commit" "no deploy key here — skipped"
 fi

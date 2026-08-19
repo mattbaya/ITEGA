@@ -394,6 +394,14 @@ than no plugin. The check reads the role as well as the link meta, so an account
 whose meta is lost fails towards the gate rather than into the publisher's
 audience. Issue #41, and Jason Velazquez's condition for installing it.
 
+**Keycloak realm configuration made with `kcadm` is not in the repository.** Two
+live changes exist only on the server: `unmanagedAttributePolicy: ENABLED` on all
+three realms (without it a reader's threshold cannot be stored at all), and the
+`dashboard` client's pairwise mapper with its generated salt. Rebuild a host from
+`infra/vps1/realms/*.json` and both silently revert — the second reintroducing
+#56. The salts especially want backing up: losing one does not lose the readers,
+but it makes every publisher see every reader as a stranger. Issue #61.
+
 **Deploy the services, then prove it.** VPS 2 is a git checkout at
 `/opt/newshare`; ship with `git pull` there and
 `docker compose up -d --build <service>`, and note that code is baked into the

@@ -59,6 +59,35 @@ still read ITEGA), and the baker analogy moved from pounds to dollars, both at
 Bill's request. 51 demonstration accounts exist for 17 people across all three
 home bases.
 
+## 2026-08-19 — Gigi's third round, and what watches the watchers
+
+**#56 closed.** The dashboard client had no pairwise mapper, so its tokens
+carried the reader's real home base user id — the seed every one of their
+pairwise identifiers is derived from. Fixed on both realms that have such a
+client and verified by taking a token: the dashboard now receives
+`379be596-…` where it received `8a3e8313-…`.
+
+Gigi's framing is now the standing rule, because it is better than what was
+there: *privacy should arise from what each participant cannot know, rather than
+from promises about what it will refrain from doing with what it holds.* The old
+state amounted to "we hold the identifier but lack an ingredient to exploit it",
+which is a much weaker sentence than "we never receive it".
+
+**#60**: `wesmc` has no dashboard client at all, so the one home base
+deliberately chosen to be a co-operative rather than a newspaper cannot use the
+dashboard.
+
+**#61, found while checking whether anything was left unpushed.** Tonight's two
+Keycloak changes — the unmanaged-attribute policy and the dashboard's pairwise
+mapper — were made live with `kcadm` and exist nowhere in the repository. A clean
+rebuild from `infra/vps1/realms/*.json` silently loses the reader threshold and
+reintroduces #56.
+
+The same check turned up that `smoke-test.sh` only ever watched VPS 2. VPS 1 runs
+Keycloak, the SPI mapper and all three Retail Agents — the host holding the
+identity provider was the one host with nothing watching what it ran. Both are
+covered now.
+
 ## 2026-08-19 — Bill's threshold, thirty years on
 
 **#29 built.** A reader names a figure; anything above it waits for them. Proved
@@ -492,7 +521,7 @@ Name the client and say "needs rotating".
 *Living handoff document. Anyone — or any session — picking this up cold should be
 able to read this file and continue without reconstructing context.*
 
-**Last updated:** 2026-08-19 — both of Bill's suggestions built
+**Last updated:** 2026-08-19 — dashboard identifiers pairwise; both hosts watched
 **Deadline:** Aug 25, 2026 — RJI/ITEGA roundtable, 2 p.m. EDT
 
 ---
