@@ -65,3 +65,11 @@ infra/screenshots/
 # reader's local subject compute their identifier at that publisher.
 infra/vps1/secrets/
 infra/vps2/secrets/
+
+# Claude Code session transcripts (local only)
+.claude-sessions/
+
+# macOS resource forks and local Claude config
+._*
+__MACOSX/
+.claude/

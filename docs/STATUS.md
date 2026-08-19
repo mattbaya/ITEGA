@@ -1,5 +1,25 @@
 # Project Status and Plan Forward
 
+## 2026-08-19 — Murrow agent online; full smoke test green
+
+A dedicated agent account, **Murrow**, is now running to help Bill Densmore
+manage this project. It is an OpenClaw agent on port `18801` using Claude
+Sonnet 4.6, with email checked every 15 minutes from trusted senders
+(Matt, Ralph, and `wpdensmore@gmail.com`). The ITEGA repo is cloned and
+pushable, and the agent can SSH to both Hetzner VPSes and the two publisher
+accounts on `lightning.svaha.com`.
+
+`infra/smoke-test.sh` was run end to end and passed **38 of 38 checks**:
+publisher sites serve, every ITEGA service answers, both Keycloak realms
+serve discovery documents, the reader's sign-in journey reaches the home-base
+login with PKCE, the Retail Agent quotes and refuses correctly, cross-party
+access controls return 403 where they should, each publisher holds its own
+API key, and the deployed code on both VPSes matches current service code.
+
+Also cleaned the repository of macOS resource-fork files (`._*`) and moved
+Bill's LinkedIn PDF out of the tracked tree; added `._*`, `__MACOSX/` and
+`.claude/` to `.gitignore`.
+
 ## 2026-08-18 — publishers provision themselves, and Greylock is registered
 
 **A publisher now installs the plugin and activates it. That is their whole
@@ -757,7 +777,7 @@ Name the client and say "needs rotating".
 *Living handoff document. Anyone — or any session — picking this up cold should be
 able to read this file and continue without reconstructing context.*
 
-**Last updated:** 2026-08-19 — help pages live; audit closed out bar two
+**Last updated:** 2026-08-19 — Murrow online; smoke test 38/38; audit closed out bar two
 **Deadline:** Aug 25, 2026 — RJI/ITEGA roundtable, 2 p.m. EDT
 
 ---

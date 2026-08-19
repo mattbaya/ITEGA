@@ -668,7 +668,7 @@ Every claim below was exercised against the live system, not inferred from the
 code. Five suites, all passing, all runnable before showing anyone anything:
 
 ```bash
-infra/smoke-test.sh         # 29 checks — every public endpoint, every realm and site
+infra/smoke-test.sh         # 38 checks — every public endpoint, realm, site, and credential boundary
 infra/journey-test.py       # 18 checks — the reader's journey, at every publisher
 infra/logout-test.py        # 19 checks — both sign-out scopes, and that they differ
 infra/totp-test.py          # 14 checks — two-factor really challenges, every realm
@@ -911,6 +911,13 @@ Newest first. The [issue tracker](https://github.com/mattbaya/ITEGA/issues) has
 the full record — every fix and every feature request, with cause, fix and what
 proved it — but these are the changes that alter what a reader or a publisher
 actually meets.
+
+**Murrow agent online; full smoke test now 38 checks, all green.** A dedicated
+OpenClaw agent for Bill Densmore monitors the project, can SSH to both VPSes and
+the `lightning.svaha.com` publisher accounts, and ran `infra/smoke-test.sh`
+end-to-end with zero failures. The suite now also verifies credential scope:
+a publisher cannot read another publisher's revenue or a home base's clickstream,
+and each site holds its own API key rather than the exchange's internal key.
 
 **Help pages, with screenshots that can be refreshed by script (#57).**
 <https://dashboard.itega.org/help/> — what each screen means, and for each one,
