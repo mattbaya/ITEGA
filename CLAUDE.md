@@ -450,6 +450,14 @@ on an unseen `kid`. It was decode-only by a defensible argument (claims are
 display-only, services verify for themselves) that nonetheless took fifteen
 lines to make. Issue #70.
 
+**PKCE and a nonce do different jobs and the flow carries both.** PKCE binds the
+authorization code to whoever began the exchange; the nonce binds the returned
+ID token to that particular request, and the callback refuses a token that does
+not carry the value it sent. `/auth/validate` skips audience verification
+deliberately — one endpoint serves every publisher and cannot know which
+audience to expect — and returns `aud` so the publisher can check it, which
+`class-newshare-oidc.php` does against its own `pubMbrId`. Issue #74.
+
 **No publisher may hold the exchange's own key.** `INTERNAL` is a sentinel that
 legitimately may file as anyone and read anything, so a site given it passes
 both #31's filing check and #63's reading check while having the run of the

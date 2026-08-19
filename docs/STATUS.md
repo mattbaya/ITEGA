@@ -59,6 +59,28 @@ still read ITEGA), and the baker analogy moved from pounds to dollars, both at
 Bill's request. 51 demonstration accounts exist for 17 people across all three
 home bases.
 
+## 2026-08-19 — #74: a nonce added, and half the finding refuted
+
+The sign-in flow sent no nonce. PKCE was there and does a different job — it
+binds the authorization *code* to whoever began the exchange, while a nonce
+binds the returned ID *token* to that request. Added, and required back; the
+callback refuses a token carrying the wrong value or none, except where this
+service did not send one, so a session begun mid-deploy does not strand a reader.
+
+**Verified by looking at the redirect rather than trusting the suite.**
+`journey-test` passing proves nothing on its own here: it would pass equally if
+the nonce were never sent. The redirect to the home base carries
+`nonce=dz1eC9CqslQl…` beside the PKCE challenge, and the full journey completes,
+which together mean the value is sent, echoed, and checked.
+
+**The audience half is not a fault.** `/auth/validate` skips audience
+verification deliberately — one endpoint serves every publisher and cannot know
+which audience to expect — and returns `aud` so the caller can check. The plugin
+does check it, against its own `pubMbrId`. A correct division of labour,
+implemented on both sides; the audit saw one half and reported it as a gap.
+
+Suites: smoke 38, journey 18, logout 19.
+
 ## 2026-08-19 — #68, and the master key one publisher was holding
 
 **#68 closed.** `/agent/quote` answered anyone, and its reply carries the retail
@@ -714,7 +736,7 @@ Name the client and say "needs rotating".
 *Living handoff document. Anyone — or any session — picking this up cold should be
 able to read this file and continue without reconstructing context.*
 
-**Last updated:** 2026-08-19 — #68 closed; a publisher was holding the master key (#75)
+**Last updated:** 2026-08-19 — nonce added (#74); four audit items remain closed out
 **Deadline:** Aug 25, 2026 — RJI/ITEGA roundtable, 2 p.m. EDT
 
 ---
