@@ -340,9 +340,12 @@ async def put_limit(
             clear=source_clear,
         )
     elif cap is not None or period is not None:
+        # A cap of zero holds every purchase forever, which nobody means and
+        # which is indistinguishable from a slip of the keyboard. Treated as
+        # "remove it", the same as sending no figure at all.
         await _limits.set_cap(
             local_sub,
-            None if cap is None else Decimal(str(cap)),
+            None if (cap is None or cap <= 0) else Decimal(str(cap)),
             period or "week",
         )
     else:
@@ -401,11 +404,34 @@ the publication asks for the story. Publications are never told either number.</
 
 <div id="state">Checking&hellip;</div>
 
+<h2>Per story</h2>
 <p>
   <label>Ask me above <input id="amount" type="number" step="0.01" min="0" placeholder="0.25"></label>
   <button onclick="save()">Save</button>
-  <button class="plain" onclick="clearLimit()">Remove limit</button>
+  <button class="plain" onclick="clearLimit()">Remove</button>
 </p>
+
+<h2>Per period</h2>
+<p>
+  <label>Ask me past <input id="cap" type="number" step="0.05" min="0" placeholder="2.00"></label>
+  <select id="period">
+    <option value="day">a day</option>
+    <option value="week" selected>a week</option>
+    <option value="month">a month</option>
+  </select>
+  <button onclick="saveCap()">Save</button>
+  <button class="plain" onclick="clearCap()">Remove</button>
+</p>
+
+<h2>A publication you never want to be asked about</h2>
+<p class="small">Your own paper, most likely. Anything from it is bought without
+interrupting you, whatever your other figures say.</p>
+<p>
+  <label>Publishing Member ID <input id="src" type="text" placeholder="ITEGA-PA-0001" style="width:12em"></label>
+  <button onclick="never()">Never ask</button>
+  <button class="plain" onclick="unnever()">Remove</button>
+</p>
+<div id="sources"></div>
 
 <p class="small">With no limit set, {settings.home_base_name} buys on your behalf
 under its own policy and does not ask. That is how this works until you say
@@ -437,10 +463,24 @@ async function load() {{
   }}
   const d = await r.json();
   box.className = '';
-  box.textContent = d.limit === null
-    ? 'No limit set. Purchases are made without asking you.'
-    : 'Asking you above $' + Number(d.limit).toFixed(2) + '.';
+  const bits = [];
+  bits.push(d.limit === null ? 'No per-story limit.'
+                             : 'Asking you above $' + Number(d.limit).toFixed(2) + ' a story.');
+  if (d.cap !== null) {{
+    bits.push('$' + Number(d.spent).toFixed(2) + ' of $' + Number(d.cap).toFixed(2)
+              + ' spent this ' + d.period + '.');
+  }}
+  if (d.limit === null && d.cap === null) bits.push('Purchases are made without asking you.');
+  box.textContent = bits.join(' ');
   if (d.limit !== null) field.value = Number(d.limit).toFixed(2);
+  if (d.cap !== null) {{
+    document.getElementById('cap').value = Number(d.cap).toFixed(2);
+    document.getElementById('period').value = d.period;
+  }}
+  const names = Object.keys(d.bySource || {{}});
+  document.getElementById('sources').textContent = names.length
+    ? 'Never asking about: ' + names.join(', ')
+    : '';
 }}
 
 async function put(qs) {{
@@ -456,6 +496,25 @@ const save = () => {{
   put('?amount=' + encodeURIComponent(v));
 }};
 const clearLimit = () => {{ field.value = ''; put(''); }};
+
+const saveCap = () => {{
+  const v = parseFloat(document.getElementById('cap').value);
+  const p = document.getElementById('period').value;
+  if (isNaN(v) || v < 0) {{ box.className = 'err'; box.textContent = 'Enter an amount, like 2.00.'; return; }}
+  put('?cap=' + encodeURIComponent(v) + '&period=' + encodeURIComponent(p));
+}};
+const clearCap = () => {{ document.getElementById('cap').value = ''; put('?period=week'); }};
+
+const never = () => {{
+  const id = document.getElementById('src').value.trim();
+  if (!id) {{ box.className = 'err'; box.textContent = 'Enter a Publishing Member ID.'; return; }}
+  put('?source=' + encodeURIComponent(id) + '&source_never_ask=true');
+}};
+const unnever = () => {{
+  const id = document.getElementById('src').value.trim();
+  if (!id) return;
+  put('?source=' + encodeURIComponent(id) + '&source_clear=true');
+}};
 
 load();
 </script>
