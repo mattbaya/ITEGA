@@ -36,6 +36,10 @@ class Settings(BaseSettings):
     logging_service_url: str = "http://localhost:8001"
     logging_api_key: str = ""
 
+    # The exchange, whose published keys verify a reader's session token. The
+    # agent trusts no other issuer for that purpose. #62.
+    als_base_url: str = "https://als.itega.org"
+
     # Where readers reach this agent from a browser. Used to build the link a
     # publisher shows when a purchase is waiting on the reader's approval, so
     # it must be the address the reader can actually get to rather than the

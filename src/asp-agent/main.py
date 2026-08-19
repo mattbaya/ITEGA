@@ -32,12 +32,13 @@ from urllib.parse import quote_plus
 
 import httpx
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import HTMLResponse
 
 from config import settings
 from models import AgentPolicy, QuoteRequest, QuoteResponse  # noqa: F401
 from pairwise import PairwiseIndex
+from reader_auth import ReaderAuth
 from thresholds import Thresholds
 
 logging.basicConfig(
@@ -89,6 +90,8 @@ _index: PairwiseIndex | None = (
 )
 
 # The reader's own spending limit, and what they have approved above it.
+_auth = ReaderAuth(settings.als_base_url)
+
 _limits: Thresholds | None = (
     Thresholds(
         settings.keycloak_url,
@@ -135,7 +138,11 @@ async def get_policy() -> AgentPolicy:
 
 
 @app.get("/agent/reader/{network_user_id}/history")
-async def reader_history(network_user_id: str, days: int = 30) -> dict[str, Any]:
+async def reader_history(
+    network_user_id: str,
+    days: int = 30,
+    authorization: str | None = Header(default=None),
+) -> dict[str, Any]:
     """Where one reader has been, assembled by the only party that can.
 
     Bill Densmore, 18 Aug 2026: *"the end user should be able to [...] get a
@@ -160,6 +167,17 @@ async def reader_history(network_user_id: str, days: int = 30) -> dict[str, Any]
     derivation look identical from here, and answering "you have read nothing"
     to a reader who has read plenty is worse than declining to answer.
     """
+    # Only the reader themselves. Every publisher already stores its own
+    # readers' identifiers in wp_usermeta, so without this any of them could ask
+    # a home base where else its reader goes -- the one join this architecture
+    # exists to prevent, answered by the only party able to compute it. #62.
+    caller = await _auth.reader_from(authorization)
+    if caller != network_user_id:
+        raise HTTPException(
+            status_code=401,
+            detail="A reader's history is available only to that reader, with their session token",
+        )
+
     if _index is None:
         raise HTTPException(status_code=501, detail="This home base has no reader directory configured")
 
@@ -210,7 +228,7 @@ async def reader_history(network_user_id: str, days: int = 30) -> dict[str, Any]
 
 
 @app.get("/agent/confirm", response_class=HTMLResponse)
-async def confirm(reader: str, resource: str, price: float) -> HTMLResponse:
+async def confirm(t: str) -> HTMLResponse:
     """The reader approves, or does not, a purchase above the limit they set.
 
     This screen is the home base's, and deliberately so. It is the only point in
@@ -224,6 +242,16 @@ async def confirm(reader: str, resource: str, price: float) -> HTMLResponse:
     """
     if _index is None or _limits is None:
         raise HTTPException(status_code=501, detail="No reader directory configured")
+
+    spent = _auth.spend(t)
+    if spent is None:
+        # Used already, expired, or never minted here. All three get the same
+        # answer: a caller told which of those it was is a caller being helped.
+        raise HTTPException(
+            status_code=410,
+            detail="This approval link has been used or has expired. Reload the story to try again.",
+        )
+    reader, resource, price = spent
 
     local_sub = await _index.resolve(reader)
     if local_sub is None:
@@ -254,8 +282,14 @@ minutes. Anything else above your limit will ask you again.</p>
 
 
 @app.get("/agent/reader/{network_user_id}/limit")
-async def get_limit(network_user_id: str) -> dict[str, Any]:
+async def get_limit(
+    network_user_id: str,
+    authorization: str | None = Header(default=None),
+) -> dict[str, Any]:
     """The limit this reader has set, if any."""
+    caller = await _auth.reader_from(authorization)
+    if caller != network_user_id:
+        raise HTTPException(status_code=401, detail="Only this reader may see their own limit")
     if _index is None or _limits is None:
         raise HTTPException(status_code=501, detail="No reader directory configured")
     local_sub = await _index.resolve(network_user_id)
@@ -267,8 +301,17 @@ async def get_limit(network_user_id: str) -> dict[str, Any]:
 
 
 @app.put("/agent/reader/{network_user_id}/limit")
-async def put_limit(network_user_id: str, amount: float | None = None) -> dict[str, Any]:
+async def put_limit(
+    network_user_id: str,
+    amount: float | None = None,
+    authorization: str | None = Header(default=None),
+) -> dict[str, Any]:
     """Set or clear it. The reader's own figure, held by their own home base."""
+    # Someone else setting this to zero would stop the reader buying anything;
+    # setting it high would quietly remove the protection they asked for.
+    caller = await _auth.reader_from(authorization)
+    if caller != network_user_id:
+        raise HTTPException(status_code=401, detail="Only this reader may set their own limit")
     if _index is None or _limits is None:
         raise HTTPException(status_code=501, detail="No reader directory configured")
     local_sub = await _index.resolve(network_user_id)
@@ -357,11 +400,13 @@ async def quote(req: QuoteRequest) -> QuoteResponse:
                                 f"{settings.home_base_name} is holding this purchase "
                                 "for your approval, at your request."
                             ),
+                            # A one-shot nonce, not the reader's identifier.
+                            # This link travels through a publisher's page and
+                            # a browser's history; it must grant nothing beyond
+                            # the single approval it was minted for. #62.
                             confirmUrl=(
                                 f"{settings.public_url.rstrip('/')}/agent/confirm"
-                                f"?reader={req.networkUserId}"
-                                f"&resource={quote_plus(req.resourceId)}"
-                                f"&price={_money(retail)}"
+                                f"?t={_auth.mint(req.networkUserId, req.resourceId, _money(retail))}"
                             ),
                         )
         except Exception as exc:
