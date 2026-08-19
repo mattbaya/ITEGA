@@ -44,6 +44,7 @@ ITEGA/
 ├── README.md                   ← Verbose project overview with examples
 ├── docs/
 │   ├── STATUS.md               ← START HERE. Living handoff: state, plan, decisions
+│   ├── future-tasks.md         ← What a real pilot would need that this does not have
 │   ├── vps-setup-record.md     ← How the servers were built, and what went wrong
 │   ├── monitoring.md           ← Beszel hub and agents
 │   ├── publisher-sites.md      ← The three WordPress publisher sites
