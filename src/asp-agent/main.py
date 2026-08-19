@@ -609,7 +609,10 @@ async def directory_status() -> dict[str, Any]:
 
 
 @app.post("/agent/quote", response_model=QuoteResponse)
-async def quote(req: QuoteRequest) -> QuoteResponse:
+async def quote(
+    req: QuoteRequest,
+    x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+) -> QuoteResponse:
     """
     Answer a publisher's posted price (script steps 28-30).
 
@@ -627,6 +630,36 @@ async def quote(req: QuoteRequest) -> QuoteResponse:
     openly and was asked to negotiate may re-post the same price as final; the
     agent then gets exactly one more turn.
     """
+    # Who is asking, and are they asking about themselves.
+    #
+    # Unauthenticated, this endpoint answered anyone. That mattered because the
+    # reply contains the retail price: send a wholesale figure you choose, read
+    # the retail one back, and you have this home base's markup exactly -- the
+    # number a publisher may never learn. It also made a home base do directory
+    # work for arbitrary identifiers on request.
+    #
+    # The publisher's own ALS key is the credential, checked with the exchange
+    # rather than held here: keys are ITEGA's to issue and revoke, and a home
+    # base holding a copy of every publisher's key would be a worse arrangement
+    # than the problem. #68.
+    caller = await _auth.publisher_from(x_api_key, settings.logging_service_url)
+    if caller is None:
+        raise HTTPException(
+            status_code=401,
+            detail="A quote requires the asking publisher's ITEGA key",
+        )
+    if caller != req.pubMbrId:
+        logger.warning("quote refused: %s asked as %s", caller, req.pubMbrId)
+        raise HTTPException(
+            status_code=403,
+            detail="This key may not ask for quotes as that Publishing Member ID",
+        )
+    if req.homeBaseId and req.homeBaseId != settings.home_base_id:
+        raise HTTPException(
+            status_code=400,
+            detail="This agent acts for a different home base",
+        )
+
     # Every quote carries a real identifier that Keycloak minted. Whether this
     # agent can account for it is the only evidence that its derivation is
     # right, so it is recorded here -- on the buying path, where the traffic

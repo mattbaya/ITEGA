@@ -45,6 +45,9 @@ logger = logging.getLogger("asp-agent.reader_auth")
 # enough that a link left in a shared browser's history is worth nothing.
 NONCE_TTL = 600
 
+# How long the agent trusts its answer about who a publisher key belongs to.
+PUBLISHER_CACHE_TTL = 300
+
 
 class ReaderAuth:
     """Verifies a reader's session token, and mints one-shot approval nonces."""
@@ -54,6 +57,7 @@ class ReaderAuth:
         self._jwks: dict[str, Any] | None = None
         self._fetched = 0.0
         self._nonces: dict[str, tuple[float, str, str, float]] = {}
+        self._publishers: dict[str, tuple[float, str]] = {}
 
     async def _keys(self) -> dict[str, Any] | None:
         # Cached, but re-fetched on a miss by the caller below: a key rotation
@@ -105,6 +109,49 @@ class ReaderAuth:
                 logger.info("rejected a session token: %s", exc)
                 return None
         return None
+
+    # ── Publisher identity ────────────────────────────────────────────
+
+    async def publisher_from(self, api_key: str | None, logging_url: str) -> str | None:
+        """Which publisher this API key belongs to, according to the exchange.
+
+        The agent does not hold publisher keys and must not: they are ITEGA's to
+        issue and revoke. So it asks the exchange, using the endpoint built for
+        publishers to check their own credentials, and caches the answer briefly
+        -- this sits on the buying path, in front of a reader waiting for an
+        article, and a network round trip per quote would be felt.
+
+        A cache miss costs one request. A revoked key keeps working for at most
+        the cache lifetime, which is the trade being made deliberately: the
+        alternative is charging every reader's page view an extra hop.
+        """
+        if not api_key:
+            return None
+
+        cached = self._publishers.get(api_key)
+        if cached and time.time() - cached[0] < PUBLISHER_CACHE_TTL:
+            return cached[1]
+
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                resp = await client.get(
+                    logging_url.rstrip("/") + "/whoami"
+                    if logging_url.rstrip("/").endswith("/log")
+                    else logging_url.rstrip("/") + "/log/whoami",
+                    headers={"X-API-Key": api_key},
+                )
+        except Exception as exc:
+            # The exchange being unreachable must not stop a home base buying
+            # for its readers. Unknown, not refused -- the caller decides.
+            logger.warning("could not check a publisher key: %s", exc)
+            return None
+
+        if resp.status_code != 200:
+            return None
+        pub_mbr_id = str(resp.json().get("pub_mbr_id", ""))
+        if pub_mbr_id:
+            self._publishers[api_key] = (time.time(), pub_mbr_id)
+        return pub_mbr_id or None
 
     # ── Approval nonces ───────────────────────────────────────────────
 

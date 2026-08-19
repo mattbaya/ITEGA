@@ -140,8 +140,13 @@ done
 
 echo
 echo "PRICING"
+# A quote now needs the asking publisher's own ITEGA key (#68), so this check
+# uses Bar Harbor's -- the same one the cross-party section fetches.
+SMOKE_KEY=$(ssh -o BatchMode=yes -o ConnectTimeout=15 barharbor@svaha.com \
+    "export PATH=\$HOME/bin:\$PATH; cd \$HOME/public_html; wp option get newshare_als_api_key" \
+    2>/dev/null | tr -d '\r')
 Q=$(curl -s --max-time 20 -X POST https://agent-c.itega.org/agent/quote \
-      -H 'Content-Type: application/json' \
+      -H 'Content-Type: application/json' -H "X-API-Key: $SMOKE_KEY" \
       -d '{"networkUserId":"smoke","homeBaseId":"HB001","pubMbrId":"ITEGA-PA-0001",
            "resourceId":"/smoke","wholesalePrice":0.05,"terms":"final"}' 2>/dev/null)
 if [[ "$Q" == *'"decision"'* ]]; then
@@ -149,6 +154,15 @@ if [[ "$Q" == *'"decision"'* ]]; then
 else
   bad "Retail Agent quotes" "${Q:0:60}"
 fi
+
+# And it must refuse an unauthenticated one, which is the whole of #68: the
+# reply carries the retail price, so anyone who could ask could read the markup.
+QN=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 -X POST https://agent-c.itega.org/agent/quote \
+      -H 'Content-Type: application/json' \
+      -d '{"networkUserId":"smoke","homeBaseId":"HB001","pubMbrId":"ITEGA-PA-0001",
+           "resourceId":"/smoke","wholesalePrice":0.05,"terms":"final"}' 2>/dev/null)
+[ "$QN" = "401" ] && ok "a quote without a key is refused" "401" \
+                  || bad "a quote without a key is refused" "got $QN"
 
 echo
 echo "WHAT A CREDENTIAL MAY NOT DO"

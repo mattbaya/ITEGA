@@ -208,7 +208,14 @@ class Newshare_Pricing {
 			array(
 				'timeout'  => self::QUOTE_TIMEOUT,
 				'blocking' => true,
-				'headers'  => array( 'Content-Type' => 'application/json' ),
+				// The publisher's own ITEGA key identifies who is asking. Without
+				// it a home base answered anyone, and the reply contains the
+				// retail price -- so anybody could have read the markup off it.
+				// #68.
+				'headers'  => array(
+					'Content-Type' => 'application/json',
+					'X-API-Key'    => (string) get_option( 'newshare_als_api_key', '' ),
+				),
 				'body'     => wp_json_encode(
 					array(
 						'networkUserId'  => $claims['newshare_network_user_id'] ?? '',
